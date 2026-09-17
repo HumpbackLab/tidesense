@@ -2,6 +2,9 @@
 // Native stereo + IMU entry point for the upstream SchurVINS pipeline.
 #include <algorithm>
 #include <cmath>
+#include <chrono>
+#include <cstdlib>
+#include <time.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -22,6 +25,11 @@
 #include <svo/common/frame.h>
 
 namespace {
+uint64_t clockNs(clockid_t clock) {
+  timespec ts;
+  if (clock_gettime(clock, &ts)) throw std::runtime_error("clock_gettime failed");
+  return uint64_t(ts.tv_sec)*1000000000ULL + ts.tv_nsec;
+}
 std::vector<std::string> row(std::istream& in) {
   std::string s;
   while (std::getline(in, s)) {
@@ -112,6 +120,18 @@ int main(int argc, char** argv) {
       if (!images || !inertial || !poses) throw std::runtime_error("Cannot open input/output files");
       poses << "#timestamp_ns,px,py,pz,qx,qy,qz,qw\n";
     }
+    std::ofstream timings;
+    if (const char* timing_path = std::getenv("SCHUR_TIMING_CSV")) {
+      timings.open(timing_path);
+      if (!timings) throw std::runtime_error("Cannot open SCHUR_TIMING_CSV");
+      timings << "frame,timestamp_ns,vio_ms,tracking\n";
+    }
+    std::ofstream profile;
+    if (const char* profile_path = std::getenv("SCHUR_PROFILE_CSV")) {
+      profile.open(profile_path);
+      if (!profile) throw std::runtime_error("Cannot open SCHUR_PROFILE_CSV");
+      profile << "frame,timestamp_ns,begin_mono_ns,end_mono_ns,cpu_ns,tracking\n";
+    }
     std::vector<std::string> pending;
     uint64_t last_imu = 0, last_image = 0;
     size_t frames = 0, tracked = 0, fused = 0;
@@ -176,7 +196,18 @@ int main(int argc, char** argv) {
           vio.getLastFrames()->getMinTimestampSeconds(), t * 1e-9, false, rotation)) {
         vio.setRotationIncrementPrior(rotation);
       }
+      const uint64_t cpu_begin = profile.is_open() ? clockNs(CLOCK_PROCESS_CPUTIME_ID) : 0;
+      const uint64_t mono_begin = profile.is_open() ? clockNs(CLOCK_MONOTONIC) : 0;
+      const auto vio_begin = std::chrono::steady_clock::now();
       vio.addImageBundle(pair, t);
+      const auto vio_end = std::chrono::steady_clock::now();
+      const uint64_t mono_end = profile.is_open() ? clockNs(CLOCK_MONOTONIC) : 0;
+      const uint64_t cpu_end = profile.is_open() ? clockNs(CLOCK_PROCESS_CPUTIME_ID) : 0;
+      if (profile.is_open()) profile << frames << ',' << t << ',' << mono_begin << ',' << mono_end
+        << ',' << cpu_end-cpu_begin << ',' << (vio.stage() == svo::Stage::kTracking) << '\n';
+      if (timings.is_open()) timings << frames << ',' << t << ',' << std::setprecision(12)
+        << std::chrono::duration<double,std::milli>(vio_end-vio_begin).count() << ','
+        << (vio.stage() == svo::Stage::kTracking) << '\n';
       ++frames;
       auto f = vio.getLastFrames();
       if (f && f->imu_ready_) ++fused;
