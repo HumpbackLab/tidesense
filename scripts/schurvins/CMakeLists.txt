@@ -6,6 +6,11 @@ get_filename_component(SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 set(SCHUR_SOURCE "${SDK_ROOT}/SchurVINS" CACHE PATH "Official SchurVINS checkout")
 set(WORK "${SDK_ROOT}/install/schurvins-gcc11-static" CACHE PATH "Build dependencies/staging directory")
 set(DEPS "${SDK_ROOT}/install/schurvins-build/deps" CACHE PATH "Dependency source directory")
+option(SCHUR_OPT_HALFSAMPLE_NEON "Exact AArch64 NEON pyramid downsampling" OFF)
+option(SCHUR_OPT_ZMSSD_NEON "Exact AArch64 NEON 8x8 ZMSSD" OFF)
+option(SCHUR_OPT_FAST10_NEON "Exact AArch64 NEON FAST-10 detection and scoring" OFF)
+option(SCHUR_OPT_ALIGN2D_NEON "AArch64 NEON float patch alignment with ordered accumulation" OFF)
+option(SCHUR_BUILD_BENCHMARKS "Build optimization correctness/benchmark tool" OFF)
 option(SCHUR_STATIC "Build a fully static executable" ON)
 set(GLOG_LIBRARY "${WORK}/stage/lib/libglog.a" CACHE FILEPATH "Target glog static library")
 if(SCHUR_STATIC)
@@ -33,7 +38,8 @@ add_library(fast STATIC
   "${DEPS}/fast_neon/src/fast_10.cpp"
   "${DEPS}/fast_neon/src/fast_10_score.cpp"
   "${DEPS}/fast_neon/src/nonmax_3x3.cpp")
-# Use FAST-10 scalar fallback, keeping the upstream x86 FAST-10 semantics.
+# Keep the FAST-10 scalar reference for the default path and fallback.
+# SCHUR_OPT_FAST10_NEON selects the matching NEON detector/scorer below.
 # Eigen/OpenCV still use AArch64 NEON. ROS, loop closure, global map and
 # mono OpenGV initialization are optional and are not enabled for this stereo build.
 if(SCHUR_STATIC)
@@ -42,6 +48,46 @@ else()
   add_library(schurvins SHARED ${SOURCES})
 endif()
 target_compile_definitions(schurvins PUBLIC SVO_DEPTHFILTER_IN_REPROJECTOR)
+foreach(opt HALFSAMPLE ZMSSD FAST10 ALIGN2D)
+  if(SCHUR_OPT_${opt}_NEON)
+    if(NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+      message(FATAL_ERROR "SCHUR_OPT_${opt}_NEON requires AArch64")
+    endif()
+    if(opt STREQUAL "ZMSSD")
+      # Header implementation: propagate to all consumers to avoid ODR mismatch.
+      target_compile_definitions(schurvins PUBLIC SCHUR_OPT_${opt}_NEON=1)
+    elseif(opt STREQUAL "HALFSAMPLE")
+      set_property(SOURCE "${SCHUR_SOURCE}/vikit/vikit_common/src/vision.cpp"
+        APPEND PROPERTY COMPILE_DEFINITIONS SCHUR_OPT_HALFSAMPLE_NEON=1)
+    elseif(opt STREQUAL "ALIGN2D")
+      set_property(SOURCE "${SCHUR_SOURCE}/svo_direct/src/feature_alignment.cpp"
+        APPEND PROPERTY COMPILE_DEFINITIONS SCHUR_OPT_ALIGN2D_NEON=1)
+    else()
+      set_property(SOURCE "${SCHUR_SOURCE}/svo_direct/src/feature_detection_utils.cpp"
+        "${SCHUR_SOURCE}/svo_direct/src/fast10_neon.cpp"
+        APPEND PROPERTY COMPILE_DEFINITIONS SCHUR_OPT_FAST10_NEON=1)
+    endif()
+  endif()
+endforeach()
+if(SCHUR_BUILD_BENCHMARKS)
+  add_executable(schurvins_align2d_bench bench/align2d.cpp bench/align2d_reference.cpp)
+  target_compile_definitions(schurvins_align2d_bench PRIVATE
+    SCHUR_ALIGNMENT_SOURCE="${SCHUR_SOURCE}/svo_direct/src/feature_alignment.cpp")
+  target_link_libraries(schurvins_align2d_bench PRIVATE schurvins)
+  if(SCHUR_STATIC)
+    target_link_options(schurvins_align2d_bench PRIVATE -static -Wl,--gc-sections)
+  endif()
+  add_executable(schurvins_kernel_bench bench/kernels.cpp)
+  target_link_libraries(schurvins_kernel_bench PRIVATE schurvins)
+  foreach(opt HALFSAMPLE ZMSSD FAST10 ALIGN2D)
+    if(SCHUR_OPT_${opt}_NEON)
+      target_compile_definitions(schurvins_kernel_bench PRIVATE SCHUR_OPT_${opt}_NEON=1)
+    endif()
+  endforeach()
+  if(SCHUR_STATIC)
+    target_link_options(schurvins_kernel_bench PRIVATE -static -Wl,--gc-sections)
+  endif()
+endif()
 target_link_libraries(schurvins PUBLIC ${OpenCV_LIBS} yaml-cpp
   "${GLOG_LIBRARY}" fast pthread dl)
 target_link_options(schurvins PRIVATE "-Wl,--no-undefined")

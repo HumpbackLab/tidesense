@@ -1,0 +1,72 @@
+diff --git a/svo_direct/src/feature_alignment.cpp b/svo_direct/src/feature_alignment.cpp
+index 37792a9..faec5bb 100644
+--- a/svo_direct/src/feature_alignment.cpp
++++ b/svo_direct/src/feature_alignment.cpp
+@@ -11,7 +11,7 @@
+ #ifdef __SSE2__
+ # include <emmintrin.h>
+ #endif
+-#ifdef __ARM_NEON__
++#if defined(__ARM_NEON__) || (defined(SCHUR_OPT_ALIGN2D_NEON) && SCHUR_OPT_ALIGN2D_NEON)
+ # include <arm_neon.h>
+ #endif
+ 
+@@ -220,7 +220,7 @@ bool align2D(
+     bool no_simd,
+     std::vector<Eigen::Vector2f> *each_step)
+ {
+-#ifdef __ARM_NEON__
++#if defined(__ARM_NEON__) && !(defined(SCHUR_OPT_ALIGN2D_NEON) && SCHUR_OPT_ALIGN2D_NEON)
+   if(!no_simd)
+     return align2D_NEON(cur_img, ref_patch_with_border,
+                         ref_patch, n_iter, cur_px_estimate);
+@@ -314,6 +314,49 @@ bool align2D(
+     float* it_ref_dy = ref_patch_dy;
+     //float new_chi2 = 0.0;
+     Eigen::Vector4f Jres; Jres.setZero();
++#if defined(SCHUR_OPT_ALIGN2D_NEON) && SCHUR_OPT_ALIGN2D_NEON
++    if(!no_simd && !affine_est_gain)
++    {
++      // Gain estimation retains the original scalar path.
++      // Eight-byte loads per row stay within the same 9x9 interpolation footprint
++      // as the scalar path, including non-contiguous OpenCV ROIs.
++      for(int y=0; y<patch_size_; ++y)
++      {
++        const uint8_t* it = cur_img.data + (v_r+y-halfpatch_size_)*cur_step + u_r-halfpatch_size_;
++        const uint16x8_t tl = vmovl_u8(vld1_u8(it));
++        const uint16x8_t tr = vmovl_u8(vld1_u8(it+1));
++        const uint16x8_t bl = vmovl_u8(vld1_u8(it+cur_step));
++        const uint16x8_t br = vmovl_u8(vld1_u8(it+cur_step+1));
++        const uint16x8_t ref = vmovl_u8(vld1_u8(ref_patch+y*8));
++        float residuals[8];
++        for(int half=0; half<2; ++half)
++        {
++          const auto widen = [half](uint16x8_t v) {
++            return vcvtq_f32_u32(vmovl_u16(half ? vget_high_u16(v) : vget_low_u16(v)));
++          };
++          // Match GCC 11's scalar contraction order: TR multiply, then TL,
++          // BL and BR fused additions. Do not reassociate the pixel sum.
++          float32x4_t pixel = vmulq_n_f32(widen(tr), wTR);
++          pixel = vfmaq_n_f32(pixel, widen(tl), wTL);
++          pixel = vfmaq_n_f32(pixel, widen(bl), wBL);
++          pixel = vfmaq_n_f32(pixel, widen(br), wBR);
++          const float32x4_t res = vaddq_f32(vfmsq_n_f32(pixel, widen(ref), alpha), vdupq_n_f32(mean_diff));
++          vst1q_f32(residuals+4*half, res);
++        }
++        // Preserve left-to-right accumulation (no horizontal SIMD reduction)
++        // so the update and stopping decision retain scalar rounding.
++        for(int x=0; x<8; ++x, ++it_ref, ++it_ref_dx, ++it_ref_dy)
++        {
++          const float res = residuals[x];
++          Jres[0] -= res*(*it_ref_dx);
++          Jres[1] -= res*(*it_ref_dy);
++          if(affine_est_offset) Jres[2] -= res;
++          if(affine_est_gain) Jres[3] -= (-1)*res*(*it_ref);
++        }
++      }
++    }
++    else
++#endif
+     for(int y=0; y<patch_size_; ++y)
+     {
+       uint8_t* it = (uint8_t*) cur_img.data + (v_r+y-halfpatch_size_)*cur_step + u_r-halfpatch_size_;

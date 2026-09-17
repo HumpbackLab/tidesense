@@ -26,12 +26,15 @@ fetch_git() {
     git -C "$dir" fetch --depth 1 origin "$rev"
     git -C "$dir" checkout --detach FETCH_HEAD
   fi
+  if [[ ${4:-} == allow-local-commits ]] && git -C "$dir" merge-base --is-ancestor "$rev" HEAD; then
+    return
+  fi
   [[ $(git -C "$dir" rev-parse HEAD) == "$rev" ]] || {
     echo "Unexpected source revision in $dir; see sources.lock (checkout left untouched)" >&2; exit 1;
   }
 }
 verify() { printf '%s  %s\n' "$1" "$2" | sha256sum -c -; }
-fetch_git https://github.com/bytedance/SchurVINS.git "$sdk/SchurVINS" "$SCHUR_REV"
+fetch_git https://github.com/bytedance/SchurVINS.git "$sdk/SchurVINS" "$SCHUR_REV" allow-local-commits
 fetch_git https://github.com/ethz-asl/minkindr.git "$deps/minkindr" "$MINKINDR_REV"
 fetch_git https://github.com/uzh-rpg/fast_neon.git "$deps/fast_neon" "$FAST_REV"
 fetch_git https://github.com/jbeder/yaml-cpp.git "$deps/yaml-cpp" "$YAML_REV"
@@ -86,7 +89,11 @@ cmake --build "$work/opencv" -j"$jobs"
 cmake --install "$work/opencv"
 cmake -S "$here" -B "$work/core" "${common[@]}" \
   -DCMAKE_PREFIX_PATH="$stage" -DCMAKE_INSTALL_PREFIX="$out" \
-  -DWORK="$work" -DDEPS="$deps" -DSCHUR_STATIC=ON -DGLOG_LIBRARY="$glog_library"
+  -DWORK="$work" -DDEPS="$deps" -DSCHUR_STATIC=ON -DGLOG_LIBRARY="$glog_library" \
+  -DSCHUR_OPT_HALFSAMPLE_NEON="${SCHUR_OPT_HALFSAMPLE_NEON:-OFF}" \
+  -DSCHUR_OPT_ZMSSD_NEON="${SCHUR_OPT_ZMSSD_NEON:-OFF}" \
+  -DSCHUR_OPT_FAST10_NEON="${SCHUR_OPT_FAST10_NEON:-OFF}" \
+  -DSCHUR_OPT_ALIGN2D_NEON="${SCHUR_OPT_ALIGN2D_NEON:-OFF}"
 cmake --build "$work/core" -j"$jobs"
 cmake --install "$work/core"
 "${cross}strip" --strip-unneeded "$out/bin/schurvins_stereo"
@@ -114,7 +121,10 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
 (cd "$out" && sha256sum bin/schurvins_stereo > SHA256SUMS)
 {
   "${cross}g++" --version | head -1
-  printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$SCHUR_REV"
+  printf 'SCHUR_OPT_HALFSAMPLE_NEON=%s\nSCHUR_OPT_ZMSSD_NEON=%s\nSCHUR_OPT_FAST10_NEON=%s\n' \
+    "${SCHUR_OPT_HALFSAMPLE_NEON:-OFF}" "${SCHUR_OPT_ZMSSD_NEON:-OFF}" "${SCHUR_OPT_FAST10_NEON:-OFF}"
+  printf 'SCHUR_OPT_ALIGN2D_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_NEON:-OFF}"
+  printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
 } > "$out/BUILD-INFO"
 tar -C "$(dirname "$out")" -czf "$out-a53.tar.gz" "$(basename "$out")"
 printf '\nBuilt: %s\nPackage: %s-a53.tar.gz\n' "$out" "$out"

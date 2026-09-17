@@ -28,7 +28,7 @@ diff --git a/svo_direct/src/feature_detection_utils.cpp b/svo_direct/src/feature
 index e0b5f54..e0f012e 100644
 --- a/svo_direct/src/feature_detection_utils.cpp
 +++ b/svo_direct/src/feature_detection_utils.cpp
-@@ -168,8 +168,8 @@ void fastDetector(
+@@ -168,7 +168,7 @@ void fastDetector(
            img_pyr[level].rows, img_pyr[level].step, threshold, fast_corners);
  #else
      fast::fast_corner_detect_10(
@@ -38,4 +38,3 @@ index e0b5f54..e0f012e 100644
 +          img_pyr[level].rows, img_pyr[level].step, threshold, fast_corners);
  #endif
      std::vector<int> scores, nm_corners;
-     fast::fast_corner_score_10((fast::fast_byte*) img_pyr[level].data, img_pyr[level].step,
