@@ -1,5 +1,7 @@
 # align2D 浮点 NEON 优化
 
+后续 Hessian / warpAffine 优化与最新六项全开包见 [HESSIAN-WARP.md](HESSIAN-WARP.md)。本文产物哈希保留为对应阶段记录。
+
 日期：2026-09-17。板端 SG2002 / 单 Cortex-A53 / 800 MHz，GCC 11.3.1，`-O3 -mcpu=cortex-a53`，全静态链接。
 
 ## 实现与边界

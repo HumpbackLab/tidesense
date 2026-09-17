@@ -1,0 +1,17 @@
+PASS exact status, position, iteration trace; cases=44800 (all affine modes, ROI stride, borders, flat/ramp/blur/random/shifted images)
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715274362142976.pgm patches=546 scalar_us=16.5478 opt_us=5.74987 speedup=2.87794
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715286862142976.pgm patches=546 scalar_us=16.8988 opt_us=5.8723 speedup=2.8777
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715299362142976.pgm patches=546 scalar_us=16.5329 opt_us=5.74035 speedup=2.88012
+PASS total_cases=51352
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0101 13:25:40.214094  1892 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:25:40.216174  1892 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:25:40.342678  1892 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:25:40.342754  1892 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:25:40.469210  1892 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:25:40.469269  1892 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+PASS synthetic cases=36006 exact status/full buffer incl. partial writes, ROI, tails, levels, aliasing
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715274362142976.pgm patches=500 scalar_us=9.0203 opt_us=5.75081 speedup=1.56853
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715286862142976.pgm patches=500 scalar_us=9.01583 opt_us=5.76346 speedup=1.56431
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715299362142976.pgm patches=500 scalar_us=9.02973 opt_us=5.75297 speedup=1.56958
+PASS total_cases=37506

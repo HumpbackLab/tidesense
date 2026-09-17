@@ -1,0 +1,17 @@
+CHECK PASS images=98 rings=65536 patches=10000
+image,kernel,ms_per_call,count
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715274362142976.pgm,halfSample,0.572116,1
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715274362142976.pgm,fast_detect,4.51134,7040
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715274362142976.pgm,fast_score,1.14858,7040
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715274362142976.pgm,fast_total,6.60353,7040
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715274362142976.pgm,zmssd_1000,0.944097,1000
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715286862142976.pgm,halfSample,0.574535,1
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715286862142976.pgm,fast_detect,5.66024,16871
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715286862142976.pgm,fast_score,2.22347,16871
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715286862142976.pgm,fast_total,10.23,16871
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715286862142976.pgm,zmssd_1000,0.943828,1000
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715299362142976.pgm,halfSample,0.575374,1
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715299362142976.pgm,fast_detect,5.22816,15378
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715299362142976.pgm,fast_score,2.08902,15378
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715299362142976.pgm,fast_total,9.28124,15378
+/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715299362142976.pgm,zmssd_1000,0.94418,1000

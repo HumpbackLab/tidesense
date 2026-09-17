@@ -1,0 +1,38 @@
+{
+  "base": {
+    "build_info": "HALFSAMPLE=ON\nZMSSD=ON\nFAST10=ON\nALIGN2D=ON\nSOURCE=996bf0eaa0acbc75b2d737c7dbad2a6b0676dc87\n",
+    "sha256": {
+      "schurvins_kernel_bench": "58045bdfbb7f5a77eb3b28512571eefe73c142307f92e7746c6f1a8f6f8d9a83",
+      "schurvins_stereo": "7990f7b031a21b302529bbfa2bf6c7211f7277b69ca433533c3f0208d3b2b09f"
+    }
+  },
+  "hessian": {
+    "build_info": "HALFSAMPLE=ON\nZMSSD=ON\nFAST10=ON\nALIGN2D=ON\nALIGN2D_HESSIAN=ON\nWARP_AFFINE=OFF\nSOURCE=7fbc040ef6c3538463da0160f6fc603f98a45713\n",
+    "sha256": {
+      "schurvins_kernel_bench": "58045bdfbb7f5a77eb3b28512571eefe73c142307f92e7746c6f1a8f6f8d9a83",
+      "schurvins_warp_bench": "f3b6d04e0acde9dc32233b733bc8ddc89581c5c36f59dbcc9d9d6bbd43d7395a",
+      "schurvins_stereo": "666139795c16c46fc7d94191cbf9561a39d54d6522f9d43f5944e3787ecf64a5",
+      "schurvins_align2d_bench": "5a874f4ab5928235befc628274a77c681d9cef6e1177cbac04b992e17f07d8c3"
+    }
+  },
+  "warp": {
+    "build_info": "HALFSAMPLE=ON\nZMSSD=ON\nFAST10=ON\nALIGN2D=ON\nALIGN2D_HESSIAN=OFF\nWARP_AFFINE=ON\nSOURCE=7fbc040ef6c3538463da0160f6fc603f98a45713\n",
+    "sha256": {
+      "schurvins_kernel_bench": "58045bdfbb7f5a77eb3b28512571eefe73c142307f92e7746c6f1a8f6f8d9a83",
+      "schurvins_warp_bench": "0bd7eaf61a5be611e242cd6b7f5501851de914ec57083d86042c2b4e93a8157c",
+      "schurvins_stereo": "7fae2ae2168dc60c6734d8aba7ac0eed7f65ed12942851eeb9513eaded5adef9",
+      "schurvins_align2d_bench": "e322a53135c17d24bc02c94c7af495ff3e4549368b7894bb44f5225baebe289b"
+    }
+  },
+  "both": {
+    "build_info": "HALFSAMPLE=ON\nZMSSD=ON\nFAST10=ON\nALIGN2D=ON\nALIGN2D_HESSIAN=ON\nWARP_AFFINE=ON\nSOURCE=7fbc040ef6c3538463da0160f6fc603f98a45713\n",
+    "sha256": {
+      "schurvins_kernel_bench": "58045bdfbb7f5a77eb3b28512571eefe73c142307f92e7746c6f1a8f6f8d9a83",
+      "schurvins_warp_bench": "0bd7eaf61a5be611e242cd6b7f5501851de914ec57083d86042c2b4e93a8157c",
+      "schurvins_stereo": "5a13db1c693c5248b3f065b440abcd3b7d5cf60fca187a1fd724f8b893212de3",
+      "schurvins_align2d_bench": "58dc4ce73e6da964ad45201bc904954a2b9d380685743542aa83be09541d7991"
+    }
+  },
+  "SchurVINS/svo_direct/src/feature_alignment.cpp": "13e9540754351cc8d2cb6c84f46a5e023295fe37bf1a42330d6529bcec584bc3",
+  "SchurVINS/svo_direct/src/patch_warp.cpp": "fd8736253025ecdbdbb3c26771cc3144e1a4160fe2c39b751671ef1fa4fe1bdc"
+}

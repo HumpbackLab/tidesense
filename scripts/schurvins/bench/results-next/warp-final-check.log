@@ -1,0 +1,14 @@
+PASS exact status, position, iteration trace; cases=44800 (all affine modes, ROI stride, borders, flat/ramp/blur/random/shifted images)
+PASS total_cases=44800
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0101 13:21:40.238582  1855 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:21:40.241187  1855 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:21:40.368169  1855 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:21:40.368609  1855 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:21:40.495554  1855 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+W0101 13:21:40.496033  1855 patch_warp.cpp:129] Affine warp is NaN, probably camera has no translation
+PASS synthetic cases=36006 exact status/full buffer incl. partial writes, ROI, tails, levels, aliasing
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715274362142976.pgm patches=500 scalar_us=9.01301 opt_us=5.75648 speedup=1.56572
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715286862142976.pgm patches=500 scalar_us=9.01294 opt_us=5.76089 speedup=1.5645
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715299362142976.pgm patches=500 scalar_us=8.99938 opt_us=5.75772 speedup=1.56301
+PASS total_cases=37506

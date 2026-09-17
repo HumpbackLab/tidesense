@@ -212,3 +212,39 @@ RESULTS_DIR="$PWD/install/schurvins-gcc11-static/align2d-results" \
 每步迭代一致性检查；可传入真实灰度图路径，追加 patch 检查和局部计时。
 它使用独立编译的宏关闭实现作参考，并同时核对优化与 `no_simd` 两条路径。
 测量输出写 tmpfs，计时区间不含日志写入和图片解码。
+
+### align2D Hessian 与 warpAffine（各自默认 OFF）
+
+| 宏 / CMake 选项 | 范围 |
+|---|---|
+| `SCHUR_OPT_ALIGN2D_HESSIAN_NEON` | NEON 整数梯度/Hessian 统计；gain 关闭且 no_simd=false 时启用，offset 可开/关；保留原 4×4 求逆和迭代 |
+| `SCHUR_OPT_WARP_AFFINE_NEON` | 10×10 patch 浮点仿射取样，四像素一批，安全处理两像素尾部；其他尺寸、重叠缓冲区与异常条件回退 |
+
+宏未定义或为 `0` 时保留原路径，CMake `ON` 定义为 `1`。Hessian 宏独立于
+`SCHUR_OPT_ALIGN2D_NEON`，测试包括只开 Hessian、不开旧插值 SIMD 的组合。
+`no_simd=true` 同时禁用 align2D 的两项优化。源码修改分别位于补丁 `0004`、`0005`。
+warp 保持原 floor、FMA、权重和 uint8 截断顺序；边界失败回到原路径以保留部分写入行为。
+
+生成六项全开静态包：
+
+```sh
+SCHUR_OPT_HALFSAMPLE_NEON=ON SCHUR_OPT_ZMSSD_NEON=ON \
+SCHUR_OPT_FAST10_NEON=ON SCHUR_OPT_ALIGN2D_NEON=ON \
+SCHUR_OPT_ALIGN2D_HESSIAN_NEON=ON SCHUR_OPT_WARP_AFFINE_NEON=ON \
+./scripts/schurvins/build.sh
+```
+
+复现单项和组合测试（提前准备现有板端数据、SSH key 或 `SSHPASS`）：
+
+```sh
+./scripts/schurvins/bench/build-next.sh
+./scripts/schurvins/bench/run-next-check.sh both
+BINARIES_DIR="$PWD/install/schurvins-gcc11-static/next-binaries" \
+RESULTS_DIR="$PWD/install/schurvins-gcc11-static/next-results" \
+./scripts/schurvins/bench/run-board.sh base hessian warp both both base
+./scripts/schurvins/bench/summarize.py install/schurvins-gcc11-static/next-results
+```
+
+这里 base 是之前四项全开的基线；hessian/warp/both 分别为新项 1/2/两者。
+不要与旧 `opt-binaries/base`（原优化全关）混淆。构建脚本也支持参数只构建指定组合。
+实测和第 3 项的最终汇编评估见 [HESSIAN-WARP.md](bench/HESSIAN-WARP.md)。
