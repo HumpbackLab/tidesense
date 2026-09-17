@@ -1,0 +1,38 @@
+# Local Python caches and environments.
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Local CMake builds and compiled artifacts (normal builds live under install/).
+/build/
+/build-*/
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+/Makefile
+/build.ninja
+/.ninja_*
+*.o
+*.a
+*.so
+*.so.*
+/schurvins_stereo
+/schurvins_kernel_bench
+/schurvins_align2d_bench
+
+# Ad hoc board/build logs and raw profiling output.
+*.log
+perf.data*
+/profile/**/samples.txt
+/profile/**/symbols
+
+# Curated measurement evidence referenced by the checked-in reports.
+!/bench/results/*-kernels.log
+!/bench/results-ram/*-kernels.log
+!/bench/results-align2d/*-kernels.log
+!/bench/results-align2d/kernel-check.log
+!/profile/results/**/decode.log
+!/profile/results/**/run.log
