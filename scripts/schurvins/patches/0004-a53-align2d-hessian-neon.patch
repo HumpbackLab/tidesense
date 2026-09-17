@@ -1,0 +1,57 @@
+diff --git a/svo_direct/src/feature_alignment.cpp b/svo_direct/src/feature_alignment.cpp
+index faec5bb..001149b 100644
+--- a/svo_direct/src/feature_alignment.cpp
++++ b/svo_direct/src/feature_alignment.cpp
+@@ -20,6 +20,9 @@
+ #include <opencv2/highgui/highgui.hpp>
+ #include <opencv2/imgproc/imgproc.hpp>
+ #include <svo/direct/patch_utils.h>
++#if defined(SCHUR_OPT_ALIGN2D_HESSIAN_NEON) && SCHUR_OPT_ALIGN2D_HESSIAN_NEON
++#include <arm_neon.h>
++#endif
+ 
+ namespace svo {
+ namespace feature_alignment {
+@@ -243,6 +246,42 @@ bool align2D(
+   const int ref_step = patch_size_+2;
+   float* it_dx = ref_patch_dx;
+   float* it_dy = ref_patch_dy;
++#if defined(SCHUR_OPT_ALIGN2D_HESSIAN_NEON) && SCHUR_OPT_ALIGN2D_HESSIAN_NEON
++  if(!no_simd && !affine_est_gain)
++  {
++    // Integer differences keep Hessian reduction exact: 64*255*255 < 2^24.
++    // Keep the original 4x4 inverse/update; only specialize its preparation.
++    int32x4_t xx = vdupq_n_s32(0), xy = xx, yy = xx;
++    int16x8_t sx = vdupq_n_s16(0), sy = sx;
++    for(int y=0; y<8; ++y)
++    {
++      const uint8_t* it = ref_patch_with_border + (y+1)*10 + 1;
++      const int16x8_t dx = vreinterpretq_s16_u16(vsubl_u8(vld1_u8(it+1), vld1_u8(it-1)));
++      const int16x8_t dy = vreinterpretq_s16_u16(vsubl_u8(vld1_u8(it+10), vld1_u8(it-10)));
++      xx = vmlal_s16(xx, vget_low_s16(dx), vget_low_s16(dx));
++      xx = vmlal_high_s16(xx, dx, dx);
++      xy = vmlal_s16(xy, vget_low_s16(dx), vget_low_s16(dy));
++      xy = vmlal_high_s16(xy, dx, dy);
++      yy = vmlal_s16(yy, vget_low_s16(dy), vget_low_s16(dy));
++      yy = vmlal_high_s16(yy, dy, dy);
++      sx = vaddq_s16(sx, dx); sy = vaddq_s16(sy, dy);
++      vst1q_f32(ref_patch_dx+y*8, vmulq_n_f32(vcvtq_f32_s32(vmovl_s16(vget_low_s16(dx))), 0.5f));
++      vst1q_f32(ref_patch_dx+y*8+4, vmulq_n_f32(vcvtq_f32_s32(vmovl_high_s16(dx)), 0.5f));
++      vst1q_f32(ref_patch_dy+y*8, vmulq_n_f32(vcvtq_f32_s32(vmovl_s16(vget_low_s16(dy))), 0.5f));
++      vst1q_f32(ref_patch_dy+y*8+4, vmulq_n_f32(vcvtq_f32_s32(vmovl_high_s16(dy)), 0.5f));
++    }
++    H(0,0) = static_cast<float>(vaddvq_s32(xx))*0.25f;
++    H(0,1) = H(1,0) = static_cast<float>(vaddvq_s32(xy))*0.25f;
++    H(1,1) = static_cast<float>(vaddvq_s32(yy))*0.25f;
++    if(affine_est_offset)
++    {
++      H(0,2) = H(2,0) = static_cast<float>(vaddlvq_s16(sx))*0.5f;
++      H(1,2) = H(2,1) = static_cast<float>(vaddlvq_s16(sy))*0.5f;
++      H(2,2) = 64.0f;
++    }
++  }
++  else
++#endif
+   for(int y=0; y<patch_size_; ++y)
+   {
+     uint8_t* it = ref_patch_with_border + (y+1)*ref_step + 1;

@@ -18,7 +18,8 @@ for variant in base half fast zmssd all; do
     -DCMAKE_TOOLCHAIN_FILE="$here/a53-gcc11-toolchain.cmake" \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$work/stage" \
     -DSCHUR_STATIC=ON -DSCHUR_BUILD_BENCHMARKS=ON \
-    -DSCHUR_OPT_HALFSAMPLE_NEON="$half" -DSCHUR_OPT_ZMSSD_NEON="$zmssd" -DSCHUR_OPT_FAST10_NEON="$fast" -DSCHUR_OPT_ALIGN2D_NEON=OFF
+    -DSCHUR_OPT_HALFSAMPLE_NEON="$half" -DSCHUR_OPT_ZMSSD_NEON="$zmssd" -DSCHUR_OPT_FAST10_NEON="$fast" -DSCHUR_OPT_ALIGN2D_NEON=OFF \
+    -DSCHUR_OPT_ALIGN2D_HESSIAN_NEON=OFF -DSCHUR_OPT_WARP_AFFINE_NEON=OFF
   cmake --build "$tree" -j"${JOBS:-4}"
   mkdir -p "$out/$variant"
   for program in stereo kernel_bench; do

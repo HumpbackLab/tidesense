@@ -13,7 +13,8 @@ for variant in align base; do
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$work/stage" \
     -DSCHUR_STATIC=ON -DSCHUR_BUILD_BENCHMARKS=ON \
     -DSCHUR_OPT_HALFSAMPLE_NEON=ON -DSCHUR_OPT_ZMSSD_NEON=ON \
-    -DSCHUR_OPT_FAST10_NEON=ON -DSCHUR_OPT_ALIGN2D_NEON="$enable"
+    -DSCHUR_OPT_FAST10_NEON=ON -DSCHUR_OPT_ALIGN2D_NEON="$enable" \
+    -DSCHUR_OPT_ALIGN2D_HESSIAN_NEON=OFF -DSCHUR_OPT_WARP_AFFINE_NEON=OFF
   cmake --build "$tree" -j"${JOBS:-4}"
   out="$work/align2d-binaries/$variant"
   mkdir -p "$out"

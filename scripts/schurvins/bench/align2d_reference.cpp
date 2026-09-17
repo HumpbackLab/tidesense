@@ -1,4 +1,6 @@
 // Compile the original macro-OFF path independently, with private symbol names.
+#undef SCHUR_OPT_ALIGN2D_HESSIAN_NEON
+#define SCHUR_OPT_ALIGN2D_HESSIAN_NEON 0
 #undef SCHUR_OPT_ALIGN2D_NEON
 #define SCHUR_OPT_ALIGN2D_NEON 0
 #define align1D align1D_reference

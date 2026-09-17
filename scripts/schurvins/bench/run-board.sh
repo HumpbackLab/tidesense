@@ -20,7 +20,7 @@ mkdir -p "$results"
 # Existing calibration and synchronized CSV must be prepared in REMOTE_DIR.
 # Alternate baseline/candidate ordering when requesting repeated runs.
 for variant in "${@:-base}"; do
-  [[ $variant =~ ^(base|half|zmssd|fast|all|align)$ ]] || exit 2
+  [[ $variant =~ ^(base|half|zmssd|fast|all|align|hessian|warp|both)$ ]] || exit 2
   tag="$variant-$(date -u +%Y%m%dT%H%M%SZ)"
   [[ -f "$binaries/$variant/SHA256SUMS" ]]
   "${scp_cmd[@]}" "$binaries/$variant/schurvins_stereo" "$binaries/$variant/schurvins_kernel_bench" "$board:$remote/"

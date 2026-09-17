@@ -93,7 +93,9 @@ cmake -S "$here" -B "$work/core" "${common[@]}" \
   -DSCHUR_OPT_HALFSAMPLE_NEON="${SCHUR_OPT_HALFSAMPLE_NEON:-OFF}" \
   -DSCHUR_OPT_ZMSSD_NEON="${SCHUR_OPT_ZMSSD_NEON:-OFF}" \
   -DSCHUR_OPT_FAST10_NEON="${SCHUR_OPT_FAST10_NEON:-OFF}" \
-  -DSCHUR_OPT_ALIGN2D_NEON="${SCHUR_OPT_ALIGN2D_NEON:-OFF}"
+  -DSCHUR_OPT_ALIGN2D_NEON="${SCHUR_OPT_ALIGN2D_NEON:-OFF}" \
+  -DSCHUR_OPT_ALIGN2D_HESSIAN_NEON="${SCHUR_OPT_ALIGN2D_HESSIAN_NEON:-OFF}" \
+  -DSCHUR_OPT_WARP_AFFINE_NEON="${SCHUR_OPT_WARP_AFFINE_NEON:-OFF}"
 cmake --build "$work/core" -j"$jobs"
 cmake --install "$work/core"
 "${cross}strip" --strip-unneeded "$out/bin/schurvins_stereo"
@@ -124,6 +126,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'SCHUR_OPT_HALFSAMPLE_NEON=%s\nSCHUR_OPT_ZMSSD_NEON=%s\nSCHUR_OPT_FAST10_NEON=%s\n' \
     "${SCHUR_OPT_HALFSAMPLE_NEON:-OFF}" "${SCHUR_OPT_ZMSSD_NEON:-OFF}" "${SCHUR_OPT_FAST10_NEON:-OFF}"
   printf 'SCHUR_OPT_ALIGN2D_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_NEON:-OFF}"
+  printf 'SCHUR_OPT_ALIGN2D_HESSIAN_NEON=%s\nSCHUR_OPT_WARP_AFFINE_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_HESSIAN_NEON:-OFF}" "${SCHUR_OPT_WARP_AFFINE_NEON:-OFF}"
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
 } > "$out/BUILD-INFO"
 tar -C "$(dirname "$out")" -czf "$out-a53.tar.gz" "$(basename "$out")"

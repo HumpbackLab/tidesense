@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <vector>
 namespace svo { namespace feature_alignment {
+bool align2D_hessian_only(const cv::Mat&, uint8_t*, uint8_t*, int, bool, bool,
+                      Keypoint&, bool, std::vector<Eigen::Vector2f>*);
 bool align2D_reference(const cv::Mat&, uint8_t*, uint8_t*, int, bool, bool,
                       Keypoint&, bool, std::vector<Eigen::Vector2f>*);
 }}
@@ -24,17 +26,18 @@ Patch patch(const cv::Mat& im, int x, int y, double dx, double dy) {
 bool equal(double a,double b) { return a==b || (std::isnan(a)&&std::isnan(b)); }
 size_t cases=0;
 void check(const cv::Mat& cur, Patch p, int n, bool offset, bool gain) {
-  Keypoint a=p.start,b=a,c=a;
-  std::vector<Eigen::Vector2f> sa,sb,sc;
+  Keypoint a=p.start,b=a,c=a,d=a;
+  std::vector<Eigen::Vector2f> sa,sb,sc,sd;
   bool ra=feature_alignment::align2D_reference(cur,p.border,p.data,n,offset,gain,a,true,&sa);
   bool rb=feature_alignment::align2D(cur,p.border,p.data,n,offset,gain,b,false,&sb);
   bool rc=feature_alignment::align2D(cur,p.border,p.data,n,offset,gain,c,true,&sc);
+  bool rd=feature_alignment::align2D_hessian_only(cur,p.border,p.data,n,offset,gain,d,false,&sd);
   auto compare=[&](bool r,const Keypoint& q,const std::vector<Eigen::Vector2f>& steps) {
     if(r!=ra || !equal(a.x(),q.x()) || !equal(a.y(),q.y()) || sa.size()!=steps.size()) return false;
     for(size_t i=0;i<sa.size();++i) for(int k=0;k<2;++k) if(!equal(sa[i][k],steps[i][k])) return false;
     return true;
   };
-  if(!compare(rb,b,sb)||!compare(rc,c,sc)) {
+  if(!compare(rb,b,sb)||!compare(rc,c,sc)||!compare(rd,d,sd)) {
     std::cerr<<"Mismatch case="<<cases<<" n="<<n<<" offset="<<offset<<" gain="<<gain<<" ref="<<a.transpose()<<" opt="<<b.transpose()<<" steps="<<sa.size()<<","<<sb.size()<<"\n";
     throw std::runtime_error("align2D differs from scalar reference");
   }
@@ -58,12 +61,13 @@ double bench(const cv::Mat& im,std::vector<Patch>& patches,bool scalar) {
 int main(int argc,char** argv) {
   try {
     cv::RNG rng(9281);
-    for(int mode=0;mode<5;++mode) {
+    for(int mode=0;mode<7;++mode) {
       cv::Mat storage(55,87,CV_8U); rng.fill(storage,cv::RNG::UNIFORM,0,256);
       cv::Mat ref=storage(cv::Rect(1,1,63,49));
       if(mode==1) cv::GaussianBlur(ref,ref,cv::Size(5,5),1.2);
       if(mode==2) ref.setTo(127);
       if(mode==3) for(int y=0;y<ref.rows;++y) for(int x=0;x<ref.cols;++x) ref.at<uint8_t>(y,x)=x*3;
+      if(mode>=5) for(int y=0;y<ref.rows;++y) for(int x=0;x<ref.cols;++x) ref.at<uint8_t>(y,x)=((x/2+(mode==5?y/2:0))%2)*255;
       cv::Mat backing(55,89,CV_8U),cur=backing(cv::Rect(3,2,63,49)); ref.copyTo(cur);
       if(mode==4) { cv::Mat transform=(cv::Mat_<double>(2,3)<<1,0,0.35,0,1,-0.4);cv::warpAffine(ref,cur,transform,cur.size());cur.convertTo(cur,CV_8U,0.8,12); }
       for(int i=0;i<400;++i) {

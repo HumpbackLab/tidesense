@@ -1,0 +1,88 @@
+diff --git a/svo_direct/src/patch_warp.cpp b/svo_direct/src/patch_warp.cpp
+index 8539e9c..8c5f520 100644
+--- a/svo_direct/src/patch_warp.cpp
++++ b/svo_direct/src/patch_warp.cpp
+@@ -7,6 +7,11 @@
+ // 'LICENSE', which is part of this source code package.
+ 
+ #include <svo/direct/patch_warp.h>
++#if defined(SCHUR_OPT_WARP_AFFINE_NEON) && SCHUR_OPT_WARP_AFFINE_NEON
++#include <arm_neon.h>
++#include <cstdint>
++#include <cstring>
++#endif
+ #include <svo/common/frame.h>
+ #include <svo/common/point.h>
+ #include <svo/common/feature_wrapper.h>
+@@ -129,6 +134,71 @@ bool warpAffine(
+   uint8_t* patch_ptr = patch;
+   const Eigen::Vector2f px_ref_pyr = px_ref.cast<float>() / (1<<level_ref);
+   const int stride = img_ref.step.p[0];
++#if defined(SCHUR_OPT_WARP_AFFINE_NEON) && SCHUR_OPT_WARP_AFFINE_NEON
++  // The matcher uses a 10x10 patch. Other sizes and overlapping buffers keep
++  // the scalar contract. In particular, SIMD must not read future source
++  // pixels before an overlapping output write changes them.
++  const uintptr_t dst_begin = reinterpret_cast<uintptr_t>(patch);
++  const uintptr_t src_begin = reinterpret_cast<uintptr_t>(img_ref.data);
++  const uintptr_t src_end = src_begin + (img_ref.rows > 0 ? (img_ref.rows-1)*img_ref.step[0]+img_ref.cols : 0);
++  if(halfpatch_size == 5 && img_ref.rows > 0 && img_ref.cols > 0 &&
++     (dst_begin+100 <= src_begin || dst_begin >= src_end) &&
++     A_ref_cur.allFinite() && px_ref_pyr.allFinite())
++  {
++    const float32x4_t one = vdupq_n_f32(1.0f);
++    const float xs[4] = {-5.0f, -4.0f, -3.0f, -2.0f};
++    for(int y=-5; y<5; ++y)
++    {
++      // Do not fold px_ref_pyr into the row term: that changes rounding.
++      const float32x4_t row_x = vdupq_n_f32(A_ref_cur(0,1)*y);
++      const float32x4_t row_y = vdupq_n_f32(A_ref_cur(1,1)*y);
++      for(int x=-5; x<5; x+=4)
++      {
++        const int count = x == 3 ? 2 : 4;
++        const float32x4_t xv = vaddq_f32(vld1q_f32(xs), vdupq_n_f32(x+5));
++        const float32x4_t px = vaddq_f32(vfmaq_n_f32(row_x, xv, A_ref_cur(0,0)), vdupq_n_f32(px_ref_pyr[0]));
++        const float32x4_t py = vaddq_f32(vfmaq_n_f32(row_y, xv, A_ref_cur(1,0)), vdupq_n_f32(px_ref_pyr[1]));
++        const int32x4_t ix = vcvtmq_s32_f32(px), iy = vcvtmq_s32_f32(py);
++        uint32x4_t valid = vandq_u32(vandq_u32(vcgeq_s32(ix,vdupq_n_s32(0)), vcgeq_s32(iy,vdupq_n_s32(0))),
++            vandq_u32(vcltq_s32(ix,vdupq_n_s32(img_ref.cols-1)), vcltq_s32(iy,vdupq_n_s32(img_ref.rows-1))));
++        if(count == 2) { valid=vsetq_lane_u32(~0u,valid,2); valid=vsetq_lane_u32(~0u,valid,3); }
++        if(vminvq_u32(valid) == 0) goto scalar_warp;
++        const uint8_t* p0 = img_ref.data + vgetq_lane_s32(iy,0)*stride + vgetq_lane_s32(ix,0);
++        const uint8_t* p1 = img_ref.data + vgetq_lane_s32(iy,1)*stride + vgetq_lane_s32(ix,1);
++        const uint8_t* p2 = count == 4 ? img_ref.data + vgetq_lane_s32(iy,2)*stride + vgetq_lane_s32(ix,2) : p0;
++        const uint8_t* p3 = count == 4 ? img_ref.data + vgetq_lane_s32(iy,3)*stride + vgetq_lane_s32(ix,3) : p1;
++        // Gather adjacent byte pairs, then unpack/interpolate in registers.
++        // Both bytes were validated above. No speculative wide image loads.
++        const auto pair = [](const uint8_t* p) -> uint16_t { return p[0] | (uint16_t(p[1]) << 8); };
++        uint16x4_t top=vdup_n_u16(pair(p0)), bottom=vdup_n_u16(pair(p0+stride));
++        top=vset_lane_u16(pair(p1),top,1); bottom=vset_lane_u16(pair(p1+stride),bottom,1);
++        top=vset_lane_u16(pair(p2),top,2); bottom=vset_lane_u16(pair(p2+stride),bottom,2);
++        top=vset_lane_u16(pair(p3),top,3); bottom=vset_lane_u16(pair(p3+stride),bottom,3);
++        const uint32x4_t t=vmovl_u16(top), b=vmovl_u16(bottom), mask=vdupq_n_u32(255);
++        const float32x4_t tl=vcvtq_f32_u32(vandq_u32(t,mask)), tr=vcvtq_f32_u32(vshrq_n_u32(t,8));
++        const float32x4_t bl=vcvtq_f32_u32(vandq_u32(b,mask)), br=vcvtq_f32_u32(vshrq_n_u32(b,8));
++        const float32x4_t sx = vsubq_f32(px,vcvtq_f32_s32(ix));
++        const float32x4_t sy = vsubq_f32(py,vcvtq_f32_s32(iy));
++        const float32x4_t w00 = vmulq_f32(vsubq_f32(one,sx),vsubq_f32(one,sy));
++        const float32x4_t w01 = vmulq_f32(vsubq_f32(one,sx),sy);
++        const float32x4_t w10 = vmulq_f32(sx,vsubq_f32(one,sy));
++        const float32x4_t w11 = vsubq_f32(vsubq_f32(vsubq_f32(one,w00),w01),w10);
++        float32x4_t value = vfmaq_f32(vmulq_f32(w01,bl),w00,tl);
++        value = vfmaq_f32(value,w10,tr);
++        value = vfmaq_f32(value,w11,br);
++        const uint16x4_t out16=vmovn_u32(vcvtq_u32_f32(value));
++        const uint8x8_t out8=vmovn_u16(vcombine_u16(out16,out16));
++        // Byte lanes retain their order on either endianness.
++        uint8_t out[8]; vst1_u8(out,out8);
++        if(count==4) std::memcpy(patch_ptr,out,4); else std::memcpy(patch_ptr,out,2);
++        patch_ptr += count;
++      }
++    }
++    return true;
++  }
++scalar_warp:
++  patch_ptr = patch;
++#endif
+   for (int y=-halfpatch_size; y<halfpatch_size; ++y)
+   {
+     for (int x=-halfpatch_size; x<halfpatch_size; ++x, ++patch_ptr)
