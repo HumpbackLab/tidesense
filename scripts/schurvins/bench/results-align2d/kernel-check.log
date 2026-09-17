@@ -1,0 +1,5 @@
+PASS exact status, position, iteration trace; cases=32000 (all affine modes, ROI stride, borders, flat/ramp/blur/random/shifted images)
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715274362142976.pgm patches=546 scalar_us=15.8062 opt_us=9.67073 speedup=1.63444
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715286862142976.pgm patches=546 scalar_us=16.1779 opt_us=9.79281 speedup=1.65202
+image=/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay/mav0/cam0/data/1403715299362142976.pgm patches=546 scalar_us=15.7889 opt_us=9.64091 speedup=1.6377
+PASS total_cases=38552

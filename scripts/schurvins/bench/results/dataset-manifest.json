@@ -1,0 +1,44 @@
+{
+  "counts": {
+    "cam0": {
+      "frames": 501,
+      "image_bytes": 181429681
+    },
+    "cam1": {
+      "frames": 501,
+      "image_bytes": 181429291
+    },
+    "ground_truth_samples": 5033,
+    "ground_truth_stream": "state_groundtruth_estimate0",
+    "imu_samples": 5221
+  },
+  "name": "V1_01_screen_1p1s",
+  "selection": {
+    "duration_s": 25.0,
+    "end_ns": 1403715299362142976,
+    "imu_post_roll_s": 0.1,
+    "imu_pre_roll_s": 1.0,
+    "requested_duration_s": 25.0,
+    "start_ns": 1403715274362142976
+  },
+  "sensor_yaml_sha256": {
+    "cam0": "191748edddda5d1368188f5b0a3c4bed6c48842c178ef9d83c50cba17d66e819",
+    "cam1": "a469fd673f369881f37dd6b93d251e9444950360d70c6214bf909cf509ac9524",
+    "imu0": "91e6c408416f549f87e7405830b83849cca10521f3d3fc8bb3de862c2bc882d0"
+  },
+  "source": "V1_01_easy.zip",
+  "validation": {
+    "cam0": {
+      "frames": 501
+    },
+    "cam1": {
+      "frames": 501
+    },
+    "duration_s": 25.0,
+    "end_ns": 1403715299362142976,
+    "ground_truth_samples": 5033,
+    "ground_truth_stream": "state_groundtruth_estimate0",
+    "imu_samples": 5221,
+    "start_ns": 1403715274362142976
+  }
+}

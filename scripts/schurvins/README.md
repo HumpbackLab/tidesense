@@ -107,3 +107,108 @@ python3 scripts/schurvins/make-smoke-data.py install/schurvins-build/smoke-data
 已恢复上游 `std::atomic_uint64_t` 声明和定义，并从补丁文件移除对应改写。
 GCC 11 原生支持该别名；当前构建入口不再使用 GCC 6。
 原有 GCC 6 构建产物和 `board-test.log` 仅作为历史记录保留。
+
+## A53 NEON optimizations (independent, default OFF)
+
+Each CMake option enables the identically named preprocessor macro with value `1`.
+Undefined or `0` keeps the original implementation. These options require AArch64;
+no global `__ARM_NEON__` override is used, so the old alignment implementation is
+not accidentally selected.
+
+| Option / macro | Scope |
+|---|---|
+| `SCHUR_OPT_HALFSAMPLE_NEON` | Exact 2×2 box-average downsampling, including stride and tails |
+| `SCHUR_OPT_ZMSSD_NEON` | 8×8 template sums and contiguous/strided ZMSSD scoring |
+| `SCHUR_OPT_FAST10_NEON` | FAST-10 detection and scoring; original NMS remains in use |
+
+Enable any subset through `build.sh`, for example:
+
+```sh
+SCHUR_OPT_HALFSAMPLE_NEON=ON \
+SCHUR_OPT_ZMSSD_NEON=ON \
+SCHUR_OPT_FAST10_NEON=ON \
+./scripts/schurvins/build.sh
+```
+
+For direct CMake builds use `-DSCHUR_OPT_HALFSAMPLE_NEON=ON`, etc. The ZMSSD macro
+is PUBLIC because its implementation is in a header; consumers must use the same
+setting to avoid inconsistent template definitions. Other two macros apply only
+to the relevant source files. `0002-a53-opt-in-neon.patch` reproduces the source
+changes on the pinned upstream checkout after `0001-native-build.patch`.
+Existing local SchurVINS commits descending from the pinned revision are accepted
+by the build script and are recorded in `BUILD-INFO`; dependency revisions remain
+pinned.
+
+### Reproduce the comparison
+
+After preparing dependencies with `build.sh`:
+
+```sh
+./scripts/schurvins/bench/build-variants.sh
+# On the board, prepare calib.yaml and stereo.csv in /mnt/data/schur-opt-test.
+# CSV format is the same as schurvins_stereo; use absolute image paths.
+# Configure SSH keys, or export SSHPASS and install sshpass on the host.
+./scripts/schurvins/bench/run-board.sh base half zmssd fast all base
+./scripts/schurvins/bench/summarize.py install/schurvins-gcc11-static/opt-results
+```
+
+The runner expects the existing EuRoC replay under
+`/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay`.
+Override `BOARD`, `REMOTE_DIR`, `DATASET`, or `RESULTS_DIR` if needed. It uploads only
+to the dedicated benchmark directory and leaves the installed production program
+untouched. Keep other CPU workloads idle during measurement. Raw results are
+copied back before the runner removes its own completed logs from the board.
+
+`SCHUR_BUILD_BENCHMARKS=ON` builds `schurvins_kernel_bench`. It checks scalar/NEON
+agreement, then reports medians of seven batches per kernel for each supplied
+image. The actual production functions are used. The replay program optionally
+writes per-frame `addImageBundle` wall time to the path in `SCHUR_TIMING_CSV`;
+image decoding and CSV input are outside this interval. The summary excludes the
+first five calls and reports mean, median, P95, tracking counts and pose-file hash.
+These timings measure VIO processing, not camera-to-pose latency or VIO accuracy.
+
+### CPU 热点复测与输出位置
+
+当前 benchmark 将日志、位姿和计时写入板端 `/tmp`（tmpfs），完成后拉回宿主机。
+不要把热路径日志重定向到以 `sync` 挂载的 `/mnt/data`；之前这样测得的约 2% 整体收益被日志写入等待掩盖。
+修正后的无 perf 测量为 66.578 → 58.089 ms，耗时下降 12.75%，详见 [实测结果](bench/RESULTS.md)。
+
+额外设置 `SCHUR_PROFILE_CSV=/tmp/intervals.csv` 可导出每帧 VIO 单调时钟区间和进程 CPU 时间。
+重现 perf 采样、匹配 ELF、过滤 VIO 区间和 period 加权统计的步骤见 [采样说明](profile/README.md)，
+当前热点和调用来源见 [热点复测](profile/HOTSPOTS.md)。
+
+### align2D 浮点 NEON（独立、默认 OFF）
+
+实板结果见 [align2D 实测](bench/ALIGN2D.md)。
+
+`SCHUR_OPT_ALIGN2D_NEON=ON`（CMake 同名选项，预处理宏值为 `1`）启用
+AArch64 浮点插值/残差 SIMD。未定义或为 `0` 保留原路径；`no_simd=true`
+强制标量。支持 offset 开/关；gain 估计开启时保留标量路径，以避免该模式下的
+浮点舍入差异。当前 VIO 默认 offset 开、gain 关，会使用优化。
+保持原 Hessian、逆矩阵、迭代上限、收敛阈值、逐像素累加顺序和 `each_step`。
+没有启用旧定点 `align2D_NEON`，也没有修改全局 NEON 宏或开启 fast-math。
+
+```sh
+SCHUR_OPT_HALFSAMPLE_NEON=ON SCHUR_OPT_ZMSSD_NEON=ON \
+SCHUR_OPT_FAST10_NEON=ON SCHUR_OPT_ALIGN2D_NEON=ON \
+./scripts/schurvins/build.sh
+```
+
+源码补丁为 `0003-a53-align2d-neon.patch`。精确一致性以当前 GCC 11.3.1 / A53
+构建的测试为依据；换编译器或浮点选项后应重新验证。
+
+单独比较 align2D（两组均开启之前三项优化）：
+
+```sh
+./scripts/schurvins/bench/build-align2d.sh
+./scripts/schurvins/bench/run-align2d-check.sh
+BINARIES_DIR="$PWD/install/schurvins-gcc11-static/align2d-binaries" \
+RESULTS_DIR="$PWD/install/schurvins-gcc11-static/align2d-results" \
+./scripts/schurvins/bench/run-board.sh base align base align
+./scripts/schurvins/bench/summarize.py install/schurvins-gcc11-static/align2d-results
+```
+
+`schurvins_align2d_bench` 为额外板端测试程序：无参数执行 32,000 组状态、坐标、
+每步迭代一致性检查；可传入真实灰度图路径，追加 patch 检查和局部计时。
+它使用独立编译的宏关闭实现作参考，并同时核对优化与 `no_simd` 两条路径。
+测量输出写 tmpfs，计时区间不含日志写入和图片解码。

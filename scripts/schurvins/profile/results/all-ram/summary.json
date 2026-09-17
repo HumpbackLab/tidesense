@@ -1,0 +1,2095 @@
+{
+  "method": "cycles, 199 Hz, CLOCK_MONOTONIC; first 5 VIO calls excluded; period-weighted; self vs inclusive kept separate",
+  "frames": 496,
+  "wall_mean_ms": 59.161529596774194,
+  "cpu_mean_ms": 58.47202427419355,
+  "cpu_wall_ratio": 0.9883453770164468,
+  "wall_total_ms": 29344.11868000003,
+  "cpu_total_ms": 29002.124039999988,
+  "counts": {
+    "total_samples": 6383,
+    "vio_samples": 5767,
+    "vio_period": 22835740223,
+    "user_samples": 5723,
+    "user_period": 22664892929,
+    "root_present_period": 22405305479,
+    "kernel_samples": 44,
+    "kernel_period": 170847294,
+    "unresolved_user_period": 3984483
+  },
+  "self": [
+    {
+      "symbol": "svo::feature_alignment::align2D",
+      "period": 7832455617,
+      "percent": 34.55765549625995
+    },
+    {
+      "symbol": "svo::warp::warpAffine",
+      "period": 3863709230,
+      "percent": 17.047110004461295
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::Solve3",
+      "period": 1000258581,
+      "percent": 4.413250855115037
+    },
+    {
+      "symbol": "svo::fast10DetectNEON",
+      "period": 927194542,
+      "percent": 4.090884280391387
+    },
+    {
+      "symbol": "Eigen::internal::gebp_kernel<double, double, long, Eigen::internal::blas_data_mapper<double, long, 0, 0>, 6, 4, false, false>::operator()",
+      "period": 618300845,
+      "percent": 2.728011321019199
+    },
+    {
+      "symbol": "vk::cameras::CameraGeometry<vk::cameras::PinholeProjection<vk::cameras::RadialTangentialDistortion> >::backProject3",
+      "period": 615824564,
+      "percent": 2.7170856969372448
+    },
+    {
+      "symbol": "vk::halfSample",
+      "period": 496565853,
+      "percent": 2.190903149445891
+    },
+    {
+      "symbol": "svo::fast10ScoreNEON",
+      "period": 344151548,
+      "percent": 1.518434475195133
+    },
+    {
+      "symbol": "fast::fast_nonmax_3x3",
+      "period": 316633776,
+      "percent": 1.3970230390758358
+    },
+    {
+      "symbol": "vk::cameras::PinholeProjection<vk::cameras::RadialTangentialDistortion>::project3",
+      "period": 300636954,
+      "percent": 1.3264433012843906
+    },
+    {
+      "symbol": "kindr::minimal::QuatTransformationTemplate<double>::inverse",
+      "period": 287072682,
+      "percent": 1.2665962415939194
+    },
+    {
+      "symbol": "__memcpy_generic",
+      "period": 239722255,
+      "percent": 1.0576809506709495
+    },
+    {
+      "symbol": "Eigen::internal::compute_inverse_size4<4, float, Eigen::Matrix<float, 4, 4, 0, 4, 4>, Eigen::Matrix<float, 4, 4, 0, 4, 4> >::run",
+      "period": 234836815,
+      "percent": 1.0361258521522663
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::RemovePointOutliers",
+      "period": 227830566,
+      "percent": 1.0052135111059275
+    },
+    {
+      "symbol": "svo::warp::getWarpMatrixAffine",
+      "period": 226851929,
+      "percent": 1.0008956570438516
+    },
+    {
+      "symbol": "svo::Point::EkfUpdate",
+      "period": 218267101,
+      "percent": 0.9630184518574304
+    },
+    {
+      "symbol": "svo::Matcher::findEpipolarMatchDirect",
+      "period": 214231669,
+      "percent": 0.9452136821078384
+    },
+    {
+      "symbol": "svo::depth_filter_utils::updateSeed",
+      "period": 202550226,
+      "percent": 0.8936738710150031
+    },
+    {
+      "symbol": "svo::Reprojector::reprojectFrames",
+      "period": 187229910,
+      "percent": 0.8260789520891012
+    },
+    {
+      "symbol": "svo::depth_filter_utils::updateFilterVogiatzis",
+      "period": 180126440,
+      "percent": 0.7947376612996309
+    },
+    {
+      "symbol": "svo::Point::getCloseViewObs",
+      "period": 175653832,
+      "percent": 0.7750040229629712
+    },
+    {
+      "symbol": "kindr::minimal::RotationQuaternionTemplate<double>::RotationQuaternionTemplate",
+      "period": 144515570,
+      "percent": 0.6376185868281363
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::Management",
+      "period": 139208777,
+      "percent": 0.6142044325383983
+    },
+    {
+      "symbol": "std::_Rb_tree_increment",
+      "period": 137139828,
+      "percent": 0.6050760020336472
+    },
+    {
+      "symbol": "svo::reprojector_utils::getCandidate",
+      "period": 136157364,
+      "percent": 0.6007412628267264
+    },
+    {
+      "symbol": "kindr::minimal::QuatTransformationTemplate<double>::operator*",
+      "period": 135786633,
+      "percent": 0.5991055568864364
+    },
+    {
+      "symbol": "__sin",
+      "period": 126693293,
+      "percent": 0.5589847408363197
+    },
+    {
+      "symbol": "svo::Frame::isVisible",
+      "period": 120165711,
+      "percent": 0.5301843312317022
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::RegisterPoints",
+      "period": 117179715,
+      "percent": 0.5170097885177616
+    },
+    {
+      "symbol": "svo::Matcher::updateZMSSD",
+      "period": 111498307,
+      "percent": 0.49194279165262056
+    },
+    {
+      "symbol": "__ieee754_acos",
+      "period": 111310876,
+      "percent": 0.49111582546933813
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::KeyframeSelect",
+      "period": 107726368,
+      "percent": 0.47530058199464437
+    },
+    {
+      "symbol": "svo::Point::CheckStatus",
+      "period": 105098536,
+      "percent": 0.46370629823503456
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::Prediction",
+      "period": 104286135,
+      "percent": 0.4601218956854839
+    },
+    {
+      "symbol": "_int_malloc",
+      "period": 98060941,
+      "percent": 0.4326556551896606
+    },
+    {
+      "symbol": "svo::Matcher::scanEpipolarUnitPlane",
+      "period": 87672569,
+      "percent": 0.3868210155443616
+    },
+    {
+      "symbol": "vk::cameras::CameraGeometry<vk::cameras::PinholeProjection<vk::cameras::RadialTangentialDistortion> >::project3",
+      "period": 83348010,
+      "percent": 0.3677405856762519
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::RemoveOutliers",
+      "period": 80936592,
+      "percent": 0.35710114428310696
+    },
+    {
+      "symbol": "svo::feature_detection_utils::fastDetector",
+      "period": 80015234,
+      "percent": 0.3530360114678484
+    },
+    {
+      "symbol": "std::__introsort_loop<__gnu_cxx::__normal_iterator<svo::Reprojector::Candidate*, std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<svo::reprojector_utils::sortCandidatesByReprojStats(std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> >&)::{lambda(svo::Reprojector::Candidate const&, svo::Reprojector::Candidate const&)#1}> >",
+      "period": 68362858,
+      "percent": 0.30162444717543274
+    },
+    {
+      "symbol": "Eigen::internal::gemm_pack_lhs<double, long, Eigen::internal::const_blas_data_mapper<double, long, 0>, 6, 2, 0, false, false>::operator()",
+      "period": 65825029,
+      "percent": 0.2904272665492105
+    },
+    {
+      "symbol": "Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 6, 3, 0, 6, 3> >, Eigen::internal::evaluator<Eigen::Product<Eigen::Transpose<Eigen::Matrix<double, 2, 6, 0, 2, 6> >, Eigen::Matrix<double, 2, 3, 0, 2, 3>, 1> >, Eigen::internal::assign_op<double, double>, 0>::assignCoeff",
+      "period": 64965299,
+      "percent": 0.2866340432470172
+    },
+    {
+      "symbol": "svo::reprojector_utils::matchCandidate",
+      "period": 62832034,
+      "percent": 0.27722184347760875
+    },
+    {
+      "symbol": "Eigen::QuaternionBase<Eigen::Quaternion<double, 0> >::inverse",
+      "period": 60776004,
+      "percent": 0.26815041302152537
+    },
+    {
+      "symbol": "malloc_consolidate",
+      "period": 59990414,
+      "percent": 0.2646843035523082
+    },
+    {
+      "symbol": "svo::depth_filter_utils::computeTau",
+      "period": 59664943,
+      "percent": 0.26324828970913866
+    },
+    {
+      "symbol": "_int_free",
+      "period": 59500892,
+      "percent": 0.2625244786568919
+    },
+    {
+      "symbol": "svo::Matcher::findMatchDirect",
+      "period": 59150507,
+      "percent": 0.2609785415059968
+    },
+    {
+      "symbol": "__aarch64_cas4_acq_rel",
+      "period": 48561883,
+      "percent": 0.21426036801552453
+    },
+    {
+      "symbol": "free",
+      "period": 48280381,
+      "percent": 0.21301835023550753
+    },
+    {
+      "symbol": "__ieee754_exp",
+      "period": 48052178,
+      "percent": 0.21201149350463802
+    },
+    {
+      "symbol": "malloc",
+      "period": 46734630,
+      "percent": 0.20619832684143186
+    },
+    {
+      "symbol": "Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 3, 3, 0, 3, 3> >, Eigen::internal::evaluator<Eigen::Product<Eigen::Transpose<Eigen::Matrix<double, 2, 3, 0, 2, 3> >, Eigen::Matrix<double, 2, 3, 0, 2, 3>, 1> >, Eigen::internal::add_assign_op<double, double>, 0>::assignCoeff",
+      "period": 45856846,
+      "percent": 0.20232544730588875
+    },
+    {
+      "symbol": "Eigen::QuaternionBase<Eigen::Quaternion<double, 0> >::_transformVector",
+      "period": 44906838,
+      "percent": 0.19813390754006682
+    },
+    {
+      "symbol": "unlink_chunk.constprop.0",
+      "period": 44041431,
+      "percent": 0.19431563668958907
+    },
+    {
+      "symbol": "svo::matcher_utils::depthFromTriangulation",
+      "period": 43682650,
+      "percent": 0.19273265546340848
+    },
+    {
+      "symbol": "Eigen::internal::gemm_pack_rhs<double, long, Eigen::internal::const_blas_data_mapper<double, long, 0>, 4, 0, false, false>::operator()",
+      "period": 36174346,
+      "percent": 0.1596051925474331
+    },
+    {
+      "symbol": "std::_Rb_tree_insert_and_rebalance",
+      "period": 35562254,
+      "percent": 0.15690457533332386
+    },
+    {
+      "symbol": "vk::cameras::CameraGeometryBase::isKeypointVisibleWithMargin<Eigen::Matrix<int, 2, 1, 0, 2, 1> >",
+      "period": 35204262,
+      "percent": 0.1553250752619075
+    },
+    {
+      "symbol": "svo::DepthFilter::updateSeeds",
+      "period": 32437855,
+      "percent": 0.14311938336357805
+    },
+    {
+      "symbol": "std::_Rb_tree<long, std::pair<long const, svo::StateFactor>, std::_Select1st<std::pair<long const, svo::StateFactor> >, std::less<long>, std::allocator<std::pair<long const, svo::StateFactor> > >::_M_erase",
+      "period": 27683760,
+      "percent": 0.1221437934285509
+    },
+    {
+      "symbol": "Eigen::QuaternionBase<Eigen::Quaternion<double, 0> >::toRotationMatrix",
+      "period": 23890861,
+      "percent": 0.10540910594565994
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::StructureOptimize",
+      "period": 23648010,
+      "percent": 0.10433762062798933
+    },
+    {
+      "symbol": "Eigen::internal::call_dense_assignment_loop<Eigen::Block<Eigen::Matrix<double, -1, -1, 0, -1, -1>, -1, -1, false>, Eigen::CwiseBinaryOp<Eigen::internal::scalar_sum_op<double, double>, Eigen::Product<Eigen::Product<Eigen::Matrix<double, 15, 15, 0, 15, 15>, Eigen::Block<Eigen::Matrix<double, -1, -1, 0, -1, -1>, -1, -1, false>, 0>, Eigen::Transpose<Eigen::Matrix<double, 15, 15, 0, 15, 15> >, 0> const, Eigen::CwiseBinaryOp<Eigen::internal::scalar_product_op<double, double>, Eigen::Product<Eigen::Product<Eigen::Product<Eigen::Product<Eigen::Matrix<double, 15, 15, 0, 15, 15>, Eigen::Matrix<double, 15, 12, 0, 15, 12>, 0>, Eigen::Matrix<double, 12, 12, 0, 12, 12>, 0>, Eigen::Transpose<Eigen::Matrix<double, 15, 12, 0, 15, 12> >, 0>, Eigen::Transpose<Eigen::Matrix<double, 15, 15, 0, 15, 15> >, 0> const, Eigen::CwiseNullaryOp<Eigen::internal::scalar_constant_op<double>, Eigen::Matrix<double, 15, 15, 0, 15, 15> const> const> const>, Eigen::internal::assign_op<double, double> >",
+      "period": 23336382,
+      "percent": 0.10296268362309721
+    },
+    {
+      "symbol": "Eigen::internal::triangular_solve_matrix<double, long, 1, 5, false, 0, 0>::run",
+      "period": 20651152,
+      "percent": 0.09111515357558388
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::optimizeStructure",
+      "period": 20523815,
+      "percent": 0.09055332872867683
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::StateCorrection",
+      "period": 20222589,
+      "percent": 0.08922428649166464
+    },
+    {
+      "symbol": "Eigen::internal::call_dense_assignment_loop<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Product<Eigen::Product<Eigen::Inverse<Eigen::Matrix<double, 3, 3, 0, 3, 3> >, Eigen::Matrix<double, 3, 3, 0, 3, 3>, 0>, Eigen::Matrix<double, 3, 3, 0, 3, 3>, 1>, Eigen::internal::assign_op<double, double> >",
+      "period": 19861911,
+      "percent": 0.08763293549287607
+    },
+    {
+      "symbol": "svo::Matcher::findLocalMatch",
+      "period": 19668548,
+      "percent": 0.08677979667326757
+    },
+    {
+      "symbol": "Eigen::internal::gemm_pack_rhs<double, long, Eigen::internal::const_blas_data_mapper<double, long, 1>, 4, 1, false, false>::operator()",
+      "period": 19413950,
+      "percent": 0.085656482299811
+    },
+    {
+      "symbol": "Eigen::internal::gemm_pack_lhs<double, long, Eigen::internal::const_blas_data_mapper<double, long, 1>, 6, 2, 1, false, false>::operator()",
+      "period": 16548771,
+      "percent": 0.07301499747579064
+    },
+    {
+      "symbol": "svo::LocalFeature::LocalFeature",
+      "period": 16378575,
+      "percent": 0.07226407400779475
+    },
+    {
+      "symbol": "__acos",
+      "period": 15930970,
+      "percent": 0.07028919152587805
+    },
+    {
+      "symbol": "Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 2, 6, 0, 2, 6> >, Eigen::internal::evaluator<Eigen::Product<Eigen::Matrix<double, 2, 3, 0, 2, 3>, Eigen::Matrix<double, 3, 6, 0, 3, 6>, 1> >, Eigen::internal::assign_op<double, double>, 0>::assignPacket<16, 16, __Float64x2_t>",
+      "period": 15842122,
+      "percent": 0.0698971843795027
+    },
+    {
+      "symbol": "std::_Rb_tree_rebalance_for_erase",
+      "period": 15838502,
+      "percent": 0.06988121254142104
+    },
+    {
+      "symbol": "svo::Point::removeObservation",
+      "period": 15825445,
+      "percent": 0.06982360362157791
+    },
+    {
+      "symbol": "svo::reprojector_utils::matchCandidates",
+      "period": 15655426,
+      "percent": 0.06907346109704625
+    },
+    {
+      "symbol": "Eigen::internal::general_matrix_vector_product<long, double, Eigen::internal::const_blas_data_mapper<double, long, 0>, 0, false, double, Eigen::internal::const_blas_data_mapper<double, long, 1>, false, 0>::run",
+      "period": 15592619,
+      "percent": 0.06879634970632956
+    },
+    {
+      "symbol": "__memset_generic",
+      "period": 15585632,
+      "percent": 0.06876552229398798
+    },
+    {
+      "symbol": "is_corner_10<fast::Greater>",
+      "period": 12569505,
+      "percent": 0.055458038294622466
+    },
+    {
+      "symbol": "Eigen::internal::ldlt_inplace<1>::unblocked<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Transpositions<-1, -1, int>, Eigen::Matrix<double, -1, 1, 0, -1, 1> >",
+      "period": 12368233,
+      "percent": 0.054570004097282535
+    },
+    {
+      "symbol": "Eigen::AngleAxis<double>::toRotationMatrix",
+      "period": 12224368,
+      "percent": 0.05393525589683583
+    },
+    {
+      "symbol": "svo::Frame::~Frame",
+      "period": 12104478,
+      "percent": 0.053406288032855326
+    },
+    {
+      "symbol": "svo::FrameBundle::numTrackedFeatures",
+      "period": 11998955,
+      "percent": 0.052940708952775126
+    },
+    {
+      "symbol": "std::_Sp_counted_ptr_inplace<svo::LocalFeature, std::allocator<svo::LocalFeature>, (__gnu_cxx::_Lock_policy)2>::_M_dispose",
+      "period": 11990785,
+      "percent": 0.05290466201434223
+    },
+    {
+      "symbol": "std::_Rb_tree<long, std::pair<long const, svo::StateFactor>, std::_Select1st<std::pair<long const, svo::StateFactor> >, std::less<long>, std::allocator<std::pair<long const, svo::StateFactor> > >::_M_emplace_unique<int&, svo::StateFactor>",
+      "period": 11817025,
+      "percent": 0.05213801378642286
+    },
+    {
+      "symbol": "std::_Rb_tree_decrement",
+      "period": 11800305,
+      "percent": 0.05206424330776948
+    },
+    {
+      "symbol": "Eigen::LDLT<Eigen::Matrix<double, -1, -1, 0, -1, -1>, 1>::_solve_impl<Eigen::Product<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Block<Eigen::Matrix<double, -1, -1, 0, -1, -1>, -1, -1, false>, 0>, Eigen::Matrix<double, -1, -1, 0, -1, -1> >",
+      "period": 11481993,
+      "percent": 0.05065981575985587
+    },
+    {
+      "symbol": "svo::Point::CheckLocalStatus",
+      "period": 11341063,
+      "percent": 0.05003801710216321
+    },
+    {
+      "symbol": "Eigen::internal::quat_product<4, Eigen::Quaternion<double, 0>, Eigen::Quaternion<double, 0>, double>::run",
+      "period": 11179528,
+      "percent": 0.04932530691859418
+    },
+    {
+      "symbol": "std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release",
+      "period": 8780688,
+      "percent": 0.03874136104461806
+    },
+    {
+      "symbol": "_IO_fwrite",
+      "period": 8418152,
+      "percent": 0.03714181234551024
+    },
+    {
+      "symbol": "svo::Point::addObservation",
+      "period": 8274565,
+      "percent": 0.03650829071163445
+    },
+    {
+      "symbol": "Eigen::internal::copy_using_evaluator_innervec_CompleteUnrolling<Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 15, 12, 0, 15, 12> >, Eigen::internal::evaluator<Eigen::CwiseNullaryOp<Eigen::internal::scalar_constant_op<double>, Eigen::Matrix<double, 15, 12, 0, 15, 12> > >, Eigen::internal::assign_op<double, double>, 0>, 0, 180>::run",
+      "period": 8269109,
+      "percent": 0.03648421823965282
+    },
+    {
+      "symbol": "svo::depth_filter_utils::initializeSeeds",
+      "period": 8114156,
+      "percent": 0.035800548563888604
+    },
+    {
+      "symbol": "is_corner_10<fast::Less>",
+      "period": 8081439,
+      "percent": 0.0356561975620882
+    },
+    {
+      "symbol": "_IO_fflush",
+      "period": 8051916,
+      "percent": 0.03552593883952338
+    },
+    {
+      "symbol": "svo::frame_utils::createImgPyramid",
+      "period": 7964398,
+      "percent": 0.035139799799404556
+    },
+    {
+      "symbol": "svo::feature_detection_utils::fillFeatures",
+      "period": 7955783,
+      "percent": 0.0351017894720362
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::projectMapInFrame",
+      "period": 7930167,
+      "percent": 0.03498876886311365
+    },
+    {
+      "symbol": "Eigen::internal::triangular_solve_matrix<double, long, 1, 6, false, 1, 0>::run",
+      "period": 7903106,
+      "percent": 0.03486937275528834
+    },
+    {
+      "symbol": "Eigen::internal::call_dense_assignment_loop<Eigen::Matrix<double, 3, 3, 0, 3, 3>, Eigen::CwiseBinaryOp<Eigen::internal::scalar_sum_op<double, double>, Eigen::Product<Eigen::Product<Eigen::Matrix<double, 3, 3, 0, 3, 3>, Eigen::Matrix<double, 3, 3, 0, 3, 3>, 0>, Eigen::Transpose<Eigen::Matrix<double, 3, 3, 0, 3, 3> >, 0> const, Eigen::Matrix<double, 3, 3, 0, 3, 3> const>, Eigen::internal::assign_op<double, double> >",
+      "period": 7882776,
+      "percent": 0.03477967455965298
+    },
+    {
+      "symbol": "Eigen::internal::general_matrix_matrix_product<long, double, 0, false, double, 0, false, 0>::run",
+      "period": 7801456,
+      "percent": 0.03442088177711153
+    },
+    {
+      "symbol": "operator new",
+      "period": 7717942,
+      "percent": 0.0340524088253018
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::PredictionState",
+      "period": 7637180,
+      "percent": 0.03369607800012211
+    },
+    {
+      "symbol": "svo::Matcher::scanEpipolarUnitSphere",
+      "period": 7438036,
+      "percent": 0.03281743277279261
+    },
+    {
+      "symbol": "std::_Rb_tree<std::shared_ptr<svo::Point>, std::shared_ptr<svo::Point>, std::_Identity<std::shared_ptr<svo::Point> >, std::less<std::shared_ptr<svo::Point> >, std::allocator<std::shared_ptr<svo::Point> > >::_M_insert_unique<std::shared_ptr<svo::Point> const&>",
+      "period": 7299817,
+      "percent": 0.03220759534522132
+    },
+    {
+      "symbol": "std::_Rb_tree<long, std::pair<long const, std::shared_ptr<svo::AugState> >, std::_Select1st<std::pair<long const, std::shared_ptr<svo::AugState> > >, std::less<long>, std::allocator<std::pair<long const, std::shared_ptr<svo::AugState> > > >::_M_emplace_unique<long&, std::shared_ptr<svo::AugState>&>",
+      "period": 4602069,
+      "percent": 0.020304834505137228
+    },
+    {
+      "symbol": "__libc_write",
+      "period": 4449538,
+      "percent": 0.019631850959713835
+    },
+    {
+      "symbol": "_init",
+      "period": 4333458,
+      "percent": 0.019119693234708773
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::AugmentState",
+      "period": 4327274,
+      "percent": 0.019092408746670942
+    },
+    {
+      "symbol": "std::__detail::_List_node_base::_M_hook",
+      "period": 4229768,
+      "percent": 0.01866220155219865
+    },
+    {
+      "symbol": "_int_realloc",
+      "period": 4117379,
+      "percent": 0.01816632892508292
+    },
+    {
+      "symbol": "std::num_put<char, std::ostreambuf_iterator<char, std::char_traits<char> > >::_M_insert_float<double>",
+      "period": 4100910,
+      "percent": 0.01809366588603133
+    },
+    {
+      "symbol": "svo::FrameBundle::numFixedLandmarks",
+      "period": 4059501,
+      "percent": 0.01791096482439509
+    },
+    {
+      "symbol": "svo::FastDetector::detect",
+      "period": 4040324,
+      "percent": 0.017826353791552032
+    },
+    {
+      "symbol": "std::ostream::sentry::sentry",
+      "period": 4038407,
+      "percent": 0.017817895776744704
+    },
+    {
+      "symbol": "__uselocale",
+      "period": 4037264,
+      "percent": 0.017812852735052072
+    },
+    {
+      "symbol": "svo::Frame::getFeatureWrapper",
+      "period": 4034703,
+      "percent": 0.017801553321425797
+    },
+    {
+      "symbol": "std::__ostream_insert<char, std::char_traits<char> >",
+      "period": 4027105,
+      "percent": 0.017768030109894195
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::addFrameBundle",
+      "period": 4008470,
+      "percent": 0.017685810440653416
+    },
+    {
+      "symbol": "svo::Map::getClosestNKeyframesWithOverlap",
+      "period": 4007627,
+      "percent": 0.017682091031950977
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::sparseImageAlignment",
+      "period": 4002410,
+      "percent": 0.01765907305425153
+    },
+    {
+      "symbol": "svo::Frame::initFrame",
+      "period": 4000488,
+      "percent": 0.017650592978894368
+    },
+    {
+      "symbol": "Eigen::internal::general_matrix_matrix_product<long, double, 1, false, double, 1, false, 0>::run",
+      "period": 3998925,
+      "percent": 0.017643696851015467
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::schurvinsForward",
+      "period": 3996557,
+      "percent": 0.01763324897461288
+    },
+    {
+      "symbol": "cv::Mat::Mat",
+      "period": 3993380,
+      "percent": 0.017619231701246744
+    },
+    {
+      "symbol": "cv::Mat::create",
+      "period": 3991751,
+      "percent": 0.01761204437411
+    },
+    {
+      "symbol": "svo::Frame::deleteLandmark",
+      "period": 3989221,
+      "percent": 0.017600881735892714
+    },
+    {
+      "symbol": "std::num_put<char, std::ostreambuf_iterator<char, std::char_traits<char> > >::_M_insert_int<unsigned long>",
+      "period": 3986725,
+      "percent": 0.017589869109414312
+    },
+    {
+      "symbol": "_IO_putc",
+      "period": 3985265,
+      "percent": 0.017583427428862045
+    },
+    {
+      "symbol": "[unknown]",
+      "period": 3984483,
+      "percent": 0.01757997715886761
+    },
+    {
+      "symbol": "cv::Mat::copyTo",
+      "period": 3984446,
+      "percent": 0.017579813910798818
+    },
+    {
+      "symbol": "svo::Point::~Point",
+      "period": 3982357,
+      "percent": 0.017570597013077113
+    },
+    {
+      "symbol": "std::_Sp_counted_ptr<svo::AugState*, (__gnu_cxx::_Lock_policy)2>::_M_dispose",
+      "period": 3982318,
+      "percent": 0.01757042494078839
+    },
+    {
+      "symbol": "std::vector<cv::Mat, std::allocator<cv::Mat> >::_M_default_append",
+      "period": 3981525,
+      "percent": 0.017566926137584316
+    },
+    {
+      "symbol": "cv::fastFree",
+      "period": 3979695,
+      "percent": 0.01755885197634414
+    },
+    {
+      "symbol": "svo::Map::removeKeyframe",
+      "period": 3974451,
+      "percent": 0.01753571487167558
+    },
+    {
+      "symbol": "svo::Map::getFurthestKeyframe",
+      "period": 3971039,
+      "percent": 0.017520660752467127
+    },
+    {
+      "symbol": "std::__unguarded_linear_insert<__gnu_cxx::__normal_iterator<svo::Reprojector::Candidate*, std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> > >, __gnu_cxx::__ops::_Val_comp_iter<svo::reprojector_utils::sortCandidatesByReprojStats(std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> >&)::{lambda(svo::Reprojector::Candidate const&, svo::Reprojector::Candidate const&)#1}> >",
+      "period": 3963443,
+      "percent": 0.01748714636515546
+    },
+    {
+      "symbol": "svo::warp::getBestSearchLevel",
+      "period": 3959403,
+      "percent": 0.017469321440887534
+    },
+    {
+      "symbol": "cv::fastMalloc",
+      "period": 3945655,
+      "percent": 0.01740866375305699
+    },
+    {
+      "symbol": "svo::Map::safeDeletePoint",
+      "period": 3944798,
+      "percent": 0.017404882574815008
+    },
+    {
+      "symbol": "std::_Hashtable<long, long, std::allocator<long>, std::__detail::_Identity, std::equal_to<long>, std::hash<long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::_M_rehash",
+      "period": 3935556,
+      "percent": 0.01736410585449715
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::addImageBundle",
+      "period": 3932831,
+      "percent": 0.017352082854836238
+    },
+    {
+      "symbol": "__vfprintf_internal",
+      "period": 3923069,
+      "percent": 0.01730901183733538
+    },
+    {
+      "symbol": "std::__use_cache<std::__numpunct_cache<char> >::operator()",
+      "period": 3917128,
+      "percent": 0.017282799492019607
+    },
+    {
+      "symbol": "___vsnprintf",
+      "period": 3911520,
+      "percent": 0.017258056379322945
+    },
+    {
+      "symbol": "std::ostream::flush",
+      "period": 3897197,
+      "percent": 0.0171948617282612
+    },
+    {
+      "symbol": "std::locale::facet::_S_get_c_locale",
+      "period": 3877232,
+      "percent": 0.017106773952763905
+    },
+    {
+      "symbol": "svo::Frame::setKeyPoints",
+      "period": 3868925,
+      "percent": 0.01707012255526548
+    },
+    {
+      "symbol": "vk::cameras::CameraGeometryBase::backProject3",
+      "period": 3864037,
+      "percent": 0.01704855616174528
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::upgradeSeedsToFeatures",
+      "period": 3860524,
+      "percent": 0.01703305641943013
+    },
+    {
+      "symbol": "__printf_fp_l",
+      "period": 3860488,
+      "percent": 0.017032897583471308
+    },
+    {
+      "symbol": "__vsnprintf_internal",
+      "period": 3857576,
+      "percent": 0.017020049519246506
+    },
+    {
+      "symbol": "__cos",
+      "period": 3835937,
+      "percent": 0.01692457587166394
+    },
+    {
+      "symbol": "_IO_new_file_sync",
+      "period": 3814322,
+      "percent": 0.016829208114720585
+    },
+    {
+      "symbol": "__mpn_lshift",
+      "period": 3810266,
+      "percent": 0.016811312596693186
+    },
+    {
+      "symbol": "Eigen::internal::copy_using_evaluator_innervec_CompleteUnrolling<Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 15, 12, 0, 15, 12> >, Eigen::internal::evaluator<Eigen::CwiseNullaryOp<Eigen::internal::scalar_constant_op<double>, Eigen::Matrix<double, 15, 12, 0, 15, 12> > >, Eigen::internal::assign_op<double, double>, 0>, 96, 180>::run",
+      "period": 3764368,
+      "percent": 0.016608805573413703
+    },
+    {
+      "symbol": "with_errno",
+      "period": 3752956,
+      "percent": 0.016558454574466787
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::StateUpdate",
+      "period": 3745128,
+      "percent": 0.016523916577642704
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::setTrackingQuality",
+      "period": 3665434,
+      "percent": 0.016172297885908092
+    },
+    {
+      "symbol": "std::__insertion_sort<__gnu_cxx::__normal_iterator<svo::Reprojector::Candidate*, std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> > >, __gnu_cxx::__ops::_Iter_comp_iter<svo::reprojector_utils::sortCandidatesByReprojStats(std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> >&)::{lambda(svo::Reprojector::Candidate const&, svo::Reprojector::Candidate const&)#1}> >",
+      "period": 3540340,
+      "percent": 0.01562036940165772
+    },
+    {
+      "symbol": "Eigen::internal::general_matrix_matrix_product<long, double, 0, false, double, 1, false, 0>::run",
+      "period": 3261108,
+      "percent": 0.014388367111266488
+    },
+    {
+      "symbol": "std::vector<std::shared_ptr<svo::Point>, std::allocator<std::shared_ptr<svo::Point> > >::_M_realloc_insert<std::shared_ptr<svo::Point> const&>",
+      "period": 3019963,
+      "percent": 0.013324408853200102
+    }
+  ],
+  "hot_callers": [
+    {
+      "symbol": "svo::feature_alignment::align2D <- svo::Matcher::findLocalMatch",
+      "period": 5841637771,
+      "percent": 25.773948234829536
+    },
+    {
+      "symbol": "svo::warp::warpAffine <- svo::depth_filter_utils::updateSeed",
+      "period": 2959640554,
+      "percent": 13.05825958795113
+    },
+    {
+      "symbol": "svo::feature_alignment::align2D <- svo::Matcher::findMatchDirect",
+      "period": 1966221371,
+      "percent": 8.675184908922276
+    },
+    {
+      "symbol": "svo::warp::warpAffine <- svo::reprojector_utils::matchCandidate",
+      "period": 900095098,
+      "percent": 3.9713185534104936
+    },
+    {
+      "symbol": "svo::feature_alignment::align2D <- svo::Matcher::findEpipolarMatchDirect",
+      "period": 15848990,
+      "percent": 0.06992748675075817
+    },
+    {
+      "symbol": "svo::feature_alignment::align2D <- svo::reprojector_utils::matchCandidate",
+      "period": 8747485,
+      "percent": 0.03859486575737355
+    },
+    {
+      "symbol": "svo::warp::warpAffine <- svo::StereoTriangulation::compute",
+      "period": 3973578,
+      "percent": 0.01753186309967412
+    }
+  ],
+  "inclusive": [
+    {
+      "symbol": "__libc_start_main_impl",
+      "period": 22664892929,
+      "percent": 100.0
+    },
+    {
+      "symbol": "__libc_start_call_main",
+      "period": 22664892929,
+      "percent": 100.0
+    },
+    {
+      "symbol": "main",
+      "period": 22664892929,
+      "percent": 100.0
+    },
+    {
+      "symbol": "_start",
+      "period": 22664892929,
+      "percent": 100.0
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::addImageBundle",
+      "period": 22405305479,
+      "percent": 98.85467162446704
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::addFrameBundle",
+      "period": 21849870870,
+      "percent": 96.40403304991055
+    },
+    {
+      "symbol": "svo::FrameHandlerStereo::processFrame",
+      "period": 16153266944,
+      "percent": 71.26999008820246
+    },
+    {
+      "symbol": "svo::depth_filter_utils::updateSeed",
+      "period": 11395152965,
+      "percent": 50.27666797587103
+    },
+    {
+      "symbol": "svo::DepthFilter::updateSeeds",
+      "period": 11196880206,
+      "percent": 49.40186675964156
+    },
+    {
+      "symbol": "svo::feature_alignment::align2D",
+      "period": 7832455617,
+      "percent": 34.55765549625995
+    },
+    {
+      "symbol": "svo::Matcher::findEpipolarMatchDirect",
+      "period": 7197867348,
+      "percent": 31.75778226946858
+    },
+    {
+      "symbol": "svo::Matcher::findLocalMatch",
+      "period": 6012623444,
+      "percent": 26.52835582693963
+    },
+    {
+      "symbol": "svo::FrameHandlerStereo::makeKeyframe",
+      "period": 5199269407,
+      "percent": 22.939748373342074
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::projectMapInFrame",
+      "period": 4710760944,
+      "percent": 20.784395314625666
+    },
+    {
+      "symbol": "svo::Reprojector::reprojectFrames",
+      "period": 4687678923,
+      "percent": 20.682554899705963
+    },
+    {
+      "symbol": "svo::reprojector_utils::matchCandidates",
+      "period": 4007338713,
+      "percent": 17.68081907800483
+    },
+    {
+      "symbol": "svo::reprojector_utils::matchCandidate",
+      "period": 3983932166,
+      "percent": 17.577546818685878
+    },
+    {
+      "symbol": "svo::warp::warpAffine",
+      "period": 3863709230,
+      "percent": 17.047110004461295
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::optimizePose",
+      "period": 2542385609,
+      "percent": 11.217284886208253
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::schurvinsBackward",
+      "period": 2494387527,
+      "percent": 11.005512070204407
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::Backward",
+      "period": 2494387527,
+      "percent": 11.005512070204407
+    },
+    {
+      "symbol": "svo::Matcher::findMatchDirect",
+      "period": 2355758681,
+      "percent": 10.39386635701146
+    },
+    {
+      "symbol": "svo::DepthFilter::addKeyframe",
+      "period": 1717362082,
+      "percent": 7.5771903594682986
+    },
+    {
+      "symbol": "svo::depth_filter_utils::initializeSeeds",
+      "period": 1713244703,
+      "percent": 7.559024030543215
+    },
+    {
+      "symbol": "svo::FastDetector::detect",
+      "period": 1713121827,
+      "percent": 7.558481888118872
+    },
+    {
+      "symbol": "svo::feature_detection_utils::fastDetector",
+      "period": 1701125720,
+      "percent": 7.505553744855284
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::Solve3",
+      "period": 1412343946,
+      "percent": 6.231416801413119
+    },
+    {
+      "symbol": "svo::fast10DetectNEON",
+      "period": 927194542,
+      "percent": 4.090884280391387
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::sparseImageAlignment",
+      "period": 771557240,
+      "percent": 3.404195388952327
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::schurvinsForward",
+      "period": 767554830,
+      "percent": 3.3865363158980752
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::Forward",
+      "period": 763558273,
+      "percent": 3.3689030669234628
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::Prediction",
+      "period": 759793905,
+      "percent": 3.352294261350049
+    },
+    {
+      "symbol": "Eigen::internal::gebp_kernel<double, double, long, Eigen::internal::blas_data_mapper<double, long, 0, 0>, 6, 4, false, false>::operator()",
+      "period": 618300845,
+      "percent": 2.728011321019199
+    },
+    {
+      "symbol": "vk::cameras::CameraGeometry<vk::cameras::PinholeProjection<vk::cameras::RadialTangentialDistortion> >::backProject3",
+      "period": 615824564,
+      "percent": 2.7170856969372448
+    },
+    {
+      "symbol": "svo::Frame::Frame",
+      "period": 531849861,
+      "percent": 2.346580072829251
+    },
+    {
+      "symbol": "svo::Frame::initFrame",
+      "period": 527879879,
+      "percent": 2.3290640756770196
+    },
+    {
+      "symbol": "vk::halfSample",
+      "period": 496565853,
+      "percent": 2.190903149445891
+    },
+    {
+      "symbol": "Eigen::internal::general_matrix_matrix_product<long, double, 0, false, double, 0, false, 0>::run",
+      "period": 419350675,
+      "percent": 1.8502212929646618
+    },
+    {
+      "symbol": "kindr::minimal::QuatTransformationTemplate<double>::inverse",
+      "period": 411282859,
+      "percent": 1.8146252015766582
+    },
+    {
+      "symbol": "svo::reprojector_utils::getCandidate",
+      "period": 385711837,
+      "percent": 1.7018030405362168
+    },
+    {
+      "symbol": "svo::warp::getWarpMatrixAffine",
+      "period": 383825782,
+      "percent": 1.6934815584718266
+    },
+    {
+      "symbol": "Eigen::internal::call_dense_assignment_loop<Eigen::Block<Eigen::Matrix<double, -1, -1, 0, -1, -1>, -1, -1, false>, Eigen::CwiseBinaryOp<Eigen::internal::scalar_sum_op<double, double>, Eigen::Product<Eigen::Product<Eigen::Matrix<double, 15, 15, 0, 15, 15>, Eigen::Block<Eigen::Matrix<double, -1, -1, 0, -1, -1>, -1, -1, false>, 0>, Eigen::Transpose<Eigen::Matrix<double, 15, 15, 0, 15, 15> >, 0> const, Eigen::CwiseBinaryOp<Eigen::internal::scalar_product_op<double, double>, Eigen::Product<Eigen::Product<Eigen::Product<Eigen::Product<Eigen::Matrix<double, 15, 15, 0, 15, 15>, Eigen::Matrix<double, 15, 12, 0, 15, 12>, 0>, Eigen::Matrix<double, 12, 12, 0, 12, 12>, 0>, Eigen::Transpose<Eigen::Matrix<double, 15, 12, 0, 15, 12> >, 0>, Eigen::Transpose<Eigen::Matrix<double, 15, 15, 0, 15, 15> >, 0> const, Eigen::CwiseNullaryOp<Eigen::internal::scalar_constant_op<double>, Eigen::Matrix<double, 15, 15, 0, 15, 15> const> const> const>, Eigen::internal::assign_op<double, double> >",
+      "period": 372138291,
+      "percent": 1.641915062937909
+    },
+    {
+      "symbol": "svo::fast10ScoreNEON",
+      "period": 356631224,
+      "percent": 1.5734961780635024
+    },
+    {
+      "symbol": "fast::fast_nonmax_3x3",
+      "period": 316633776,
+      "percent": 1.3970230390758358
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::optimizeStructure",
+      "period": 314242766,
+      "percent": 1.3864736400229036
+    },
+    {
+      "symbol": "vk::cameras::PinholeProjection<vk::cameras::RadialTangentialDistortion>::project3",
+      "period": 300636954,
+      "percent": 1.3264433012843906
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::StructureOptimize",
+      "period": 293718951,
+      "percent": 1.2959203112942268
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::StateUpdate",
+      "period": 278264693,
+      "percent": 1.227734425535084
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::RemovePointOutliers",
+      "period": 263214182,
+      "percent": 1.1613299159389114
+    },
+    {
+      "symbol": "svo::Point::getCloseViewObs",
+      "period": 250954285,
+      "percent": 1.1072379021870473
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::Management",
+      "period": 242499206,
+      "percent": 1.0699331638567742
+    },
+    {
+      "symbol": "svo::Point::EkfUpdate",
+      "period": 242166040,
+      "percent": 1.0684631988274063
+    },
+    {
+      "symbol": "__memcpy_generic",
+      "period": 239722255,
+      "percent": 1.0576809506709495
+    },
+    {
+      "symbol": "Eigen::internal::compute_inverse_size4<4, float, Eigen::Matrix<float, 4, 4, 0, 4, 4>, Eigen::Matrix<float, 4, 4, 0, 4, 4> >::run",
+      "period": 234836815,
+      "percent": 1.0361258521522663
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::RegisterPoints",
+      "period": 227374674,
+      "percent": 1.0032020654687117
+    },
+    {
+      "symbol": "malloc",
+      "period": 192928410,
+      "percent": 0.8512213607378034
+    },
+    {
+      "symbol": "svo::depth_filter_utils::updateFilterVogiatzis",
+      "period": 180126440,
+      "percent": 0.7947376612996309
+    },
+    {
+      "symbol": "svo::depth_filter_utils::computeTau",
+      "period": 178731986,
+      "percent": 0.7885851769072789
+    },
+    {
+      "symbol": "Eigen::internal::general_matrix_matrix_product<long, double, 0, false, double, 1, false, 0>::run",
+      "period": 172087946,
+      "percent": 0.7592709418000887
+    },
+    {
+      "symbol": "svo::Matcher::scanEpipolarUnitPlane",
+      "period": 171652629,
+      "percent": 0.7573502753254502
+    },
+    {
+      "symbol": "free",
+      "period": 163680279,
+      "percent": 0.7221753904275856
+    },
+    {
+      "symbol": "kindr::minimal::QuatTransformationTemplate<double>::operator*",
+      "period": 147276742,
+      "percent": 0.6498011813307869
+    },
+    {
+      "symbol": "_int_malloc",
+      "period": 146193780,
+      "percent": 0.6450230338963716
+    },
+    {
+      "symbol": "kindr::minimal::RotationQuaternionTemplate<double>::RotationQuaternionTemplate",
+      "period": 144515570,
+      "percent": 0.6376185868281363
+    },
+    {
+      "symbol": "std::_Rb_tree_increment",
+      "period": 137139828,
+      "percent": 0.6050760020336472
+    },
+    {
+      "symbol": "operator new",
+      "period": 136924471,
+      "percent": 0.6041258232674177
+    },
+    {
+      "symbol": "svo::Frame::isVisible",
+      "period": 131263283,
+      "percent": 0.5791480392658157
+    },
+    {
+      "symbol": "__sin",
+      "period": 126693293,
+      "percent": 0.5589847408363197
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::SetKeyframe",
+      "period": 123554189,
+      "percent": 0.5451346687895046
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::KeyframeSelect",
+      "period": 123554189,
+      "percent": 0.5451346687895046
+    },
+    {
+      "symbol": "_int_free",
+      "period": 115399898,
+      "percent": 0.5091570401920781
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::StateCorrection",
+      "period": 112783558,
+      "percent": 0.4976134604002126
+    },
+    {
+      "symbol": "svo::Matcher::updateZMSSD",
+      "period": 111498307,
+      "percent": 0.49194279165262056
+    },
+    {
+      "symbol": "__ieee754_acos",
+      "period": 111310876,
+      "percent": 0.49111582546933813
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::RemoveOutliers",
+      "period": 105841711,
+      "percent": 0.46698526805998836
+    },
+    {
+      "symbol": "svo::Point::CheckStatus",
+      "period": 105098536,
+      "percent": 0.46370629823503456
+    },
+    {
+      "symbol": "Eigen::LDLT<Eigen::Matrix<double, -1, -1, 0, -1, -1>, 1>::_solve_impl<Eigen::Product<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Block<Eigen::Matrix<double, -1, -1, 0, -1, -1>, -1, -1, false>, 0>, Eigen::Matrix<double, -1, -1, 0, -1, -1> >",
+      "period": 89290756,
+      "percent": 0.39396063453602914
+    },
+    {
+      "symbol": "vk::cameras::CameraGeometry<vk::cameras::PinholeProjection<vk::cameras::RadialTangentialDistortion> >::project3",
+      "period": 83348010,
+      "percent": 0.3677405856762519
+    },
+    {
+      "symbol": "Eigen::internal::general_matrix_matrix_product<long, double, 1, false, double, 1, false, 0>::run",
+      "period": 69655670,
+      "percent": 0.3073284758864876
+    },
+    {
+      "symbol": "std::__introsort_loop<__gnu_cxx::__normal_iterator<svo::Reprojector::Candidate*, std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<svo::reprojector_utils::sortCandidatesByReprojStats(std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> >&)::{lambda(svo::Reprojector::Candidate const&, svo::Reprojector::Candidate const&)#1}> >",
+      "period": 68362858,
+      "percent": 0.30162444717543274
+    },
+    {
+      "symbol": "malloc_consolidate",
+      "period": 67949226,
+      "percent": 0.2997994573054354
+    },
+    {
+      "symbol": "Eigen::internal::gemm_pack_lhs<double, long, Eigen::internal::const_blas_data_mapper<double, long, 0>, 6, 2, 0, false, false>::operator()",
+      "period": 65825029,
+      "percent": 0.2904272665492105
+    },
+    {
+      "symbol": "Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 6, 3, 0, 6, 3> >, Eigen::internal::evaluator<Eigen::Product<Eigen::Transpose<Eigen::Matrix<double, 2, 6, 0, 2, 6> >, Eigen::Matrix<double, 2, 3, 0, 2, 3>, 1> >, Eigen::internal::assign_op<double, double>, 0>::assignCoeff",
+      "period": 64965299,
+      "percent": 0.2866340432470172
+    },
+    {
+      "symbol": "std::_Sp_counted_ptr<svo::FrameBundle*, (__gnu_cxx::_Lock_policy)2>::_M_dispose",
+      "period": 63931045,
+      "percent": 0.28207080086488945
+    },
+    {
+      "symbol": "std::__shared_count<(__gnu_cxx::_Lock_policy)2>::operator=",
+      "period": 63931045,
+      "percent": 0.28207080086488945
+    },
+    {
+      "symbol": "Eigen::QuaternionBase<Eigen::Quaternion<double, 0> >::inverse",
+      "period": 60776004,
+      "percent": 0.26815041302152537
+    },
+    {
+      "symbol": "__aarch64_cas4_acq_rel",
+      "period": 48561883,
+      "percent": 0.21426036801552453
+    },
+    {
+      "symbol": "__ieee754_exp",
+      "period": 48052178,
+      "percent": 0.21201149350463802
+    },
+    {
+      "symbol": "cv::Mat::deallocate",
+      "period": 47946410,
+      "percent": 0.21154483345761585
+    },
+    {
+      "symbol": "Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 3, 3, 0, 3, 3> >, Eigen::internal::evaluator<Eigen::Product<Eigen::Transpose<Eigen::Matrix<double, 2, 3, 0, 2, 3> >, Eigen::Matrix<double, 2, 3, 0, 2, 3>, 1> >, Eigen::internal::add_assign_op<double, double>, 0>::assignCoeff",
+      "period": 45856846,
+      "percent": 0.20232544730588875
+    },
+    {
+      "symbol": "Eigen::QuaternionBase<Eigen::Quaternion<double, 0> >::_transformVector",
+      "period": 44906838,
+      "percent": 0.19813390754006682
+    },
+    {
+      "symbol": "unlink_chunk.constprop.0",
+      "period": 44041431,
+      "percent": 0.19431563668958907
+    },
+    {
+      "symbol": "svo::matcher_utils::depthFromTriangulation",
+      "period": 43682650,
+      "percent": 0.19273265546340848
+    },
+    {
+      "symbol": "svo::Frame::~Frame",
+      "period": 40084587,
+      "percent": 0.17685760583810786
+    },
+    {
+      "symbol": "svo::StereoTriangulation::compute",
+      "period": 39800752,
+      "percent": 0.17560529460553712
+    },
+    {
+      "symbol": "Eigen::internal::gemm_pack_rhs<double, long, Eigen::internal::const_blas_data_mapper<double, long, 0>, 4, 0, false, false>::operator()",
+      "period": 36174346,
+      "percent": 0.1596051925474331
+    },
+    {
+      "symbol": "std::_Rb_tree_insert_and_rebalance",
+      "period": 35562254,
+      "percent": 0.15690457533332386
+    },
+    {
+      "symbol": "vk::cameras::CameraGeometryBase::isKeypointVisibleWithMargin<Eigen::Matrix<int, 2, 1, 0, 2, 1> >",
+      "period": 35204262,
+      "percent": 0.1553250752619075
+    },
+    {
+      "symbol": "Eigen::internal::triangular_solve_matrix<double, long, 1, 5, false, 0, 0>::run",
+      "period": 32823012,
+      "percent": 0.14481873840225631
+    },
+    {
+      "symbol": "std::num_put<char, std::ostreambuf_iterator<char, std::char_traits<char> > >::_M_insert_float<double>",
+      "period": 31378325,
+      "percent": 0.13844462048991663
+    },
+    {
+      "symbol": "std::ostream::_M_insert<double>",
+      "period": 31378325,
+      "percent": 0.13844462048991663
+    },
+    {
+      "symbol": "svo::Matcher::scanEpipolarUnitSphere",
+      "period": 31171548,
+      "percent": 0.13753229762720667
+    },
+    {
+      "symbol": "Eigen::internal::ldlt_inplace<1>::unblocked<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Transpositions<-1, -1, int>, Eigen::Matrix<double, -1, 1, 0, -1, 1> >",
+      "period": 27960852,
+      "percent": 0.12336635380361209
+    },
+    {
+      "symbol": "std::_Rb_tree<long, std::pair<long const, svo::StateFactor>, std::_Select1st<std::pair<long const, svo::StateFactor> >, std::less<long>, std::allocator<std::pair<long const, svo::StateFactor> > >::_M_erase",
+      "period": 27683760,
+      "percent": 0.1221437934285509
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::upgradeSeedsToFeatures",
+      "period": 24204844,
+      "percent": 0.10679443346952508
+    },
+    {
+      "symbol": "Eigen::QuaternionBase<Eigen::Quaternion<double, 0> >::toRotationMatrix",
+      "period": 23890861,
+      "percent": 0.10540910594565994
+    },
+    {
+      "symbol": "Eigen::internal::triangular_solve_matrix<double, long, 1, 6, false, 1, 0>::run",
+      "period": 20722406,
+      "percent": 0.0914295340591944
+    },
+    {
+      "symbol": "std::__ostream_insert<char, std::char_traits<char> >",
+      "period": 20161049,
+      "percent": 0.08895276524427653
+    },
+    {
+      "symbol": "cv::fastMalloc",
+      "period": 19872591,
+      "percent": 0.08768005682732692
+    },
+    {
+      "symbol": "Eigen::internal::call_dense_assignment_loop<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Product<Eigen::Product<Eigen::Inverse<Eigen::Matrix<double, 3, 3, 0, 3, 3> >, Eigen::Matrix<double, 3, 3, 0, 3, 3>, 0>, Eigen::Matrix<double, 3, 3, 0, 3, 3>, 1>, Eigen::internal::assign_op<double, double> >",
+      "period": 19861911,
+      "percent": 0.08763293549287607
+    },
+    {
+      "symbol": "svo::Map::removeKeyframe",
+      "period": 19799896,
+      "percent": 0.08735931849325348
+    },
+    {
+      "symbol": "Eigen::AngleAxis<double>::toRotationMatrix",
+      "period": 19760028,
+      "percent": 0.08718341649307687
+    },
+    {
+      "symbol": "Eigen::internal::gemm_pack_rhs<double, long, Eigen::internal::const_blas_data_mapper<double, long, 1>, 4, 1, false, false>::operator()",
+      "period": 19413950,
+      "percent": 0.085656482299811
+    },
+    {
+      "symbol": "___vsnprintf",
+      "period": 19362919,
+      "percent": 0.08543132791606933
+    },
+    {
+      "symbol": "Eigen::internal::gemm_pack_lhs<double, long, Eigen::internal::const_blas_data_mapper<double, long, 1>, 6, 2, 1, false, false>::operator()",
+      "period": 16548771,
+      "percent": 0.07301499747579064
+    },
+    {
+      "symbol": "svo::LocalFeature::LocalFeature",
+      "period": 16378575,
+      "percent": 0.07226407400779475
+    },
+    {
+      "symbol": "svo::Point::addObservation",
+      "period": 16264247,
+      "percent": 0.07175964629945242
+    },
+    {
+      "symbol": "Eigen::internal::Assignment<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Product<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Block<Eigen::Matrix<double, -1, -1, 0, -1, -1>, -1, -1, false>, 0>, Eigen::internal::assign_op<double, double>, Eigen::internal::Dense2Dense, void>::run",
+      "period": 16148468,
+      "percent": 0.0712488166195475
+    },
+    {
+      "symbol": "__acos",
+      "period": 15930970,
+      "percent": 0.07028919152587805
+    },
+    {
+      "symbol": "Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 2, 6, 0, 2, 6> >, Eigen::internal::evaluator<Eigen::Product<Eigen::Matrix<double, 2, 3, 0, 2, 3>, Eigen::Matrix<double, 3, 6, 0, 3, 6>, 1> >, Eigen::internal::assign_op<double, double>, 0>::assignPacket<16, 16, __Float64x2_t>",
+      "period": 15842122,
+      "percent": 0.0698971843795027
+    },
+    {
+      "symbol": "std::_Rb_tree_rebalance_for_erase",
+      "period": 15838502,
+      "percent": 0.06988121254142104
+    },
+    {
+      "symbol": "svo::Point::removeObservation",
+      "period": 15825445,
+      "percent": 0.06982360362157791
+    },
+    {
+      "symbol": "std::ostream::flush",
+      "period": 15763435,
+      "percent": 0.06955000868250517
+    },
+    {
+      "symbol": "std::_Rb_tree<long, std::pair<long const, svo::StateFactor>, std::_Select1st<std::pair<long const, svo::StateFactor> >, std::less<long>, std::allocator<std::pair<long const, svo::StateFactor> > >::_M_emplace_unique<int&, svo::StateFactor>",
+      "period": 15693739,
+      "percent": 0.0692425022662237
+    },
+    {
+      "symbol": "Eigen::internal::general_matrix_vector_product<long, double, Eigen::internal::const_blas_data_mapper<double, long, 0>, 0, false, double, Eigen::internal::const_blas_data_mapper<double, long, 1>, false, 0>::run",
+      "period": 15592619,
+      "percent": 0.06879634970632956
+    },
+    {
+      "symbol": "__memset_generic",
+      "period": 15585632,
+      "percent": 0.06876552229398798
+    },
+    {
+      "symbol": "__vsnprintf_internal",
+      "period": 15451399,
+      "percent": 0.06817327153674638
+    },
+    {
+      "symbol": "std::__convert_from_v",
+      "period": 15451399,
+      "percent": 0.06817327153674638
+    },
+    {
+      "symbol": "std::_Rb_tree<std::shared_ptr<svo::Point>, std::shared_ptr<svo::Point>, std::_Identity<std::shared_ptr<svo::Point> >, std::less<std::shared_ptr<svo::Point> >, std::allocator<std::shared_ptr<svo::Point> > >::_M_insert_unique<std::shared_ptr<svo::Point> const&>",
+      "period": 15355781,
+      "percent": 0.06775139440589237
+    },
+    {
+      "symbol": "_IO_fwrite",
+      "period": 12867690,
+      "percent": 0.05677366330522408
+    },
+    {
+      "symbol": "is_corner_10<fast::Greater>",
+      "period": 12569505,
+      "percent": 0.055458038294622466
+    },
+    {
+      "symbol": "svo::FrameBundle::numTrackedFeatures",
+      "period": 11998955,
+      "percent": 0.052940708952775126
+    },
+    {
+      "symbol": "std::_Sp_counted_ptr_inplace<svo::LocalFeature, std::allocator<svo::LocalFeature>, (__gnu_cxx::_Lock_policy)2>::_M_dispose",
+      "period": 11990785,
+      "percent": 0.05290466201434223
+    },
+    {
+      "symbol": "_IO_fflush",
+      "period": 11866238,
+      "percent": 0.05235514695424397
+    },
+    {
+      "symbol": "svo::frame_utils::computeNormalizedBearingVectors",
+      "period": 11840219,
+      "percent": 0.052240348265004594
+    },
+    {
+      "symbol": "std::ostream::sentry::sentry",
+      "period": 11825616,
+      "percent": 0.052175918223152
+    },
+    {
+      "symbol": "std::_Rb_tree_decrement",
+      "period": 11800305,
+      "percent": 0.05206424330776948
+    },
+    {
+      "symbol": "__vfprintf_internal",
+      "period": 11593823,
+      "percent": 0.051153222017499875
+    },
+    {
+      "symbol": "cv::Mat::create",
+      "period": 11352375,
+      "percent": 0.05008792689011339
+    },
+    {
+      "symbol": "svo::Point::CheckLocalStatus",
+      "period": 11341063,
+      "percent": 0.05003801710216321
+    },
+    {
+      "symbol": "Eigen::internal::quat_product<4, Eigen::Quaternion<double, 0>, Eigen::Quaternion<double, 0>, double>::run",
+      "period": 11179528,
+      "percent": 0.04932530691859418
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::AugmentState",
+      "period": 9035517,
+      "percent": 0.039865694615477086
+    },
+    {
+      "symbol": "std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release",
+      "period": 8780688,
+      "percent": 0.03874136104461806
+    },
+    {
+      "symbol": "std::_Rb_tree<std::shared_ptr<svo::Point>, std::shared_ptr<svo::Point>, std::_Identity<std::shared_ptr<svo::Point> >, std::less<std::shared_ptr<svo::Point> >, std::allocator<std::shared_ptr<svo::Point> > >::_M_erase",
+      "period": 8638043,
+      "percent": 0.03811199561833147
+    },
+    {
+      "symbol": "Eigen::internal::copy_using_evaluator_innervec_CompleteUnrolling<Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 15, 12, 0, 15, 12> >, Eigen::internal::evaluator<Eigen::CwiseNullaryOp<Eigen::internal::scalar_constant_op<double>, Eigen::Matrix<double, 15, 12, 0, 15, 12> > >, Eigen::internal::assign_op<double, double>, 0>, 0, 180>::run",
+      "period": 8269109,
+      "percent": 0.03648421823965282
+    },
+    {
+      "symbol": "is_corner_10<fast::Less>",
+      "period": 8081439,
+      "percent": 0.0356561975620882
+    },
+    {
+      "symbol": "std::vector<svo::KeypointIdentifier, std::allocator<svo::KeypointIdentifier> >::_M_realloc_insert<svo::KeypointIdentifier>",
+      "period": 7989682,
+      "percent": 0.035251355587817966
+    },
+    {
+      "symbol": "svo::frame_utils::createImgPyramid",
+      "period": 7964398,
+      "percent": 0.035139799799404556
+    },
+    {
+      "symbol": "svo::feature_detection_utils::fillFeatures",
+      "period": 7955783,
+      "percent": 0.0351017894720362
+    },
+    {
+      "symbol": "svo::Map::safeDeletePoint",
+      "period": 7934019,
+      "percent": 0.03500576431070772
+    },
+    {
+      "symbol": "std::ostream::_M_insert<unsigned long>",
+      "period": 7903853,
+      "percent": 0.03487266860143392
+    },
+    {
+      "symbol": "Eigen::internal::call_dense_assignment_loop<Eigen::Matrix<double, 3, 3, 0, 3, 3>, Eigen::CwiseBinaryOp<Eigen::internal::scalar_sum_op<double, double>, Eigen::Product<Eigen::Product<Eigen::Matrix<double, 3, 3, 0, 3, 3>, Eigen::Matrix<double, 3, 3, 0, 3, 3>, 0>, Eigen::Transpose<Eigen::Matrix<double, 3, 3, 0, 3, 3> >, 0> const, Eigen::Matrix<double, 3, 3, 0, 3, 3> const>, Eigen::internal::assign_op<double, double> >",
+      "period": 7882776,
+      "percent": 0.03477967455965298
+    },
+    {
+      "symbol": "std::_Sp_counted_ptr<svo::AugState*, (__gnu_cxx::_Lock_policy)2>::_M_dispose",
+      "period": 7871664,
+      "percent": 0.03473064719369626
+    },
+    {
+      "symbol": "schur_vins::SchurVINS::PredictionState",
+      "period": 7637180,
+      "percent": 0.03369607800012211
+    },
+    {
+      "symbol": "std::__insertion_sort<__gnu_cxx::__normal_iterator<svo::Reprojector::Candidate*, std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> > >, __gnu_cxx::__ops::_Iter_comp_iter<svo::reprojector_utils::sortCandidatesByReprojStats(std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> >&)::{lambda(svo::Reprojector::Candidate const&, svo::Reprojector::Candidate const&)#1}> >",
+      "period": 7503783,
+      "percent": 0.03310751576681318
+    },
+    {
+      "symbol": "svo::Frame::resizeFeatureStorage",
+      "period": 7486651,
+      "percent": 0.03303192749885327
+    },
+    {
+      "symbol": "std::_Rb_tree<long, std::pair<long const, std::shared_ptr<svo::AugState> >, std::_Select1st<std::pair<long const, std::shared_ptr<svo::AugState> > >, std::less<long>, std::allocator<std::pair<long const, std::shared_ptr<svo::AugState> > > >::_M_emplace_unique<long&, std::shared_ptr<svo::AugState>&>",
+      "period": 4602069,
+      "percent": 0.020304834505137228
+    },
+    {
+      "symbol": "_IO_new_file_xsputn",
+      "period": 4449538,
+      "percent": 0.019631850959713835
+    },
+    {
+      "symbol": "__libc_write",
+      "period": 4449538,
+      "percent": 0.019631850959713835
+    },
+    {
+      "symbol": "new_do_write",
+      "period": 4449538,
+      "percent": 0.019631850959713835
+    },
+    {
+      "symbol": "_IO_new_file_write",
+      "period": 4449538,
+      "percent": 0.019631850959713835
+    },
+    {
+      "symbol": "_init",
+      "period": 4333458,
+      "percent": 0.019119693234708773
+    },
+    {
+      "symbol": "std::__detail::_List_node_base::_M_hook",
+      "period": 4229768,
+      "percent": 0.01866220155219865
+    },
+    {
+      "symbol": "_int_realloc",
+      "period": 4117379,
+      "percent": 0.01816632892508292
+    },
+    {
+      "symbol": "Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 1, 0, -1, 1> >::resize",
+      "period": 4111807,
+      "percent": 0.01814174464834508
+    },
+    {
+      "symbol": "svo::FrameBundle::numFixedLandmarks",
+      "period": 4059501,
+      "percent": 0.01791096482439509
+    },
+    {
+      "symbol": "__uselocale",
+      "period": 4037264,
+      "percent": 0.017812852735052072
+    },
+    {
+      "symbol": "svo::Frame::getFeatureWrapper",
+      "period": 4034703,
+      "percent": 0.017801553321425797
+    },
+    {
+      "symbol": "svo::Map::getClosestNKeyframesWithOverlap",
+      "period": 4007627,
+      "percent": 0.017682091031950977
+    },
+    {
+      "symbol": "cv::Mat::Mat",
+      "period": 3993380,
+      "percent": 0.017619231701246744
+    },
+    {
+      "symbol": "svo::Frame::deleteLandmark",
+      "period": 3989221,
+      "percent": 0.017600881735892714
+    },
+    {
+      "symbol": "std::num_put<char, std::ostreambuf_iterator<char, std::char_traits<char> > >::_M_insert_int<unsigned long>",
+      "period": 3986725,
+      "percent": 0.017589869109414312
+    },
+    {
+      "symbol": "_IO_putc",
+      "period": 3985265,
+      "percent": 0.017583427428862045
+    },
+    {
+      "symbol": "std::chrono::_V2::system_clock::now",
+      "period": 3984483,
+      "percent": 0.01757997715886761
+    },
+    {
+      "symbol": "[unknown]",
+      "period": 3984483,
+      "percent": 0.01757997715886761
+    },
+    {
+      "symbol": "cv::Mat::copyTo",
+      "period": 3984446,
+      "percent": 0.017579813910798818
+    },
+    {
+      "symbol": "svo::Point::~Point",
+      "period": 3982357,
+      "percent": 0.017570597013077113
+    },
+    {
+      "symbol": "std::vector<cv::Mat, std::allocator<cv::Mat> >::_M_default_append",
+      "period": 3981525,
+      "percent": 0.017566926137584316
+    },
+    {
+      "symbol": "cv::fastFree",
+      "period": 3979695,
+      "percent": 0.01755885197634414
+    },
+    {
+      "symbol": "svo::Map::getFurthestKeyframe",
+      "period": 3971039,
+      "percent": 0.017520660752467127
+    },
+    {
+      "symbol": "std::__unguarded_linear_insert<__gnu_cxx::__normal_iterator<svo::Reprojector::Candidate*, std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> > >, __gnu_cxx::__ops::_Val_comp_iter<svo::reprojector_utils::sortCandidatesByReprojStats(std::vector<svo::Reprojector::Candidate, std::allocator<svo::Reprojector::Candidate> >&)::{lambda(svo::Reprojector::Candidate const&, svo::Reprojector::Candidate const&)#1}> >",
+      "period": 3963443,
+      "percent": 0.01748714636515546
+    },
+    {
+      "symbol": "svo::warp::getBestSearchLevel",
+      "period": 3959403,
+      "percent": 0.017469321440887534
+    },
+    {
+      "symbol": "std::_Hashtable<long, long, std::allocator<long>, std::__detail::_Identity, std::equal_to<long>, std::hash<long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::_M_rehash",
+      "period": 3935556,
+      "percent": 0.01736410585449715
+    },
+    {
+      "symbol": "std::__use_cache<std::__numpunct_cache<char> >::operator()",
+      "period": 3917128,
+      "percent": 0.017282799492019607
+    },
+    {
+      "symbol": "std::locale::facet::_S_get_c_locale",
+      "period": 3877232,
+      "percent": 0.017106773952763905
+    },
+    {
+      "symbol": "svo::Frame::setKeyPoints",
+      "period": 3868925,
+      "percent": 0.01707012255526548
+    },
+    {
+      "symbol": "vk::cameras::CameraGeometryBase::backProject3",
+      "period": 3864037,
+      "percent": 0.01704855616174528
+    },
+    {
+      "symbol": "__printf_fp_l",
+      "period": 3860488,
+      "percent": 0.017032897583471308
+    },
+    {
+      "symbol": "__cos",
+      "period": 3835937,
+      "percent": 0.01692457587166394
+    },
+    {
+      "symbol": "_IO_new_file_sync",
+      "period": 3814322,
+      "percent": 0.016829208114720585
+    },
+    {
+      "symbol": "__mpn_lshift",
+      "period": 3810266,
+      "percent": 0.016811312596693186
+    },
+    {
+      "symbol": "Eigen::internal::copy_using_evaluator_innervec_CompleteUnrolling<Eigen::internal::generic_dense_assignment_kernel<Eigen::internal::evaluator<Eigen::Matrix<double, 15, 12, 0, 15, 12> >, Eigen::internal::evaluator<Eigen::CwiseNullaryOp<Eigen::internal::scalar_constant_op<double>, Eigen::Matrix<double, 15, 12, 0, 15, 12> > >, Eigen::internal::assign_op<double, double>, 0>, 96, 180>::run",
+      "period": 3764368,
+      "percent": 0.016608805573413703
+    },
+    {
+      "symbol": "with_errno",
+      "period": 3752956,
+      "percent": 0.016558454574466787
+    },
+    {
+      "symbol": "svo::FrameHandlerBase::setTrackingQuality",
+      "period": 3665434,
+      "percent": 0.016172297885908092
+    },
+    {
+      "symbol": "std::vector<std::shared_ptr<svo::Point>, std::allocator<std::shared_ptr<svo::Point> > >::_M_realloc_insert<std::shared_ptr<svo::Point> const&>",
+      "period": 3019963,
+      "percent": 0.013324408853200102
+    }
+  ],
+  "exclusive_groups": [
+    {
+      "symbol": "Patch align2D",
+      "period": 7832455617,
+      "percent": 34.55765549625995
+    },
+    {
+      "symbol": "Patch warpAffine",
+      "period": 3863709230,
+      "percent": 17.047110004461295
+    },
+    {
+      "symbol": "Depth filter other",
+      "period": 2679716830,
+      "percent": 11.823205335204873
+    },
+    {
+      "symbol": "Backend other",
+      "period": 1789814009,
+      "percent": 7.896856228735639
+    },
+    {
+      "symbol": "Reprojection other",
+      "period": 1572900332,
+      "percent": 6.939809232398602
+    },
+    {
+      "symbol": "Schur Solve/Update",
+      "period": 1412343946,
+      "percent": 6.231416801413119
+    },
+    {
+      "symbol": "FAST detect",
+      "period": 927194542,
+      "percent": 4.090884280391387
+    },
+    {
+      "symbol": "IMU Prediction",
+      "period": 763558273,
+      "percent": 3.3689030669234628
+    },
+    {
+      "symbol": "Other user",
+      "period": 541870990,
+      "percent": 2.3907943959738263
+    },
+    {
+      "symbol": "Pyramid halfSample",
+      "period": 496565853,
+      "percent": 2.190903149445891
+    },
+    {
+      "symbol": "FAST score",
+      "period": 356631224,
+      "percent": 1.5734961780635024
+    },
+    {
+      "symbol": "FAST NMS",
+      "period": 316633776,
+      "percent": 1.3970230390758358
+    },
+    {
+      "symbol": "Patch ZMSSD",
+      "period": 111498307,
+      "percent": 0.49194279165262056
+    }
+  ],
+  "kernel_self": [
+    {
+      "symbol": "arch_local_irq_enable",
+      "period": 31487685,
+      "percent": 18.430309466885674
+    },
+    {
+      "symbol": "iov_iter_copy_from_user_atomic",
+      "period": 8207061,
+      "percent": 4.803740701915946
+    },
+    {
+      "symbol": "do_el0_svc",
+      "period": 8160894,
+      "percent": 4.77671832484511
+    },
+    {
+      "symbol": "rw_verify_area",
+      "period": 7927083,
+      "percent": 4.639864533060734
+    },
+    {
+      "symbol": "arch_local_irq_restore",
+      "period": 6475922,
+      "percent": 3.790473848535172
+    },
+    {
+      "symbol": "mutex_lock",
+      "period": 4411265,
+      "percent": 2.5819928994602632
+    },
+    {
+      "symbol": "lru_cache_add",
+      "period": 4124794,
+      "percent": 2.4143162606953554
+    },
+    {
+      "symbol": "init_sync_kiocb",
+      "period": 4123457,
+      "percent": 2.4135336905014135
+    },
+    {
+      "symbol": "do_page_fault",
+      "period": 4096981,
+      "percent": 2.398036810580096
+    },
+    {
+      "symbol": "__preempt_count_dec_and_test",
+      "period": 4072337,
+      "percent": 2.3836122332730656
+    },
+    {
+      "symbol": "fatal_signal_pending",
+      "period": 4010573,
+      "percent": 2.3474606510302705
+    },
+    {
+      "symbol": "mutex_unlock",
+      "period": 3995932,
+      "percent": 2.3388910098862907
+    },
+    {
+      "symbol": "xas_start",
+      "period": 3988078,
+      "percent": 2.334293922150151
+    },
+    {
+      "symbol": "generic_perform_write",
+      "period": 3984952,
+      "percent": 2.3324642180168214
+    },
+    {
+      "symbol": "file_start_write",
+      "period": 3983855,
+      "percent": 2.3318221241478954
+    },
+    {
+      "symbol": "__set_page_dirty_no_writeback",
+      "period": 3969970,
+      "percent": 2.3236949834277154
+    },
+    {
+      "symbol": "lock_page",
+      "period": 3964985,
+      "percent": 2.3207771730935347
+    },
+    {
+      "symbol": "__range_ok",
+      "period": 3951108,
+      "percent": 2.3126547149175214
+    },
+    {
+      "symbol": "vfs_write",
+      "period": 3948821,
+      "percent": 2.311316092603726
+    },
+    {
+      "symbol": "fault_in_pages_readable",
+      "period": 3898958,
+      "percent": 2.2821303801276476
+    },
+    {
+      "symbol": "generic_write_check_limits",
+      "period": 3895751,
+      "percent": 2.2802532652346255
+    },
+    {
+      "symbol": "__fcheck_files",
+      "period": 3890436,
+      "percent": 2.2771422999535478
+    },
+    {
+      "symbol": "__kern_my_cpu_offset",
+      "period": 3879371,
+      "percent": 2.2706657560523023
+    },
+    {
+      "symbol": "__ll_sc__cmpxchg_case_acq_64",
+      "period": 3876208,
+      "percent": 2.2688143951521993
+    },
+    {
+      "symbol": "page_copy_sane",
+      "period": 3834709,
+      "percent": 2.244524282602919
+    },
+    {
+      "symbol": "file_free_rcu",
+      "period": 3821379,
+      "percent": 2.2367219933843376
+    },
+    {
+      "symbol": "skb_release_data",
+      "period": 3815183,
+      "percent": 2.2330953629268486
+    },
+    {
+      "symbol": "find_vma",
+      "period": 3786131,
+      "percent": 2.2160907037836957
+    },
+    {
+      "symbol": "__arch_copy_from_user",
+      "period": 3750457,
+      "percent": 2.1952100687061513
+    },
+    {
+      "symbol": "rcu_core",
+      "period": 3572469,
+      "percent": 2.0910304848024106
+    },
+    {
+      "symbol": "__irqentry_text_end",
+      "period": 3535085,
+      "percent": 2.069148955909129
+    },
+    {
+      "symbol": "new_sync_write",
+      "period": 3443678,
+      "percent": 2.0156467915728298
+    },
+    {
+      "symbol": "rcu_preempt_deferred_qs",
+      "period": 2961726,
+      "percent": 1.7335516007645986
+    }
+  ]
+}

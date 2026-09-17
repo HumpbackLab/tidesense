@@ -1,0 +1,17 @@
+4bd76f829e17ce26cd4d6cd294198ffe4ec54d1af3966e4de194373ac9eb6bcd  stereo
+/dev/root / ext4 rw,relatime 0 0
+devtmpfs /dev devtmpfs rw,relatime,size=78124k,nr_inodes=19531,mode=755 0 0
+proc /proc proc rw,relatime 0 0
+sysfs /sys sysfs rw,relatime 0 0
+devpts /dev/pts devpts rw,relatime,gid=5,mode=620,ptmxmode=666 0 0
+tmpfs /dev/shm tmpfs rw,relatime,mode=777 0 0
+tmpfs /tmp tmpfs rw,relatime 0 0
+tmpfs /run tmpfs rw,nosuid,nodev,relatime,mode=755 0 0
+tmpfs /var/run tmpfs rw,relatime 0 0
+tmpfs /var/empty tmpfs rw,relatime 0 0
+tmpfs /var/lock tmpfs rw,relatime 0 0
+nodev /sys/kernel/debug debugfs rw,relatime 0 0
+/dev/mmcblk0p3 /mnt/data ext4 rw,sync,relatime 0 0
+none /tmp/usb configfs rw,relatime 0 0
+800000000
+40250

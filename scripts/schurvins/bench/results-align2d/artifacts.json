@@ -1,0 +1,18 @@
+{
+  "base": {
+    "build_info": "HALFSAMPLE=ON\nZMSSD=ON\nFAST10=ON\nALIGN2D=OFF\nSOURCE=996bf0eaa0acbc75b2d737c7dbad2a6b0676dc87\n",
+    "sha256": {
+      "schurvins_kernel_bench": "58045bdfbb7f5a77eb3b28512571eefe73c142307f92e7746c6f1a8f6f8d9a83",
+      "schurvins_stereo": "9b368a27b94d499406e32d050e7bca2223c3d83b6abe4422eed3bef456a6b336",
+      "schurvins_align2d_bench": "d4df2101fd3e9e141ea484e95408eb8cb403652bbb30bbb95313dc1fc21338e1"
+    }
+  },
+  "align": {
+    "build_info": "HALFSAMPLE=ON\nZMSSD=ON\nFAST10=ON\nALIGN2D=ON\nSOURCE=996bf0eaa0acbc75b2d737c7dbad2a6b0676dc87\n",
+    "sha256": {
+      "schurvins_kernel_bench": "58045bdfbb7f5a77eb3b28512571eefe73c142307f92e7746c6f1a8f6f8d9a83",
+      "schurvins_stereo": "7990f7b031a21b302529bbfa2bf6c7211f7277b69ca433533c3f0208d3b2b09f",
+      "schurvins_align2d_bench": "11854bd8c520421fe450e3fa0db1b9408039e0bb1d3481aabdd053562ed2154f"
+    }
+  }
+}
