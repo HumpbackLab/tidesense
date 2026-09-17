@@ -1,0 +1,41 @@
+diff --git a/svo/include/svo/frame_handler_base.h b/svo/include/svo/frame_handler_base.h
+index a801f11..2d75100 100644
+--- a/svo/include/svo/frame_handler_base.h
++++ b/svo/include/svo/frame_handler_base.h
+@@ -19,7 +19,9 @@
+ #include <vikit/timer.h>
+ #include <vikit/ringbuffer.h>
+ 
++#ifdef SVO_USE_ROS
+ #include <vikit/params_helper.h>
++#endif
+ #include <vikit/cameras/ncamera.h>
+ #include <rpg_common/callback_host.h>
+ 
+diff --git a/svo/src/schur_vins.cpp b/svo/src/schur_vins.cpp
+index 83cc6d0..258e83c 100644
+--- a/svo/src/schur_vins.cpp
++++ b/svo/src/schur_vins.cpp
+@@ -18,7 +18,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>.
+ #include <svo/schur_vins.h>
+ 
+ #include <boost/math/distributions/chi_squared.hpp>
+-#include <opencv2/optflow.hpp>
+ #include <sstream>
+ #include <unordered_map>
+ #include <unordered_set>
+diff --git a/svo_direct/src/feature_detection_utils.cpp b/svo_direct/src/feature_detection_utils.cpp
+index e0b5f54..e0f012e 100644
+--- a/svo_direct/src/feature_detection_utils.cpp
++++ b/svo_direct/src/feature_detection_utils.cpp
+@@ -168,8 +168,8 @@ void fastDetector(
+           img_pyr[level].rows, img_pyr[level].step, threshold, fast_corners);
+ #else
+     fast::fast_corner_detect_10(
+-          (fast::fast_byte*) img_pyr[L].data, img_pyr[L].cols,
+-          img_pyr[L].rows, img_pyr[L].step, threshold, fast_corners);
++          (fast::fast_byte*) img_pyr[level].data, img_pyr[level].cols,
++          img_pyr[level].rows, img_pyr[level].step, threshold, fast_corners);
+ #endif
+     std::vector<int> scores, nm_corners;
+     fast::fast_corner_score_10((fast::fast_byte*) img_pyr[level].data, img_pyr[level].step,

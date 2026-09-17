@@ -1,0 +1,109 @@
+# TideSense / Cortex-A53 SchurVINS
+
+源码：SDK 根目录 `SchurVINS/`，来自 <https://github.com/bytedance/SchurVINS>。
+精确版本与依赖见 `sources.lock`；此目录保存 SDK 构建入口、运行程序和上游补丁。
+`SchurVINS/` 与 SDK 其它独立源码库一样不直接纳入主库，构建脚本可恢复指定版本并应用补丁。
+
+## GCC 11 全静态版本
+
+```sh
+JOBS=4 ./scripts/schurvins/build.sh
+```
+
+使用 SDK 的 Arm GNU Toolchain 11.3.Rel1（GCC 11.3.1），为 Cortex-A53 重编
+SchurVINS、OpenCV、yaml-cpp、glog 0.4.0 和 FAST；Eigen、minkindr、Boost 使用头文件。
+最终通过 `-static` 链入工具链的 glibc、libstdc++ 和 libgcc。
+关闭 OpenCV ITT 的动态插件加载，以及 glog 的 NSS 用户名查询（日志用户名取 `USER`，
+未设置时使用其内置占位名），避免这两项功能引入运行时动态库需求。
+构建脚本检查 ELF 不含 `PT_INTERP` 或 `DT_NEEDED`。
+
+构建缓存：`install/schurvins-gcc11-static/`，源码缓存位于 `install/schurvins-build/deps/`。
+输出目录：`install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static/`。
+安装包：同级 `schurvins-gcc11-static-a53.tar.gz`。
+该版本无须部署 OpenCV 动态库，也无须升级板上 glibc。
+`BUILD-INFO` 记录编译器与构建模式；全静态程序可直接执行：
+
+```sh
+./bin/schurvins_stereo --self-test synthetic.yaml
+./bin/schurvins_stereo actual-calibration.yaml stereo.csv imu.csv poses.csv
+```
+
+已在当前板上验证（2026-09-17）：在不含系统动态库的应用目录内，以 `env -i` + `chroot`
+运行合成自检及 CSV 输入测试，均为 `frames=6 tracking=6 imu_fused=6`，位姿均为有限值。
+可执行文件约 5.5 MB，压缩包约 3.0 MB。日志见 `scripts/schurvins/board-test-gcc11-static.log`。
+板上安装目录为 `/mnt/data/schurvins-gcc11-static`。
+
+尚未验证真实 VIO 精度。
+未剥离符号的程序和静态核心库位于构建缓存的 `core/` 下。
+
+## 构建要求与功能范围
+
+`build.sh` 默认使用 GCC 11 全静态构建，仍接受 `--gcc11-static` 参数。
+主机需要 Git、curl、CMake >= 3.15、make、Boost 1.74 开发头文件（`libboost1.74-dev`）。
+也可用 `BOOST_HEADERS=/path/to/boost` 指定头文件目录，或用 `JOBS=2` 降低并行度。
+使用 `-mcpu=cortex-a53`、C++14，SchurVINS 核心保留栈帧用于 perf。
+依赖 SDK Eigen 3.3.7；其它依赖下载版本见 `sources.lock`，Boost 仅使用头文件。
+
+此版本编译完整双目跟踪前端及 SchurVINS 估计器，启用 IMU 融合。
+不构建 ROS/catkin 节点、RViz、回环、全局地图、Ceres 后端、CUDA 和依赖 OpenGV 的单目初始化。
+FAST 使用通用 FAST-10 实现；OpenCV/Eigen 使用 AArch64 NEON。
+运行程序在单核 A53 上使用单线程 OpenCV、同步深度滤波，限制关键帧和特征数量。
+
+## 上板运行
+
+将整个产物目录复制到板子（需约 6 MB 空间）：
+
+```sh
+scp -O -r install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static root@192.168.123.99:/mnt/data/
+ssh root@192.168.123.99
+cd /mnt/data/schurvins-gcc11-static
+./run.sh --help
+./run.sh --self-test synthetic.yaml
+```
+
+自检生成 320×240 合成立体图像和静止 IMU，
+执行六帧双目跟踪与 SchurVINS 融合，检查融合标志及位姿有限值。
+`synthetic.yaml` **只供自检，绝非 TideSense 标定参数**。
+
+## 离线输入
+
+```sh
+./run.sh actual-calibration.yaml stereo.csv imu.csv poses.csv
+```
+
+- 标定 YAML 使用上游格式，参考源码 `svo_ros/param/calib/euroc_stereo.yaml`，必须包含
+  `cameras`、`T_B_C`、`imu_params`、`imu_initialization`。
+- TideSense 左相机（0x10，2 lane）放第一个，右相机（0x60，1 lane）放第二个。
+  50 mm 基线不能替代双目内参、畸变、外参及相机—SC7U22 IMU 的实际标定。
+- `stereo.csv` 每行：`timestamp_ns,left_image,right_image`，图像路径相对该 CSV 目录或绝对路径。
+  图像必须已配对、同一曝光时刻，尺寸与标定一致。
+- `imu.csv` 每行：`timestamp_ns,gx,gy,gz,ax,ay,az`，角速度 rad/s、加速度 m/s²（含重力）。
+  坐标系对应标定的 IMU/body 坐标系。输入为原始测量，噪声及初始偏置在标定中设置。
+- 时间戳均为严格递增整数纳秒。应先在采集/转换端对齐时钟和延时，`delay_imu_cam` 设为 0；
+  IMU 数据必须覆盖首帧之前到末帧之后。CSV 不含普通表头，可用 `#` 注释。
+- 输入流式读取，不把整段数据集装入板子内存。
+- 输出 `poses.csv`：`timestamp_ns,px,py,pz,qx,qy,qz,qw`，body/IMU 到世界坐标系的位姿，位置单位米。
+  仅输出 Tracking 阶段位姿；未产生任何跟踪/融合输出时返回非零。
+
+此任务提供交叉编译和离线运行入口。尚未接入 CVITEK 实时图像采集或 SC7U22 实时读取，
+未验证真实数据的定位精度和实时帧率；不修改内核、开机服务或 SD 镜像。
+
+## 补丁与许可
+
+`patches/0001-native-build.patch` 修复 FAST 标量分支的 `L` 未定义，
+将 ROS 参数头限制在 ROS 构建中，删除未使用的 `opencv2/optflow.hpp` 包含；不改 SchurVINS 的估计公式。
+许可证与版权声明保留在下载源码及产物 `licenses/` 中，上游主项目为 GPL-3.0，继承的组件保留各自声明。
+
+离线读取路径的合成测试输入可在主机生成：
+
+```sh
+python3 scripts/schurvins/make-smoke-data.py install/schurvins-build/smoke-data
+# 把 smoke-data 复制到板子后：
+./run.sh synthetic.yaml smoke-data/stereo.csv smoke-data/imu.csv smoke-data/poses.csv
+```
+
+## GCC 6 兼容补丁清理
+
+已恢复上游 `std::atomic_uint64_t` 声明和定义，并从补丁文件移除对应改写。
+GCC 11 原生支持该别名；当前构建入口不再使用 GCC 6。
+原有 GCC 6 构建产物和 `board-test.log` 仅作为历史记录保留。

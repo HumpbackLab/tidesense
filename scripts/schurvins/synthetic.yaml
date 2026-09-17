@@ -1,0 +1,122 @@
+# Synthetic smoke-test calibration. NEVER use for physical cameras.
+label: SYNTHETIC_TEST_ONLY_NOT_TIDESENSE_CALIBRATION
+id: 412eab8e4058621f7036b5e765dfe812
+cameras:
+- camera:
+    label: cam0
+    id: 54812562fa109c40fe90b29a59dd7798
+    line-delay-nanoseconds: 0
+    image_height: 240
+    image_width: 320
+    type: pinhole
+    intrinsics:
+      cols: 1
+      rows: 4
+      data:
+      - 200.0
+      - 200.0
+      - 160.0
+      - 120.0
+    distortion:
+      type: radial-tangential
+      parameters:
+        cols: 1
+        rows: 4
+        data:
+        - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+  T_B_C:
+    cols: 4
+    rows: 4
+    data:
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+- camera:
+    label: cam1
+    id: 54812562fa109c40fe90b29a59dd7723
+    line-delay-nanoseconds: 0
+    image_height: 240
+    image_width: 320
+    type: pinhole
+    intrinsics:
+      cols: 1
+      rows: 4
+      data:
+      - 200.0
+      - 200.0
+      - 160.0
+      - 120.0
+    distortion:
+      type: radial-tangential
+      parameters:
+        cols: 1
+        rows: 4
+        data:
+        - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+  T_B_C:
+    cols: 4
+    rows: 4
+    data:
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.05
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+imu_params:
+  delay_imu_cam: 0.0
+  max_imu_delta_t: 0.01
+  acc_max: 176.0
+  omega_max: 17
+  sigma_omega_c: 0.004
+  sigma_acc_c: 0.08
+  sigma_omega_bias_c: 2.0e-06
+  sigma_acc_bias_c: 4.0e-05
+  sigma_integration: 0.0
+  g: 9.81007
+  imu_rate: 200
+imu_initialization:
+  velocity:
+  - 0.0
+  - 0
+  - 0.0
+  omega_bias:
+  - 0.0
+  - 0
+  - 0.0
+  acc_bias:
+  - 0.0
+  - 0.0
+  - 0.0
+  velocity_sigma: 2.0
+  omega_bias_sigma: 0.01
+  acc_bias_sigma: 0.1

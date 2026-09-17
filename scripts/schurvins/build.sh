@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+set -euo pipefail
+here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+sdk=$(cd -- "$here/../.." && pwd)
+source "$here/sources.lock"
+# GCC 11 full-static is the supported build; accept the previous explicit flag.
+case "${1:-}" in
+  ""|--gcc11-static) ;;
+  *) echo "Usage: $0 [--gcc11-static]" >&2; exit 2 ;;
+esac
+work="$sdk/install/schurvins-gcc11-static"
+stage="$work/stage"
+out="$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static"
+deps="$sdk/install/schurvins-build/deps"
+jobs=${JOBS:-4}
+toolchain="$here/a53-gcc11-toolchain.cmake"
+cross="$sdk/host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
+for command in git curl cmake make tar sha256sum; do command -v "$command" >/dev/null; done
+[[ -x "${cross}g++" ]] || { echo "Missing SDK AArch64 compiler" >&2; exit 1; }
+mkdir -p "$deps" "$stage/include" "$work/sysroot"
+fetch_git() {
+  local url=$1 dir=$2 rev=$3
+  if [[ ! -d "$dir/.git" ]]; then
+    git init "$dir"
+    git -C "$dir" remote add origin "$url"
+    git -C "$dir" fetch --depth 1 origin "$rev"
+    git -C "$dir" checkout --detach FETCH_HEAD
+  fi
+  [[ $(git -C "$dir" rev-parse HEAD) == "$rev" ]] || {
+    echo "Unexpected source revision in $dir; see sources.lock (checkout left untouched)" >&2; exit 1;
+  }
+}
+verify() { printf '%s  %s\n' "$1" "$2" | sha256sum -c -; }
+fetch_git https://github.com/bytedance/SchurVINS.git "$sdk/SchurVINS" "$SCHUR_REV"
+fetch_git https://github.com/ethz-asl/minkindr.git "$deps/minkindr" "$MINKINDR_REV"
+fetch_git https://github.com/uzh-rpg/fast_neon.git "$deps/fast_neon" "$FAST_REV"
+fetch_git https://github.com/jbeder/yaml-cpp.git "$deps/yaml-cpp" "$YAML_REV"
+for patch in "$here"/patches/*.patch; do
+  if git -C "$sdk/SchurVINS" apply --reverse --check "$patch" 2>/dev/null; then
+    echo "Already applied: $patch"
+  else
+    git -C "$sdk/SchurVINS" apply --check "$patch"
+    git -C "$sdk/SchurVINS" apply "$patch"
+  fi
+done
+archive="$deps/opencv-$OPENCV_VERSION.tar.gz"
+if [[ ! -f "$archive" ]]; then
+  curl -fL --retry 3 "https://codeload.github.com/opencv/opencv/tar.gz/refs/tags/$OPENCV_VERSION" -o "$archive.part"
+  verify "$OPENCV_SHA256" "$archive.part"
+  mv "$archive.part" "$archive"
+fi
+verify "$OPENCV_SHA256" "$archive"
+[[ -d "$deps/opencv-$OPENCV_VERSION" ]] || tar xf "$archive" -C "$deps"
+verify "$EIGEN_SHA256" "$sdk/oss/oss_release_tarball/64bit/eigen.tar.gz"
+tar xf "$sdk/oss/oss_release_tarball/64bit/eigen.tar.gz" -C "$work/sysroot"
+# Only Boost headers are used, never host libraries or /usr/include itself.
+# Ubuntu/Debian: apt install libboost1.74-dev
+boost_headers=${BOOST_HEADERS:-/usr/include/boost}
+if [[ ! -f "$stage/include/boost/version.hpp" ]]; then
+  [[ -f "$boost_headers/version.hpp" ]] || { echo "Install Boost 1.74 headers or set BOOST_HEADERS" >&2; exit 1; }
+  cp -a "$boost_headers" "$stage/include/boost"
+fi
+grep -q '^#define BOOST_VERSION 107400$' "$stage/include/boost/version.hpp" || {
+  echo "This build is verified with Boost 1.74 headers; set BOOST_HEADERS accordingly" >&2; exit 1;
+}
+common=(-DCMAKE_TOOLCHAIN_FILE="$toolchain" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$stage" -DBUILD_SHARED_LIBS=OFF)
+fetch_git https://github.com/google/glog.git "$deps/glog" "$GLOG_SOURCE_REV"
+# Disable NSS username lookup in the fully static application.
+cmake -S "$deps/glog" -B "$work/glog" "${common[@]}" -DWITH_GFLAGS=OFF -DBUILD_TESTING=OFF -DHAVE_PWD_H=OFF
+cmake --build "$work/glog" -j"$jobs"
+cmake --install "$work/glog"
+glog_library="$stage/lib/libglog.a"
+cmake -S "$deps/yaml-cpp" -B "$work/yaml" "${common[@]}" \
+  -DYAML_CPP_BUILD_TESTS=OFF -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_CONTRIB=OFF
+cmake --build "$work/yaml" -j"$jobs"
+cmake --install "$work/yaml"
+cmake -S "$deps/opencv-$OPENCV_VERSION" -B "$work/opencv" "${common[@]}" \
+  -DBUILD_LIST=core,imgproc,imgcodecs,calib3d,features2d,flann,video,highgui \
+  -DBUILD_TESTS=OFF -DBUILD_PERF_TESTS=OFF -DBUILD_EXAMPLES=OFF \
+  -DBUILD_opencv_apps=OFF -DBUILD_JAVA=OFF -DBUILD_opencv_python2=OFF -DBUILD_opencv_python3=OFF \
+  -DWITH_GTK=OFF -DWITH_QT=OFF -DWITH_FFMPEG=OFF -DWITH_GSTREAMER=OFF -DWITH_V4L=OFF \
+  -DWITH_ITT=OFF -DWITH_QUIRC=OFF -DWITH_OPENCL=OFF -DWITH_OPENEXR=OFF -DWITH_WEBP=OFF -DWITH_TIFF=OFF -DWITH_JASPER=OFF \
+  -DBUILD_ZLIB=ON -DBUILD_JPEG=ON -DBUILD_PNG=ON -DWITH_LAPACK=OFF -DWITH_PROTOBUF=OFF \
+  -DCPU_BASELINE=NEON
+cmake --build "$work/opencv" -j"$jobs"
+cmake --install "$work/opencv"
+cmake -S "$here" -B "$work/core" "${common[@]}" \
+  -DCMAKE_PREFIX_PATH="$stage" -DCMAKE_INSTALL_PREFIX="$out" \
+  -DWORK="$work" -DDEPS="$deps" -DSCHUR_STATIC=ON -DGLOG_LIBRARY="$glog_library"
+cmake --build "$work/core" -j"$jobs"
+cmake --install "$work/core"
+"${cross}strip" --strip-unneeded "$out/bin/schurvins_stereo"
+"${cross}readelf" -lW "$out/bin/schurvins_stereo" > "$work/elf-program-headers.txt"
+"${cross}readelf" -dW "$out/bin/schurvins_stereo" > "$work/elf-dynamic.txt"
+if grep -Eq 'INTERP|NEEDED' "$work/elf-program-headers.txt" "$work/elf-dynamic.txt"; then
+  echo "Static ELF verification failed" >&2; exit 1
+fi
+cp "$here/run.sh" "$here/synthetic.yaml" "$here/README.md" "$here/sources.lock" "$out/"
+mkdir -p "$out/licenses"
+# Preserve the full upstream source license notices in the downloaded trees too.
+cp "$sdk/SchurVINS/LICENSE" "$out/licenses/SchurVINS-LICENSE"
+cp "$deps/opencv-$OPENCV_VERSION/LICENSE" "$out/licenses/OpenCV-LICENSE"
+cp "$deps/yaml-cpp/LICENSE" "$out/licenses/yaml-cpp-LICENSE"
+cp "$sdk/SchurVINS/vikit/LICENSE" "$out/licenses/vikit-LICENSE"
+cp "$deps/minkindr/LICENSE" "$out/licenses/minkindr-LICENSE"
+cp "$deps/fast_neon/package.xml" "$out/licenses/fast-package.xml"
+cp "$stage/include/glog/logging.h" "$out/licenses/glog-notices.h"
+cp "$deps/glog/COPYING" "$out/licenses/glog-COPYING"
+cp "$stage/include/boost/version.hpp" "$out/licenses/boost-version.hpp"
+cp "$stage/include/boost/config.hpp" "$out/licenses/boost-notices.hpp"
+cp "$work/sysroot/eigen/include/eigen3/Eigen/Core" "$out/licenses/Eigen-Core-notices"
+cp /usr/share/doc/libboost1.74-dev/copyright "$out/licenses/Boost-copyright" 2>/dev/null || true
+cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
+(cd "$out" && sha256sum bin/schurvins_stereo > SHA256SUMS)
+{
+  "${cross}g++" --version | head -1
+  printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$SCHUR_REV"
+} > "$out/BUILD-INFO"
+tar -C "$(dirname "$out")" -czf "$out-a53.tar.gz" "$(basename "$out")"
+printf '\nBuilt: %s\nPackage: %s-a53.tar.gz\n' "$out" "$out"
