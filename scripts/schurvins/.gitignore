@@ -36,3 +36,6 @@ perf.data*
 !/bench/results-align2d/kernel-check.log
 !/profile/results/**/decode.log
 !/profile/results/**/run.log
+
+# Curated real-time IMU integration acceptance report.
+!/board-test-imu.log

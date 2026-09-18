@@ -1,6 +1,6 @@
 # TideSense / Cortex-A53 SchurVINS
 
-现已支持 OV9281 **实时双目图像输入与纯视觉前端**，用法和实测见 [CAMERA.md](CAMERA.md)。实时 IMU 尚未接入；原离线双目＋IMU 入口保留。
+现已支持 OV9281 **实时双目图像输入与纯视觉前端**，用法和实测见 [CAMERA.md](CAMERA.md)。现已接入 SC7U22 **200Hz 实时 IMU**，双目＋惯性入口见 [IMU.md](IMU.md)；原离线双目＋IMU 入口保留。
 
 源码：SDK 根目录 `SchurVINS/`，来自 <https://github.com/bytedance/SchurVINS>。
 精确版本与依赖见 `sources.lock`；此目录保存 SDK 构建入口、运行程序和上游补丁。
@@ -88,7 +88,7 @@ cd /mnt/data/schurvins-gcc11-static
 - 输出 `poses.csv`：`timestamp_ns,px,py,pz,qx,qy,qz,qw`，body/IMU 到世界坐标系的位姿，位置单位米。
   仅输出 Tracking 阶段位姿；未产生任何跟踪/融合输出时返回非零。
 
-离线入口保留。CVITEK 实时双目输入现已接入，详见 [CAMERA.md](CAMERA.md)；SC7U22 实时读取尚未接入 SchurVINS。未验证真实场景定位精度。
+离线入口保留。CVITEK 实时双目输入现已接入，详见 [CAMERA.md](CAMERA.md)；SC7U22 200Hz 实时融合用法见 [IMU.md](IMU.md)。未验证真实场景定位精度。
 
 ## 补丁与许可
 

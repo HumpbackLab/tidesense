@@ -1,0 +1,84 @@
+2026-09-18 TideSense SG2002 A53 / real SC7U22 + OV9281 test
+Camera: 640x400 20fps, shared FSIN. No lenses; test-only calibration.
+Hardware accel/gyro ODR=200Hz, SPI mode3 1MHz. This is NOT a VIO accuracy test.
+Command: tests/board-imu.sh /tmp/schur-live /mnt/data/sensor_cfg.ini /tmp/schur-imu-acceptance
+Result: IMU BOARD TEST PASS
+
+[imu]
+imu: SPI worker spi0 SCHED_FIFO/11 (restored on exit)
+imu: SC7U22 /dev/spidev0.0 SPI=1MHz accel/gyro ODR=200Hz registers=0x89/0x89, FIFO bypass
+imu: acquisition scheduling=SCHED_FIFO/10
+imu_samples=2005 imu_delivered=2005 imu_rate_hz=200.48 imu_max_gap_ms=5.43596 imu_late_intervals=0 imu_queue_high_water=1 imu_discarded=0
+test_rate_hz=200.48 accel_norm_m_s2=10.0438 gyro_rad_s=0.00144727,0.00387214,-7.54452e-05 accel_m_s2=0.687758,-9.93328,1.3172
+SC7U22 200HZ PASS (SI units, increasing host timestamps; not calibrated accuracy)
+
+[exclusive]
+Error: IMU is owned by another process
+
+[self]
+frames=6 tracking=6 imu_fused=6
+SELF-TEST PASS (synthetic data; not a VIO accuracy test)
+
+[visual]
+frames=30 tracking=30 imu_fused=0
+camera_received=30 replaced_pending=0 pending_capacity=1
+frontend_frames=30 max_input_age_ms=12.2265 image_span_s=1.45002
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+
+[vio]
+imu: SPI worker spi0 SCHED_FIFO/11 (restored on exit)
+imu: SC7U22 /dev/spidev0.0 SPI=1MHz accel/gyro ODR=200Hz registers=0x89/0x89, FIFO bypass
+imu: acquisition scheduling=SCHED_FIFO/10
+frames=120 tracking=120 imu_fused=120
+camera_received=147 replaced_pending=22 pending_capacity=1
+imu_samples=1410 imu_delivered=1384 imu_rate_hz=200.468 imu_max_gap_ms=9.0627 imu_late_intervals=8 imu_queue_high_water=28 imu_discarded=0
+schur_imu_added=1384 max_imu_batch=21 startup_pairs_skipped=4
+frontend_frames=120 max_input_age_ms=68.0041 image_span_s=6.80006
+LIVE VIO INPUT PASS (real camera + IMU, test calibration; not an accuracy test)
+
+[overload]
+imu: SPI worker spi0 SCHED_FIFO/11 (restored on exit)
+imu: SC7U22 /dev/spidev0.0 SPI=1MHz accel/gyro ODR=200Hz registers=0x89/0x89, FIFO bypass
+imu: acquisition scheduling=SCHED_FIFO/10
+frames=40 tracking=40 imu_fused=40
+camera_received=133 replaced_pending=88 pending_capacity=1
+imu_samples=1269 imu_delivered=1224 imu_rate_hz=200.482 imu_max_gap_ms=9.0236 imu_late_intervals=6 imu_queue_high_water=47 imu_discarded=0
+schur_imu_added=1224 max_imu_batch=40 startup_pairs_skipped=4
+frontend_frames=40 max_input_age_ms=71.2436 image_span_s=6.00003
+LIVE VIO INPUT PASS (real camera + IMU, test calibration; not an accuracy test)
+
+[interrupt]
+imu: SPI worker spi0 SCHED_FIFO/11 (restored on exit)
+imu: SC7U22 /dev/spidev0.0 SPI=1MHz accel/gyro ODR=200Hz registers=0x89/0x89, FIFO bypass
+imu: acquisition scheduling=SCHED_FIFO/10
+frames=58 tracking=58 imu_fused=58
+camera_received=67 replaced_pending=4 pending_capacity=1
+imu_samples=604 imu_delivered=592 imu_rate_hz=200.502 imu_max_gap_ms=8.1714 imu_late_intervals=2 imu_queue_high_water=23 imu_discarded=0
+schur_imu_added=592 max_imu_batch=21 startup_pairs_skipped=4
+frontend_frames=58 max_input_age_ms=15.8602 image_span_s=2.85001
+LIVE VIO INPUT PASS (real camera + IMU, test calibration; not an accuracy test)
+
+[calibration]
+Error: Use real calibration for --camera/--vio; test geometry is only allowed in smoke modes
+
+[missing-imu]
+Error: Cannot open IMU /dev/nonexistent-sc7u22: No such file or directory
+
+[fsin-final]
+enable=0
+
+[spi-policy-final]
+pid 35's current scheduling policy: SCHED_OTHER
+pid 35's current scheduling priority: 0
+
+No software IMU queue discard. Host read timestamps retain scheduling jitter.
+15ms or greater IMU gaps are rejected before SchurVINS integration.
+Camera initialization precedes IMU history; stop IMU before camera teardown.
+Build: GCC11 static, all six existing NEON options ON; SDK camera helper GCC6.
+New IMU source and diagnostic passed -Wall -Wextra -Werror. Shell syntax and git diff checks passed.
+
+[deployment]
+Installed /mnt/data/schurvins-gcc11-static; all eight SHA256SUMS entries verified.
+Post-deployment smoke: frames=30 tracking=30 imu_fused=30, schur_imu_added=361.
+IMU rate=200.453Hz, max gap=9.05084ms, software discarded=0.
+Final FSIN enable=0; SPI worker SCHED_OTHER/0; no capture or estimator process left running.
