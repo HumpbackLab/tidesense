@@ -14,6 +14,7 @@ int main(int argc, char **argv)
  SAMPLE_VI_CONFIG_S vi = {0};
  VB_CONFIG_S vb = {0};
  SIZE_S size[2];
+ float nominal_fps[2];
  VIDEO_FRAME_INFO_S saved[2] = {0};
  int held[2] = {0};
  PIC_SIZE_E pic;
@@ -34,7 +35,11 @@ int main(int argc, char **argv)
   if (argc == 3) ini.u8HwSync[p] = 0;
   CHECK(SAMPLE_COMM_VI_GetSizeBySensor(ini.enSnsType[p], &pic));
   CHECK(SAMPLE_COMM_SYS_GetPicSize(pic, &size[p]));
-  printf("pipe %d: %ux%u hw_sync=%u\n", p, size[p].u32Width, size[p].u32Height, ini.u8HwSync[p]);
+  ISP_PUB_ATTR_S pub = {0};
+  CHECK(SAMPLE_COMM_SNS_GetIspAttrBySns(ini.enSnsType[p], &pub));
+  nominal_fps[p] = pub.f32FrameRate;
+  printf("pipe %d: %ux%u nominal_fps=%.0f hw_sync=%u\n", p, size[p].u32Width,
+   size[p].u32Height, nominal_fps[p], ini.u8HwSync[p]);
  }
  if (size[0].u32Width != size[1].u32Width || size[0].u32Height != size[1].u32Height) {
   fprintf(stderr, "This stereo test requires equal image sizes\n");
@@ -87,12 +92,20 @@ int main(int argc, char **argv)
   int h = (ov9281_read_register(p, 0x380a) << 8) | ov9281_read_register(p, 0x380b);
   printf("pipe %d sensor output registers: %dx%d, lane_ctrl=%#x sync=%#x\n", p, w, h,
    ov9281_read_register(p, 0x3662), ov9281_read_register(p, 0x3823));
+  int vts = (ov9281_read_register(p, 0x380e) << 8) | ov9281_read_register(p, 0x380f);
   printf("pipe %d timing: HTS=%d VTS=%d exposure_lines=%d\n", p,
    (ov9281_read_register(p, 0x380c) << 8) | ov9281_read_register(p, 0x380d),
-   (ov9281_read_register(p, 0x380e) << 8) | ov9281_read_register(p, 0x380f),
+   vts,
    ((ov9281_read_register(p, 0x3500) << 16) | (ov9281_read_register(p, 0x3501) << 8) |
     ov9281_read_register(p, 0x3502)) >> 4);
   if (w != (int)size[p].u32Width || h != (int)size[p].u32Height) goto out;
+  if (vts != (nominal_fps[p] == 20 ? 2730 : 910)) {
+   fprintf(stderr, "Unexpected sensor frame period\n"); goto out;
+  }
+  if (nominal_fps[p] == 20) {
+   double fps = (frames - 1) * 1000000.0 / (last[p] - first[p]);
+   if (fps < 19 || fps > 21) { fprintf(stderr, "20fps mode rate out of range\n"); goto out; }
+  }
  }
  for (int p = 0; p < 2; p++)
   printf("PASS pipe %d: %d frames, %.3f fps (VI PTS)\n", p, frames,

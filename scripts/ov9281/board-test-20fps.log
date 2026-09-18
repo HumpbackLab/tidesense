@@ -1,0 +1,366 @@
+Host test date: 2026-09-18; device RTC is unset.
+
+=== 640x400 60fps regression ===
+[SAMPLE_COMM_SNS_ParseIni]-2354: Parse sensor-400-60.ini
+[parse_source_devnum]-1959: devNum =  2
+[parse_sensor_name]-2040: sensor =  OV_OV9281_MIPI_400P_60FPS_10BIT
+[parse_sensor_busid]-2069: bus_id =  2
+[parse_sensor_i2caddr]-2080: sns_i2c_addr =  16
+[parse_sensor_mipidev]-2091: mipi_dev =  0
+[parse_sensor_laneid]-2102: Lane_id =  0,1,2,-1,-1
+[parse_sensor_pnswap]-2113: pn_swap =  0,0,0,0,0
+[parse_sensor_hwsync]-2124: hw_sync =  1
+[parse_sensor_name]-2040: sensor =  OV_OV9281_MIPI_400P_60FPS_10BIT
+[parse_sensor_busid]-2069: bus_id =  2
+[parse_sensor_i2caddr]-2080: sns_i2c_addr =  96
+[parse_sensor_mipidev]-2091: mipi_dev =  1
+[parse_sensor_laneid]-2102: Lane_id =  3,4,-1,-1,-1
+[parse_sensor_pnswap]-2113: pn_swap =  0,0,0,0,0
+[parse_sensor_hwsync]-2124: hw_sync =  1
+pipe 0: 640x400 nominal_fps=60 hw_sync=1
+pipe 1: 640x400 nominal_fps=60 hw_sync=1
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+ISP Vipipe(0) Allocate pa(0x8b8a5000) va(0x0x7fae2b9000) size(311600)
+ISP Vipipe(1) Allocate pa(0x8b8f2000) va(0x0x7fae26c000) size(311600)
+stSnsrMode.u16Width 640 stSnsrMode.u16Height 400 60.000000 wdrMode 0 pstSnsObj 0x58e510
+stSnsrMode.u16Width 640 stSnsrMode.u16Height 400 60.000000 wdrMode 0 pstSnsObj 0x58e510
+[SAMPLE_COMM_VI_StartMIPI]-594: sensor 0 stDevAttr.devno 0
+[SAMPLE_COMM_VI_StartMIPI]-594: sensor 1 stDevAttr.devno 1
+family ID request : receive error
+awbInit ver 6.9@2021500
+0 R:1400 B:3100 CT:2850
+1 R:1500 B:2500 CT:3900
+2 R:2300 B:1600 CT:6500
+Golden 1024 1024 1024
+WB Quadratic:0
+isWdr:0
+ViPipe:0, OV9281 addr=0x10 2-lane 640x400 RAW10 60fps init OK
+[SAMPLE_COMM_ISP_Thread]-390: ISP Dev 0 running!
+awbInit ver 6.9@2021500
+0 R:1400 B:3100 CT:2850
+1 R:1500 B:2500 CT:3900
+2 R:2300 B:1600 CT:6500
+Golden 1024 1024 1024
+WB Quadratic:0
+isWdr:0
+ViPipe:1, OV9281 addr=0x60 1-lane 640x400 RAW10 60fps init OK
+[SAMPLE_COMM_ISP_Thread]-384: ISP Dev 1 return
+wdrLEOnly:1
+wdrLEOnly:1
+pipe 0 frame 0: 640x400 pts=57065685597
+pipe 1 frame 0: 640x400 pts=57065698104
+pipe 0 frame 599: 640x400 pts=57075606838
+pipe 1 frame 599: 640x400 pts=57075619322
+VI arrival PTS delta right-left: min=12428 max=12522 us; not an exposure sync measurement
+pipe 0 sensor output registers: 640x400, lane_ctrl=0x5 sync=0x30
+pipe 0 timing: HTS=1456 VTS=910 exposure_lines=130
+pipe 1 sensor output registers: 640x400, lane_ctrl=0x1 sync=0x30
+pipe 1 timing: HTS=1456 VTS=910 exposure_lines=189
+PASS pipe 0: 600 frames, 60.376 fps (VI PTS)
+PASS pipe 1: 600 frames, 60.376 fps (VI PTS)
+pipe 0 image: min=122 max=177 mean=148.49 saved=camera0-640x400.pgm
+pipe 1 image: min=123 max=177 mean=148.68 saved=camera1-640x400.pgm
+
+Module: [MIPI_RX], Build Time[#4 SMP PREEMPT Thu Sep 17 18:00:19 CST 2026]
+
+------------Combo DEV ATTR--------------
+   Devno  WorkMode  DataType   WDRMode         LinkId        PN Swap  SyncMode  DataEndian  SyncCodeEndian
+       0      MIPI     RAW10      NONE  0, 1, 2,-1,-1  0, 0, 0, 0, 0       N/A         N/A             N/A
+   Devno  WorkMode  DataType   WDRMode         LinkId        PN Swap  SyncMode  DataEndian  SyncCodeEndian
+       1      MIPI     RAW10      NONE  3, 4,-1,-1,-1  0, 0, 0, 0, 0       N/A         N/A             N/A
+
+------------MIPI info-------------------
+ Devno EccErr CrcErr HdrErr WcErr fifofull   decode
+     0      0      0      0     0        0    raw10
+  Physical:       D0       D1       D2       D3       D4       D5
+                   0        0        0        0        0        0
+   Digital:       D0       D1       D2       D3    CK_HS  CK_ULPS  CK_STOP   CK_ERR   Deskew
+             hs_idle  hs_idle  hs_idle  hs_idle        1        0        0        0     idle
+ Devno EccErr CrcErr HdrErr WcErr fifofull   decode
+     1      0      0      0     0        0    raw10
+  Physical:       D0       D1       D2       D3       D4       D5
+                   0        0        0        0        0        0
+   Digital:       D0       D1       D2       D3    CK_HS  CK_ULPS  CK_STOP   CK_ERR   Deskew
+             hs_idle  hs_idle  hs_idle  hs_idle        0        0        0        0     idle
+
+-------------------------------MODULE PARAM-------------------------------------
+	DetectErrFrame	DropErrFrame
+		0		0
+
+-------------------------------VI MODE------------------------------------------
+	DevID	PrerawFE	PrerawBE	Postraw		Scaler
+	  0	 online		offline		 online		offline
+	  1	 online		offline		 online		offline
+
+-------------------------------VI DEV ATTR1-------------------------------------
+	DevID	DevEn	BindPipe	Width	Height	IntfM	WkM	ScanM
+	  0	  Y	   Y		 640	 400	MIPI	1MUX	  P
+	  1	  Y	   Y		 640	 400	MIPI	1MUX	  P
+
+-------------------------------VI DEV ATTR2-------------------------------------
+	DevID	AD0	AD1	AD2	AD3	Seq	DataType	WDRMode
+	  0	-1	-1	-1	-1	N/A	 RGB		None
+	  1	-1	-1	-1	-1	N/A	 RGB		None
+
+-------------------------------VI BIND ATTR-------------------------------------
+	DevID	PipeNum		PipeId
+	  0	  0		  0
+	  1	  0		  0
+
+-------------------------------VI DEV TIMING ATTR-------------------------------
+	DevID	DevTimingEn	DevFrmRate	DevWidth	DevHeight
+	  0	    N		   0		  640		  400
+	  1	    N		   0		  640		  400
+
+-------------------------------VI CHN ATTR1-------------------------------------
+	DevID	ChnID	Width	Height	Mirror	Flip	SrcFRate	DstFRate	PixFmt	VideoFmt	BindPool
+	  0	  0	 640	 400	  N	 N	  -1		  -1		NV21	  SDR8		  -1
+	  1	  0	 640	 400	  N	 N	  -1		  -1		NV21	  SDR8		  -1
+
+-------------------------------VI CHN ATT2--------------------------------------
+	DevID	ChnID	CompressMode	Depth	Align
+	  0	  0	None		  0	 32
+	  1	  0	None		  0	 32
+
+-------------------------------VI CHN OUTPUT RESOLUTION-------------------------
+	DevID	ChnID	Mirror	Flip	Width	Height	PixFmt	VideoFmt	CompressMode	FrameRate
+	  0	  0	  N	 N	 640	 400	NV21	  SDR8		  None		   -1
+	  1	  0	  N	 N	 640	 400	NV21	  SDR8		  None		   -1
+
+-------------------------------VI CHN ROTATE INFO-------------------------------
+	DevID	ChnID	Rotate
+	  0	  0	  0
+	  1	  0	  0
+
+-------------------------------VI CHN EARLY INTERRUPT INFO----------------------
+	DevID	ChnID	Enable	LineCnt
+	  0	  0	  N	   0
+	  1	  0	  N	   0
+
+-------------------------------VI CHN CROP INFO---------------------------------
+	DevID	ChnID	CropEn	CoorType	CoorX	CoorY	Width	Height	TrimX	TrimY	TrimWid	TrimHgt
+	  0	  0	  N	  RAT		   0	   0	   0	   0	   0	  0	  0	   0
+	  1	  0	  N	  RAT		   0	   0	   0	   0	   0	  0	  0	   0
+
+-------------------------------VI CHN STATUS------------------------------------
+	DevID	ChnID	Enable	FrameRate	IntCnt	RecvPic	LostFrame	VbFail	Width	Height
+	  0	  0	  Y	   61		  641	  641	    0		    0	 640	 400
+	  1	  0	  Y	   61		  641	  641	    0		    0	 640	 400
+19700101 23:51:15.845 0639 E isp isp_3aLib_exit:621 type 2 registered af lib can't init
+ISP Vipipe(0) Free pa(0x8b8a5000) va(0x0x7fae2b9000)
+19700101 23:51:15.846 0639 E isp isp_3aLib_exit:621 type 2 registered af lib can't init
+ISP Vipipe(1) Free pa(0x8b8f2000) va(0x0x7fae26c000)
+
+=== Deployed default 640x400 20fps ===
+PASS mode 640x400@20: RX/ISP size, WDR preservation, AE full/half rate, rejected invalid modes
+PASS mode 640x400@60: RX/ISP size, WDR preservation, AE full/half rate, rejected invalid modes
+PASS mode 640x480@60: RX/ISP size, WDR preservation, AE full/half rate, rejected invalid modes
+PASS mode 1280x800@60: RX/ISP size, WDR preservation, AE full/half rate, rejected invalid modes
+[SAMPLE_COMM_SNS_ParseIni]-2354: Parse /mnt/data/sensor_cfg.ini
+[parse_source_devnum]-1959: devNum =  2
+[parse_sensor_name]-2040: sensor =  OV_OV9281_MIPI_400P_20FPS_10BIT
+[parse_sensor_busid]-2069: bus_id =  2
+[parse_sensor_i2caddr]-2080: sns_i2c_addr =  16
+[parse_sensor_mipidev]-2091: mipi_dev =  0
+[parse_sensor_laneid]-2102: Lane_id =  0,1,2,-1,-1
+[parse_sensor_pnswap]-2113: pn_swap =  0,0,0,0,0
+[parse_sensor_hwsync]-2124: hw_sync =  1
+[parse_sensor_name]-2040: sensor =  OV_OV9281_MIPI_400P_20FPS_10BIT
+[parse_sensor_busid]-2069: bus_id =  2
+[parse_sensor_i2caddr]-2080: sns_i2c_addr =  96
+[parse_sensor_mipidev]-2091: mipi_dev =  1
+[parse_sensor_laneid]-2102: Lane_id =  3,4,-1,-1,-1
+[parse_sensor_pnswap]-2113: pn_swap =  0,0,0,0,0
+[parse_sensor_hwsync]-2124: hw_sync =  1
+pipe 0: 640x400 nominal_fps=20 hw_sync=1
+pipe 1: 640x400 nominal_fps=20 hw_sync=1
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+sh: devmem: not found
+ISP Vipipe(0) Allocate pa(0x8b8a5000) va(0x0x7faf1bb000) size(311600)
+ISP Vipipe(1) Allocate pa(0x8b8f2000) va(0x0x7faf16e000) size(311600)
+stSnsrMode.u16Width 640 stSnsrMode.u16Height 400 20.000000 wdrMode 0 pstSnsObj 0x58e510
+stSnsrMode.u16Width 640 stSnsrMode.u16Height 400 20.000000 wdrMode 0 pstSnsObj 0x58e510
+[SAMPLE_COMM_VI_StartMIPI]-594: sensor 0 stDevAttr.devno 0
+[SAMPLE_COMM_VI_StartMIPI]-594: sensor 1 stDevAttr.devno 1
+family ID request : receive error
+awbInit ver 6.9@2021500
+0 R:1400 B:3100 CT:2850
+1 R:1500 B:2500 CT:3900
+2 R:2300 B:1600 CT:6500
+Golden 1024 1024 1024
+WB Quadratic:0
+isWdr:0
+ViPipe:0, OV9281 addr=0x10 2-lane 640x400 RAW10 20fps init OK
+[SAMPLE_COMM_ISP_Thread]-390: ISP Dev 0 running!
+awbInit ver 6.9@2021500
+0 R:1400 B:3100 CT:2850
+1 R:1500 B:2500 CT:3900
+2 R:2300 B:1600 CT:6500
+Golden 1024 1024 1024
+WB Quadratic:0
+isWdr:0
+ViPipe:1, OV9281 addr=0x60 1-lane 640x400 RAW10 20fps init OK
+[SAMPLE_COMM_ISP_Thread]-384: ISP Dev 1 return
+wdrLEOnly:1
+wdrLEOnly:1
+pipe 0 frame 0: 640x400 pts=57103668064
+pipe 1 frame 0: 640x400 pts=57103696959
+pipe 0 frame 599: 640x400 pts=57133431732
+pipe 1 frame 599: 640x400 pts=57133460625
+VI arrival PTS delta right-left: min=28852 max=28931 us; not an exposure sync measurement
+pipe 0 sensor output registers: 640x400, lane_ctrl=0x5 sync=0x30
+pipe 0 timing: HTS=1456 VTS=2730 exposure_lines=139
+pipe 1 sensor output registers: 640x400, lane_ctrl=0x1 sync=0x30
+pipe 1 timing: HTS=1456 VTS=2730 exposure_lines=203
+PASS pipe 0: 600 frames, 20.125 fps (VI PTS)
+PASS pipe 1: 600 frames, 20.125 fps (VI PTS)
+pipe 0 image: min=123 max=179 mean=148.63 saved=camera0-640x400.pgm
+pipe 1 image: min=123 max=175 mean=148.53 saved=camera1-640x400.pgm
+
+Module: [MIPI_RX], Build Time[#4 SMP PREEMPT Thu Sep 17 18:00:19 CST 2026]
+
+------------Combo DEV ATTR--------------
+   Devno  WorkMode  DataType   WDRMode         LinkId        PN Swap  SyncMode  DataEndian  SyncCodeEndian
+       0      MIPI     RAW10      NONE  0, 1, 2,-1,-1  0, 0, 0, 0, 0       N/A         N/A             N/A
+   Devno  WorkMode  DataType   WDRMode         LinkId        PN Swap  SyncMode  DataEndian  SyncCodeEndian
+       1      MIPI     RAW10      NONE  3, 4,-1,-1,-1  0, 0, 0, 0, 0       N/A         N/A             N/A
+
+------------MIPI info-------------------
+ Devno EccErr CrcErr HdrErr WcErr fifofull   decode
+     0      0      0      0     0        0    raw10
+  Physical:       D0       D1       D2       D3       D4       D5
+                   0        0        0        0        0        0
+   Digital:       D0       D1       D2       D3    CK_HS  CK_ULPS  CK_STOP   CK_ERR   Deskew
+             hs_idle  hs_idle  hs_idle  hs_idle        1        0        0        0     idle
+ Devno EccErr CrcErr HdrErr WcErr fifofull   decode
+     1      0      0      0     0        0    raw10
+  Physical:       D0       D1       D2       D3       D4       D5
+                   0        0        0        0        0        0
+   Digital:       D0       D1       D2       D3    CK_HS  CK_ULPS  CK_STOP   CK_ERR   Deskew
+             hs_idle  hs_idle  hs_idle  hs_idle        0        0        0        0     idle
+
+-------------------------------MODULE PARAM-------------------------------------
+	DetectErrFrame	DropErrFrame
+		0		0
+
+-------------------------------VI MODE------------------------------------------
+	DevID	PrerawFE	PrerawBE	Postraw		Scaler
+	  0	 online		offline		 online		offline
+	  1	 online		offline		 online		offline
+
+-------------------------------VI DEV ATTR1-------------------------------------
+	DevID	DevEn	BindPipe	Width	Height	IntfM	WkM	ScanM
+	  0	  Y	   Y		 640	 400	MIPI	1MUX	  P
+	  1	  Y	   Y		 640	 400	MIPI	1MUX	  P
+
+-------------------------------VI DEV ATTR2-------------------------------------
+	DevID	AD0	AD1	AD2	AD3	Seq	DataType	WDRMode
+	  0	-1	-1	-1	-1	N/A	 RGB		None
+	  1	-1	-1	-1	-1	N/A	 RGB		None
+
+-------------------------------VI BIND ATTR-------------------------------------
+	DevID	PipeNum		PipeId
+	  0	  0		  0
+	  1	  0		  0
+
+-------------------------------VI DEV TIMING ATTR-------------------------------
+	DevID	DevTimingEn	DevFrmRate	DevWidth	DevHeight
+	  0	    N		   0		  640		  400
+	  1	    N		   0		  640		  400
+
+-------------------------------VI CHN ATTR1-------------------------------------
+	DevID	ChnID	Width	Height	Mirror	Flip	SrcFRate	DstFRate	PixFmt	VideoFmt	BindPool
+	  0	  0	 640	 400	  N	 N	  -1		  -1		NV21	  SDR8		  -1
+	  1	  0	 640	 400	  N	 N	  -1		  -1		NV21	  SDR8		  -1
+
+-------------------------------VI CHN ATT2--------------------------------------
+	DevID	ChnID	CompressMode	Depth	Align
+	  0	  0	None		  0	 32
+	  1	  0	None		  0	 32
+
+-------------------------------VI CHN OUTPUT RESOLUTION-------------------------
+	DevID	ChnID	Mirror	Flip	Width	Height	PixFmt	VideoFmt	CompressMode	FrameRate
+	  0	  0	  N	 N	 640	 400	NV21	  SDR8		  None		   -1
+	  1	  0	  N	 N	 640	 400	NV21	  SDR8		  None		   -1
+
+-------------------------------VI CHN ROTATE INFO-------------------------------
+	DevID	ChnID	Rotate
+	  0	  0	  0
+	  1	  0	  0
+
+-------------------------------VI CHN EARLY INTERRUPT INFO----------------------
+	DevID	ChnID	Enable	LineCnt
+	  0	  0	  N	   0
+	  1	  0	  N	   0
+
+-------------------------------VI CHN CROP INFO---------------------------------
+	DevID	ChnID	CropEn	CoorType	CoorX	CoorY	Width	Height	TrimX	TrimY	TrimWid	TrimHgt
+	  0	  0	  N	  RAT		   0	   0	   0	   0	   0	  0	  0	   0
+	  1	  0	  N	  RAT		   0	   0	   0	   0	   0	  0	  0	   0
+
+-------------------------------VI CHN STATUS------------------------------------
+	DevID	ChnID	Enable	FrameRate	IntCnt	RecvPic	LostFrame	VbFail	Width	Height
+	  0	  0	  Y	   21		  633	  633	    0		    0	 640	 400
+	  1	  0	  Y	   21		  633	  633	    0		    0	 640	 400
+19700101 23:52:13.647 0687 E isp isp_3aLib_exit:621 type 2 registered af lib can't init
+ISP Vipipe(0) Free pa(0x8b8a5000) va(0x0x7faf1bb000)
+19700101 23:52:13.648 0687 E isp isp_3aLib_exit:621 type 2 registered af lib can't init
+ISP Vipipe(1) Free pa(0x8b8f2000) va(0x0x7faf16e000)
+
+=== DEPLOYED SHA256 ===
+83a55abf9a2ffd7712d26f8c55cc7c4e6e7216adc3bf42a854001bc425fd1d9e  /mnt/data/ov9281-update/capture
+2977f2ee72b8b8083c317f6449b6713f4f0bbbc0b805a76851966ff56560db5b  /mnt/data/ov9281-update/mode_check
+4165d372fb4202ee7f317bdebcf35d1166ba086f8f92fce0eeef4883bf64260a  /mnt/data/ov9281-update/libsns_ov9281.so
+559454b355e6186c97850fd60c9f037582f9f5325e3ad36115e7d96bbaa77e71  /mnt/data/ov9281-update/libsns_full.so
+f56c49d41b69339e1b1cae25fe1088bd82e4bbf9793720dd7301f7988c95917c  /mnt/data/sensor_cfg.ini
