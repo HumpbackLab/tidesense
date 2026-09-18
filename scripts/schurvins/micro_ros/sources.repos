@@ -1,0 +1,101 @@
+repositories:
+  eProsima/Micro-CDR:
+    type: git
+    url: https://github.com/eProsima/Micro-CDR.git
+    version: ed4fd513a24a53b93d548d342cb7aa0a18716f04
+  eProsima/Micro-XRCE-DDS-Client:
+    type: git
+    url: https://github.com/eProsima/Micro-XRCE-DDS-Client.git
+    version: 83f129a80770a09aac9e823896ecbf6a0eddf0fc
+  ros2/common_interfaces:
+    type: git
+    url: https://github.com/ros2/common_interfaces.git
+    version: 08434490d3e4abd37ccc5462cdde69b88853b5b8
+  ros2/example_interfaces:
+    type: git
+    url: https://github.com/ros2/example_interfaces.git
+    version: f8deb566a1facf91bd38b9f00c4cf684c5007d85
+  ros2/libyaml_vendor:
+    type: git
+    url: https://github.com/ros2/libyaml_vendor.git
+    version: 239f695ceaa0820255f3d0fe02ec8c2bd41b8e78
+  ros2/rcl:
+    type: git
+    url: https://github.com/ros2/rcl.git
+    version: cbaee7c905e3276bb7a629eb1e18d8d3c781f194
+  ros2/rcl_interfaces:
+    type: git
+    url: https://github.com/ros2/rcl_interfaces.git
+    version: 82776fc9068d1e0cd4af11c2e2700195994b2eb1
+  ros2/rcl_logging:
+    type: git
+    url: https://github.com/ros2/rcl_logging.git
+    version: 5bab8cf7a19c466de77aee35fa55778298563c57
+  ros2/rcpputils:
+    type: git
+    url: https://github.com/ros2/rcpputils.git
+    version: ddb3f310870e1cd5395396ca36101075420ba8ba
+  ros2/rmw:
+    type: git
+    url: https://github.com/ros2/rmw.git
+    version: 566d17a97e87bc5336ce33fb025ce8e952a3326a
+  ros2/rmw_implementation:
+    type: git
+    url: https://github.com/ros2/rmw_implementation.git
+    version: 0fd2967b217afef2d45fbab550b598c70444a0aa
+  ros2/rosidl:
+    type: git
+    url: https://github.com/ros2/rosidl.git
+    version: 5621b26eff54596a356ad8abd72c06e7650d21f7
+  ros2/rosidl_dds:
+    type: git
+    url: https://github.com/ros2/rosidl_dds.git
+    version: ab8497770c652edb40d6b1591118198cbcf14237
+  ros2/rosidl_defaults:
+    type: git
+    url: https://github.com/ros2/rosidl_defaults.git
+    version: 8266f1c0f062d405595570209cfb0ed3f71684ae
+  ros2/test_interface_files:
+    type: git
+    url: https://github.com/ros2/test_interface_files.git
+    version: a0c8f5e338490ddf8b98238dce35c06810115e8b
+  ros2/unique_identifier_msgs:
+    type: git
+    url: https://github.com/ros2/unique_identifier_msgs.git
+    version: 27767cefcf8a80da44641dc208c57722c28aa11c
+  uros/micro_ros_msgs:
+    type: git
+    url: https://github.com/micro-ROS/micro_ros_msgs.git
+    version: c9062eb3860d16c1bff1423923de3b0956fd4734
+  uros/micro_ros_utilities:
+    type: git
+    url: https://github.com/micro-ROS/micro_ros_utilities
+    version: 74fbd3ed2e451e50aea49e45d143905e496c8f10
+  uros/rcl:
+    type: git
+    url: https://github.com/micro-ROS/rcl
+    version: 600a79c43c028b3659394f12620d67d03915724a
+  uros/rclc:
+    type: git
+    url: https://github.com/ros2/rclc
+    version: 10eadcc6444a3af3b21e7fb80a626f8c391450e0
+  uros/rcutils:
+    type: git
+    url: https://github.com/micro-ROS/rcutils
+    version: 1b0614b4c2b88a8a702c8954519d4f1471d6a35b
+  uros/rmw_microxrcedds:
+    type: git
+    url: https://github.com/micro-ROS/rmw-microxrcedds.git
+    version: 34382cad8737138120a6b718730cf73fa8522d57
+  uros/rosidl_typesupport:
+    type: git
+    url: https://github.com/micro-ROS/rosidl_typesupport.git
+    version: 520d9243f17e0cfe53c658b8051ebe2f89ad7c68
+  uros/rosidl_typesupport_microxrcedds:
+    type: git
+    url: https://github.com/micro-ROS/rosidl_typesupport_microxrcedds.git
+    version: 68b96291bca436243c9f3f9b054e5e117e58f8f7
+  uros/tracetools:
+    type: git
+    url: https://github.com/ros2/ros2_tracing.git
+    version: 3c159b382d2d565e26eaa91e39c9ec06a5c6fe88

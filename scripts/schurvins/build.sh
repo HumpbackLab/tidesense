@@ -11,6 +11,12 @@ esac
 work="$sdk/install/schurvins-gcc11-static"
 stage="$work/stage"
 out="$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static"
+micro_ros=${SCHUR_WITH_MICRO_ROS:-OFF}
+case "$micro_ros" in
+  OFF) core="$work/core" ;;
+  ON) core="$work/core-micro-ros"; out="$out-micro-ros" ;;
+  *) echo 'SCHUR_WITH_MICRO_ROS must be ON or OFF' >&2; exit 2 ;;
+esac
 deps="$sdk/install/schurvins-build/deps"
 jobs=${JOBS:-4}
 toolchain="$here/a53-gcc11-toolchain.cmake"
@@ -87,18 +93,26 @@ cmake -S "$deps/opencv-$OPENCV_VERSION" -B "$work/opencv" "${common[@]}" \
   -DCPU_BASELINE=NEON
 cmake --build "$work/opencv" -j"$jobs"
 cmake --install "$work/opencv"
-cmake -S "$here" -B "$work/core" "${common[@]}" \
+if [[ "$micro_ros" == ON ]]; then
+  "$here/micro_ros/build.sh"
+fi
+cmake -S "$here" -B "$core" "${common[@]}" \
   -DCMAKE_PREFIX_PATH="$stage" -DCMAKE_INSTALL_PREFIX="$out" \
   -DWORK="$work" -DDEPS="$deps" -DSCHUR_STATIC=ON -DGLOG_LIBRARY="$glog_library" \
+  -DSCHUR_WITH_MICRO_ROS="$micro_ros" \
   -DSCHUR_OPT_HALFSAMPLE_NEON="${SCHUR_OPT_HALFSAMPLE_NEON:-OFF}" \
   -DSCHUR_OPT_ZMSSD_NEON="${SCHUR_OPT_ZMSSD_NEON:-OFF}" \
   -DSCHUR_OPT_FAST10_NEON="${SCHUR_OPT_FAST10_NEON:-OFF}" \
   -DSCHUR_OPT_ALIGN2D_NEON="${SCHUR_OPT_ALIGN2D_NEON:-OFF}" \
   -DSCHUR_OPT_ALIGN2D_HESSIAN_NEON="${SCHUR_OPT_ALIGN2D_HESSIAN_NEON:-OFF}" \
   -DSCHUR_OPT_WARP_AFFINE_NEON="${SCHUR_OPT_WARP_AFFINE_NEON:-OFF}"
-cmake --build "$work/core" -j"$jobs"
-cmake --install "$work/core"
+cmake --build "$core" -j"$jobs"
+cmake --install "$core"
 "$here/build-camera.sh"
+if [[ "$micro_ros" == ON ]]; then
+  # Camera helper build is shared; copy its artifacts into the optional package.
+  cp "$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static/bin/"{schurvins_camera,fsin.sh} "$out/bin/"
+fi
 "${cross}strip" --strip-unneeded "$out/bin/schurvins_stereo" "$out/bin/schurvins_imu_test"
 cp "$here/prepare-imu.sh" "$out/bin/"
 cp "$here/tests/board-imu.sh" "$out/bin/test-imu-board.sh"
@@ -109,6 +123,15 @@ if grep -Eq 'INTERP|NEEDED' "$work/elf-program-headers.txt" "$work/elf-dynamic.t
 fi
 cp "$here/board-test-imu.log" "$here/IMU.md" "$here/CAMERA.md" "$here/camera-smoke.yaml" "$here/run.sh" "$here/synthetic.yaml" "$here/README.md" "$here/sources.lock" "$out/"
 mkdir -p "$out/licenses"
+cp "$here/MICRO-ROS.md" "$out/"
+cp "$here/micro_ros/VALIDATION.md" "$out/MICRO-ROS-VALIDATION.md"
+if [[ "$micro_ros" == ON ]]; then
+  mkdir -p "$out/licenses/micro-ROS"
+  cp -a "$sdk/install/micro-ros/firmware/build/licenses/." "$out/licenses/micro-ROS/"
+  cp "$here/micro_ros/sources.repos" "$out/micro-ros-sources.repos"
+  cp "$here/micro_ros/0001-isolate-client-key-rng.patch" "$out/micro-ros-rng.patch"
+  cp "$here/micro_ros/colcon.meta" "$out/micro-ros-colcon.meta"
+fi
 cp "$here/LICENSE.PX4-SC7U22" "$out/licenses/"
 # Preserve the full upstream source license notices in the downloaded trees too.
 cp "$sdk/SchurVINS/LICENSE" "$out/licenses/SchurVINS-LICENSE"
@@ -133,6 +156,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'SCHUR_OPT_ALIGN2D_HESSIAN_NEON=%s\nSCHUR_OPT_WARP_AFFINE_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_HESSIAN_NEON:-OFF}" "${SCHUR_OPT_WARP_AFFINE_NEON:-OFF}"
   printf 'LIVE_CAMERA=OV9281_640x400_20fps\nLIVE_IMU=SC7U22_200Hz\nCAMERA_HELPER=GCC6_MPI_static_system_libc_dynamic\n'
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
+  printf 'SCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$micro_ros"
 } > "$out/BUILD-INFO"
 tar -C "$(dirname "$out")" -czf "$out-a53.tar.gz" "$(basename "$out")"
 printf '\nBuilt: %s\nPackage: %s-a53.tar.gz\n' "$out" "$out"

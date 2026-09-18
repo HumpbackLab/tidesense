@@ -2,6 +2,10 @@
 
 现已支持 OV9281 **实时双目图像输入与纯视觉前端**，用法和实测见 [CAMERA.md](CAMERA.md)。现已接入 SC7U22 **200Hz 实时 IMU**，双目＋惯性入口见 [IMU.md](IMU.md)；原离线双目＋IMU 入口保留。
 
+可选 **micro-ROS 位姿/跟踪状态发布**见 [MICRO-ROS.md](MICRO-ROS.md)。构建开关
+`SCHUR_WITH_MICRO_ROS=ON`；运行时还需显式设置 `SCHUR_MICRO_ROS=1` 和电脑端
+`SCHUR_MICRO_ROS_AGENT`。两层开关默认均关闭，`SCHUR_MICRO_ROS=0` 可独立运行 VIO。
+
 源码：SDK 根目录 `SchurVINS/`，来自 <https://github.com/bytedance/SchurVINS>。
 精确版本与依赖见 `sources.lock`；此目录保存 SDK 构建入口、运行程序和上游补丁。
 `SchurVINS/` 与 SDK 其它独立源码库一样不直接纳入主库，构建脚本可恢复指定版本并应用补丁。
@@ -48,7 +52,8 @@ SchurVINS、OpenCV、yaml-cpp、glog 0.4.0 和 FAST；Eigen、minkindr、Boost �
 依赖 SDK Eigen 3.3.7；其它依赖下载版本见 `sources.lock`，Boost 仅使用头文件。
 
 此版本编译完整双目跟踪前端及 SchurVINS 估计器，启用 IMU 融合。
-不构建 ROS/catkin 节点、RViz、回环、全局地图、Ceres 后端、CUDA 和依赖 OpenGV 的单目初始化。
+不构建原 ROS 1/catkin 节点、RViz、回环、全局地图、Ceres 后端、CUDA 和依赖 OpenGV 的单目初始化。
+可选 micro-ROS 使用独立通信线程；无需板端安装完整 ROS 2。
 FAST 使用通用 FAST-10 实现；OpenCV/Eigen 使用 AArch64 NEON。
 运行程序在单核 A53 上使用单线程 OpenCV、同步深度滤波，限制关键帧和特征数量。
 

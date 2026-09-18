@@ -1,0 +1,19 @@
+diff --git a/rmw_microxrcedds_c/src/rmw_init.c b/rmw_microxrcedds_c/src/rmw_init.c
+index 96089b4..d2f5247 100644
+--- a/rmw_microxrcedds_c/src/rmw_init.c
++++ b/rmw_microxrcedds_c/src/rmw_init.c
+@@ -111,10 +111,12 @@ rmw_init_options_init(
+   init_options->impl->transport_params.read_cb = rmw_uxrce_transport_default_params.read_cb;
+ #endif /* if defined(RMW_UXRCE_TRANSPORT_SERIAL) */
+ 
+-  srand(uxr_nanos());
++  // TideSense: do not change the VIO process-wide rand()/srand() state.
++  // This target is POSIX Linux; rand_r owns a local client-key seed.
++  unsigned int client_key_seed = (unsigned int)uxr_nanos();
+ 
+   do {
+-    init_options->impl->transport_params.client_key = rand(); //NOLINT
++    init_options->impl->transport_params.client_key = (uint32_t)rand_r(&client_key_seed);
+   } while (init_options->impl->transport_params.client_key == 0);
+ 
+   return RMW_RET_OK;

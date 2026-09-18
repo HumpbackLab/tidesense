@@ -2,6 +2,7 @@
 // Native stereo + IMU entry point for the upstream SchurVINS pipeline.
 #include "live_camera.hpp"
 #include "live_imu.hpp"
+#include "micro_ros_bridge.hpp"
 #include <algorithm>
 #include <cmath>
 #include <chrono>
@@ -67,7 +68,7 @@ std::string path(const std::string& csv, const std::string& name) {
 
 int main(int argc, char** argv) {
   if (argc == 2 && std::string(argv[1]) == "--help") {
-    std::cout << "SchurVINS stereo + IMU (A53, no ROS)\n"
+    std::cout << "SchurVINS stereo + IMU (A53, optional micro-ROS)\n"
       "  schurvins_stereo CALIB.yaml STEREO.csv IMU.csv POSES.csv\n"
       "  schurvins_stereo --self-test SYNTHETIC_CALIB.yaml\n"
       "  schurvins_stereo --camera CALIB.yaml SENSOR.ini POSES.csv [FRAMES]\n"
@@ -79,7 +80,11 @@ int main(int argc, char** argv) {
       "Camera smoke uses test-only geometry, reports input validation, and writes no poses.\n"
       "STEREO: timestamp_ns,left_image,right_image (paths relative to CSV)\n"
       "IMU: timestamp_ns,gx,gy,gz,ax,ay,az (rad/s, m/s^2)\n"
-      "Rows must be strictly time-ordered; comments start with #.\n";
+      "Rows must be strictly time-ordered; comments start with #.\n"
+      "micro-ROS runtime default OFF. Set SCHUR_MICRO_ROS=1 and SCHUR_MICRO_ROS_AGENT=<computer IPv4>.\n"
+      "Optional SCHUR_MICRO_ROS_PORT=8888, SCHUR_MICRO_ROS_DOMAIN=0. SCHUR_MICRO_ROS=0 disables it.\n"
+      "Live ROS stamps use system realtime mapped from acquisition monotonic time; CSV stamps are unchanged.\n"
+      "micro-ROS compiled: " << (MicroRosBridge::compiled() ? "yes" : "no") << '\n';
     return 0;
   }
   bool self = argc == 3 && std::string(argv[1]) == "--self-test";
@@ -94,6 +99,11 @@ int main(int argc, char** argv) {
   FLAGS_logtostderr = true;
   cv::setNumThreads(1);
   try {
+    MicroRosBridge micro_ros;
+    // Use acquisition time, not network arrival time. Dataset timestamps remain
+    // unchanged. Live timestamps share CLOCK_MONOTONIC with the input adapters.
+    const int64_t ros_clock_offset = camera && micro_ros.enabled()
+      ? int64_t(clockNs(CLOCK_REALTIME)) - int64_t(clockNs(CLOCK_MONOTONIC)) : 0;
     const uint64_t frame_limit = camera ? (argc == count_index+1 ? stamp(argv[count_index]) : 120) : 0;
     const bool use_imu = !camera || live_vio;
     const std::string calibration = smoke ? executableDirectory() + "/../camera-smoke.yaml" : argv[(self || camera) ? 2 : 1];
@@ -315,11 +325,18 @@ int main(int argc, char** argv) {
       ++frames;
       auto f = vio.getLastFrames();
       if (f && f->imu_ready_) ++fused;
-      if (!f || vio.stage() != svo::Stage::kTracking) continue;
+      const uint64_t ros_stamp = uint64_t(int64_t(t) + ros_clock_offset);
+      if (!f || vio.stage() != svo::Stage::kTracking) {
+        micro_ros.submit(ros_stamp, false);
+        continue;
+      }
       auto T = f->get_T_W_B();
       const auto p = T.getPosition(); const auto q = T.getEigenQuaternion();
       if (!p.allFinite() || !q.coeffs().allFinite()) throw std::runtime_error("Non-finite pose");
       ++tracked;
+      // Smoke modes use test geometry and must never advertise a usable pose.
+      if (smoke) micro_ros.submit(ros_stamp, false);
+      else micro_ros.submit(ros_stamp, true, p.data(), q.coeffs().data());
       if (poses.is_open()) poses << t << std::setprecision(12) << ',' << p.x() << ',' << p.y() << ',' << p.z()
         << ',' << q.x() << ',' << q.y() << ',' << q.z() << ',' << q.w() << '\n';
     }
