@@ -28,3 +28,8 @@ middleware
 sophon_media
 sophliteos
 ubuntu
+
+# Local ROS recordings and calibration runs (source targets live in scripts/calibration).
+/cali/
+# Default output directories created by scripts/calibration/kalibr.sh.
+*-kalibr-[0-9]*/

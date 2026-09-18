@@ -1,0 +1,5 @@
+# Local Python environments and bytecode; keep printable targets versioned.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
