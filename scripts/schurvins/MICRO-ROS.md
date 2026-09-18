@@ -27,6 +27,14 @@ The micro-ROS build limits entities to one node and two publishers; extend
 `micro_ros/colcon.meta` when adding services/subscriptions. A publisher-only node
 needs no rclc executor; all rcl/rmw calls are owned by the communication thread.
 
+## Calibration images
+
+The independent `--calibrate SENSOR.ini --fps HZ` mode publishes two reliable
+`sensor_msgs/msg/Image` topics without running VIO. See [CALIBRATION.md](CALIBRATION.md)
+for command lines, timestamps, recording and limitations. It requires the same
+build/runtime opt-in. The mode uses the two publisher slots for left/right images;
+ordinary VIO still uses them for pose/tracking. No images are sent by ordinary VIO.
+
 ## Build switches
 
 Default build, **no micro-ROS library dependency**:
@@ -93,7 +101,7 @@ standalone-only binary fails with an explicit build-switch instruction.
 Smoke modes never publish a usable pose with their test-only calibration.
 `--self-test` is synthetic data; do not feed its poses to navigation.
 
-Disabled: no communication thread, ROS context, socket or ROS buffer allocation.
+Disabled: no communication thread, ROS context, socket or dynamic ROS/image buffer allocation.
 Enabled: fixed one-sample mailbox, nonblocking try-lock producer, latest sample
 wins; the worker runs at nice +5. UDP best effort avoids reliable publication
 waits. Agent absence/disconnect never waits inside the VIO processing thread;

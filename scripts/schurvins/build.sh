@@ -123,7 +123,7 @@ if grep -Eq 'INTERP|NEEDED' "$work/elf-program-headers.txt" "$work/elf-dynamic.t
 fi
 cp "$here/board-test-imu.log" "$here/IMU.md" "$here/CAMERA.md" "$here/camera-smoke.yaml" "$here/run.sh" "$here/synthetic.yaml" "$here/README.md" "$here/sources.lock" "$out/"
 mkdir -p "$out/licenses"
-cp "$here/MICRO-ROS.md" "$out/"
+cp "$here/MICRO-ROS.md" "$here/CALIBRATION.md" "$here/CALIBRATION-VALIDATION.md" "$out/"
 cp "$here/micro_ros/VALIDATION.md" "$out/MICRO-ROS-VALIDATION.md"
 if [[ "$micro_ros" == ON ]]; then
   mkdir -p "$out/licenses/micro-ROS"
@@ -131,6 +131,7 @@ if [[ "$micro_ros" == ON ]]; then
   cp "$here/micro_ros/sources.repos" "$out/micro-ros-sources.repos"
   cp "$here/micro_ros/0001-isolate-client-key-rng.patch" "$out/micro-ros-rng.patch"
   cp "$here/micro_ros/colcon.meta" "$out/micro-ros-colcon.meta"
+  cp "$here/micro_ros/calibration-agent.xml" "$here/micro_ros/calibration-cyclone.xml" "$out/"
 fi
 cp "$here/LICENSE.PX4-SC7U22" "$out/licenses/"
 # Preserve the full upstream source license notices in the downloaded trees too.

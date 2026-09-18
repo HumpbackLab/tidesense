@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+ <transport_descriptors><transport_descriptor><transport_id>loop_udp</transport_id><type>UDPv4</type><maxMessageSize>1400</maxMessageSize><sendBufferSize>4194304</sendBufferSize><receiveBufferSize>4194304</receiveBufferSize><interfaceWhiteList><address>127.0.0.1</address></interfaceWhiteList></transport_descriptor></transport_descriptors>
+ <participant profile_name="tidesense_calibration_local" is_default_profile="true"><rtps>
+  <userTransports><transport_id>loop_udp</transport_id></userTransports><useBuiltinTransports>false</useBuiltinTransports>
+  <builtin><metatrafficUnicastLocatorList><locator><udpv4><address>127.0.0.1</address></udpv4></locator></metatrafficUnicastLocatorList>
+   <initialPeersList><locator><udpv4><address>127.0.0.1</address></udpv4></locator></initialPeersList>
+  </builtin>
+ </rtps></participant>
+</profiles>

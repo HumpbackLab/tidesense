@@ -58,7 +58,7 @@ export RMW_IMPLEMENTATION=rmw_microxrcedds
 (
   cd "$work/firmware/mcu_ws"
   colcon build --merge-install --executor sequential \
-    --packages-ignore-regex '.*_cpp' --packages-up-to rclc geometry_msgs std_msgs \
+    --packages-ignore-regex '.*_cpp' --packages-up-to rclc geometry_msgs std_msgs sensor_msgs \
     --metas "$here/colcon.meta" --cmake-args \
     -DCMAKE_TOOLCHAIN_FILE="$here/toolchain.cmake" \
     -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \

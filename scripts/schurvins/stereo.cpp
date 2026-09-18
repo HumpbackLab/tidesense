@@ -3,6 +3,7 @@
 #include "live_camera.hpp"
 #include "live_imu.hpp"
 #include "micro_ros_bridge.hpp"
+#include "calibration.hpp"
 #include <algorithm>
 #include <cmath>
 #include <chrono>
@@ -70,6 +71,8 @@ int main(int argc, char** argv) {
   if (argc == 2 && std::string(argv[1]) == "--help") {
     std::cout << "SchurVINS stereo + IMU (A53, optional micro-ROS)\n"
       "  schurvins_stereo CALIB.yaml STEREO.csv IMU.csv POSES.csv\n"
+      "  schurvins_stereo --calibrate SENSOR.ini --fps HZ [--frames N] [--timestamps CSV]\n"
+      "    Independent FSIN stereo Image publishers; 0.1 <= HZ <= 20; default runs until Ctrl-C.\n"
       "  schurvins_stereo --self-test SYNTHETIC_CALIB.yaml\n"
       "  schurvins_stereo --camera CALIB.yaml SENSOR.ini POSES.csv [FRAMES]\n"
       "  schurvins_stereo --camera-smoke SENSOR.ini [FRAMES]\n"
@@ -87,6 +90,7 @@ int main(int argc, char** argv) {
       "micro-ROS compiled: " << (MicroRosBridge::compiled() ? "yes" : "no") << '\n';
     return 0;
   }
+  if (argc > 1 && std::string(argv[1]) == "--calibrate") return runCalibration(argc, argv);
   bool self = argc == 3 && std::string(argv[1]) == "--self-test";
   const std::string mode = argc > 1 ? argv[1] : "";
   bool live_vio = mode == "--vio" || mode == "--vio-smoke";

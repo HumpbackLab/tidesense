@@ -105,7 +105,7 @@ endif()
 target_link_libraries(schurvins PUBLIC ${OpenCV_LIBS} yaml-cpp
   "${GLOG_LIBRARY}" fast pthread dl)
 target_link_options(schurvins PRIVATE "-Wl,--no-undefined")
-add_executable(schurvins_stereo stereo.cpp live_camera.cpp live_imu.cpp)
+add_executable(schurvins_stereo stereo.cpp live_camera.cpp live_imu.cpp calibration.cpp)
 add_library(schurvins_micro_ros STATIC micro_ros_bridge.cpp)
 target_include_directories(schurvins_micro_ros PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 if(SCHUR_WITH_MICRO_ROS)

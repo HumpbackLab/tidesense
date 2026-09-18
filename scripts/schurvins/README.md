@@ -6,6 +6,8 @@
 `SCHUR_WITH_MICRO_ROS=ON`；运行时还需显式设置 `SCHUR_MICRO_ROS=1` 和电脑端
 `SCHUR_MICRO_ROS_AGENT`。两层开关默认均关闭，`SCHUR_MICRO_ROS=0` 可独立运行 VIO。
 
+独立双目标定采集：`--calibrate SENSOR.ini --fps 5`，直接发布 ROS 图像，见 [CALIBRATION.md](CALIBRATION.md)。
+
 源码：SDK 根目录 `SchurVINS/`，来自 <https://github.com/bytedance/SchurVINS>。
 精确版本与依赖见 `sources.lock`；此目录保存 SDK 构建入口、运行程序和上游补丁。
 `SchurVINS/` 与 SDK 其它独立源码库一样不直接纳入主库，构建脚本可恢复指定版本并应用补丁。

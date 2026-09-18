@@ -1,5 +1,8 @@
 # TideSense micro-ROS 验证记录
 
+本文件记录初版位姿通信（提交 `910a0b9`）的测试与历史产物哈希。
+后续标定图像模式的测试见 `CALIBRATION-VALIDATION.md`（SDK 中位于 `scripts/schurvins/`）。
+
 日期：2026-09-18。测试设备：`root@192.168.123.99`，SG2002 A53。
 目标程序使用 SDK GCC 11.3.1 全静态链接，六项已有 NEON 优化均开启。
 这是通信集成与回归测试，不是实际 VIO 精度或长期运行测试。
