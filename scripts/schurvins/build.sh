@@ -98,13 +98,14 @@ cmake -S "$here" -B "$work/core" "${common[@]}" \
   -DSCHUR_OPT_WARP_AFFINE_NEON="${SCHUR_OPT_WARP_AFFINE_NEON:-OFF}"
 cmake --build "$work/core" -j"$jobs"
 cmake --install "$work/core"
+"$here/build-camera.sh"
 "${cross}strip" --strip-unneeded "$out/bin/schurvins_stereo"
 "${cross}readelf" -lW "$out/bin/schurvins_stereo" > "$work/elf-program-headers.txt"
 "${cross}readelf" -dW "$out/bin/schurvins_stereo" > "$work/elf-dynamic.txt"
 if grep -Eq 'INTERP|NEEDED' "$work/elf-program-headers.txt" "$work/elf-dynamic.txt"; then
   echo "Static ELF verification failed" >&2; exit 1
 fi
-cp "$here/run.sh" "$here/synthetic.yaml" "$here/README.md" "$here/sources.lock" "$out/"
+cp "$here/CAMERA.md" "$here/camera-smoke.yaml" "$here/run.sh" "$here/synthetic.yaml" "$here/README.md" "$here/sources.lock" "$out/"
 mkdir -p "$out/licenses"
 # Preserve the full upstream source license notices in the downloaded trees too.
 cp "$sdk/SchurVINS/LICENSE" "$out/licenses/SchurVINS-LICENSE"
@@ -120,13 +121,14 @@ cp "$stage/include/boost/config.hpp" "$out/licenses/boost-notices.hpp"
 cp "$work/sysroot/eigen/include/eigen3/Eigen/Core" "$out/licenses/Eigen-Core-notices"
 cp /usr/share/doc/libboost1.74-dev/copyright "$out/licenses/Boost-copyright" 2>/dev/null || true
 cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
-(cd "$out" && sha256sum bin/schurvins_stereo > SHA256SUMS)
+(cd "$out" && sha256sum bin/schurvins_stereo bin/schurvins_camera bin/fsin.sh camera-smoke.yaml > SHA256SUMS)
 {
   "${cross}g++" --version | head -1
   printf 'SCHUR_OPT_HALFSAMPLE_NEON=%s\nSCHUR_OPT_ZMSSD_NEON=%s\nSCHUR_OPT_FAST10_NEON=%s\n' \
     "${SCHUR_OPT_HALFSAMPLE_NEON:-OFF}" "${SCHUR_OPT_ZMSSD_NEON:-OFF}" "${SCHUR_OPT_FAST10_NEON:-OFF}"
   printf 'SCHUR_OPT_ALIGN2D_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_NEON:-OFF}"
   printf 'SCHUR_OPT_ALIGN2D_HESSIAN_NEON=%s\nSCHUR_OPT_WARP_AFFINE_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_HESSIAN_NEON:-OFF}" "${SCHUR_OPT_WARP_AFFINE_NEON:-OFF}"
+  printf 'LIVE_CAMERA=OV9281_640x400_20fps_visual_only\nCAMERA_HELPER=GCC6_MPI_static_system_libc_dynamic\n'
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
 } > "$out/BUILD-INFO"
 tar -C "$(dirname "$out")" -czf "$out-a53.tar.gz" "$(basename "$out")"

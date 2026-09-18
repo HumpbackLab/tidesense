@@ -1,5 +1,7 @@
 # TideSense / Cortex-A53 SchurVINS
 
+现已支持 OV9281 **实时双目图像输入与纯视觉前端**，用法和实测见 [CAMERA.md](CAMERA.md)。实时 IMU 尚未接入；原离线双目＋IMU 入口保留。
+
 源码：SDK 根目录 `SchurVINS/`，来自 <https://github.com/bytedance/SchurVINS>。
 精确版本与依赖见 `sources.lock`；此目录保存 SDK 构建入口、运行程序和上游补丁。
 `SchurVINS/` 与 SDK 其它独立源码库一样不直接纳入主库，构建脚本可恢复指定版本并应用补丁。
@@ -13,6 +15,7 @@ JOBS=4 ./scripts/schurvins/build.sh
 使用 SDK 的 Arm GNU Toolchain 11.3.Rel1（GCC 11.3.1），为 Cortex-A53 重编
 SchurVINS、OpenCV、yaml-cpp、glog 0.4.0 和 FAST；Eigen、minkindr、Boost 使用头文件。
 最终通过 `-static` 链入工具链的 glibc、libstdc++ 和 libgcc。
+新增实时采集辅助进程 `schurvins_camera` 使用板上现有 libc，主程序仍为全静态，详见 `CAMERA.md`。
 关闭 OpenCV ITT 的动态插件加载，以及 glog 的 NSS 用户名查询（日志用户名取 `USER`，
 未设置时使用其内置占位名），避免这两项功能引入运行时动态库需求。
 构建脚本检查 ELF 不含 `PT_INTERP` 或 `DT_NEEDED`。
@@ -85,8 +88,7 @@ cd /mnt/data/schurvins-gcc11-static
 - 输出 `poses.csv`：`timestamp_ns,px,py,pz,qx,qy,qz,qw`，body/IMU 到世界坐标系的位姿，位置单位米。
   仅输出 Tracking 阶段位姿；未产生任何跟踪/融合输出时返回非零。
 
-此任务提供交叉编译和离线运行入口。尚未接入 CVITEK 实时图像采集或 SC7U22 实时读取，
-未验证真实数据的定位精度和实时帧率；不修改内核、开机服务或 SD 镜像。
+离线入口保留。CVITEK 实时双目输入现已接入，详见 [CAMERA.md](CAMERA.md)；SC7U22 实时读取尚未接入 SchurVINS。未验证真实场景定位精度。
 
 ## 补丁与许可
 

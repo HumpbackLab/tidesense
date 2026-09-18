@@ -1,0 +1,106 @@
+TideSense SchurVINS camera input validation, host date 2026-09-18
+Board 192.168.123.99 (device wall clock unset, 1970). No lenses; test-only camera geometry.
+All listed command groups exited 0. The configuration group expects two rejected inputs.
+Build: scripts/schurvins/build.sh with all six existing NEON options ON; main ELF verified static.
+SDK camera helper built with -Wall -Wextra -Werror; shell syntax and git diff checks passed.
+Full unfiltered logs: install/schurvins-gcc11-static/camera-results/
+
+protocol:
+camera_received=23 replaced_pending=21 pending_capacity=1
+PASS rejected bad-header
+PASS rejected truncated
+PASS rejected backwards
+PASS bounded latest-pair queue, owned pixels, protocol errors, child cleanup
+
+initial camera and overload validation:
+camera_received=23 replaced_pending=21 pending_capacity=1
+PASS rejected bad-header
+PASS rejected truncated
+PASS rejected backwards
+PASS bounded latest-pair queue, owned pixels, protocol errors, child cleanup
+frames=6 tracking=6 imu_fused=6
+SELF-TEST PASS (synthetic data; not a VIO accuracy test)
+camera: first pair refs=35/35 skew_us=2550 hw_sync=1
+camera: sent=120 pairing_discarded=0 fps=20.000
+frames=120 tracking=120 imu_fused=0
+camera_received=120 replaced_pending=0 pending_capacity=1
+frontend_frames=120 max_input_age_ms=12.1139 image_span_s=5.95003
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+camera: first pair refs=35/35 skew_us=-2538 hw_sync=1
+camera: sent=179 pairing_discarded=0 fps=20.000
+frames=80 tracking=80 imu_fused=0
+camera_received=179 replaced_pending=98 pending_capacity=1
+frontend_frames=80 max_input_age_ms=69.7232 image_span_s=8.80005
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+camera: first pair refs=35/35 skew_us=-18524 hw_sync=0
+camera: sent=60 pairing_discarded=0 fps=20.125
+frames=60 tracking=60 imu_fused=0
+camera_received=60 replaced_pending=0 pending_capacity=1
+frontend_frames=60 max_input_age_ms=9.73612 image_span_s=2.93167
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+
+full build regression:
+frames=6 tracking=6 imu_fused=6
+SELF-TEST PASS (synthetic data; not a VIO accuracy test)
+camera: first pair refs=35/35 skew_us=-2573 hw_sync=1
+camera: sent=120 pairing_discarded=0 fps=20.009
+frames=120 tracking=120 imu_fused=0
+camera_received=120 replaced_pending=0 pending_capacity=1
+frontend_frames=120 max_input_age_ms=15.0036 image_span_s=5.94742
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+camera: first pair refs=35/35 skew_us=-2541 hw_sync=1
+camera: sent=93 pairing_discarded=0 fps=20.011
+frames=40 tracking=40 imu_fused=0
+camera_received=93 replaced_pending=52 pending_capacity=1
+frontend_frames=40 max_input_age_ms=68.8691 image_span_s=4.49747
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+camera: first pair refs=35/35 skew_us=-19001 hw_sync=0
+camera: sent=30 pairing_discarded=0 fps=20.125
+frames=30 tracking=30 imu_fused=0
+camera_received=30 replaced_pending=0 pending_capacity=1
+frontend_frames=30 max_input_age_ms=9.77796 image_span_s=1.44098
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+
+deployment SHA256 and smoke:
+bin/schurvins_stereo: OK
+bin/schurvins_camera: OK
+bin/fsin.sh: OK
+camera-smoke.yaml: OK
+camera: first pair refs=35/35 skew_us=2549 hw_sync=1
+camera: sent=20 pairing_discarded=0 fps=19.946
+frames=20 tracking=20 imu_fused=0
+camera_received=20 replaced_pending=0 pending_capacity=1
+frontend_frames=20 max_input_age_ms=12.2152 image_span_s=0.952576
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+
+configuration rejection and final helper smoke:
+Error: Use real calibration for --camera; test geometry is only allowed in --camera-smoke
+camera: sensor INI must be an existing readable regular file: /tmp/nonexistent-schur-sensor.ini
+Error: Camera stream closed, stalled, or truncated
+camera: first pair refs=35/35 skew_us=2581 hw_sync=1
+camera: sent=20 pairing_discarded=0 fps=19.946
+frames=20 tracking=20 imu_fused=0
+camera_received=20 replaced_pending=0 pending_capacity=1
+frontend_frames=20 max_input_age_ms=12.1963 image_span_s=0.952577
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+
+SIGINT and MIPI status:
+camera: first pair refs=35/35 skew_us=2578 hw_sync=1
+camera: sent=34 pairing_discarded=0 fps=20.000
+frames=33 tracking=33 imu_fused=0
+camera_received=34 replaced_pending=0 pending_capacity=1
+frontend_frames=33 max_input_age_ms=12.2076 image_span_s=1.60002
+CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)
+enable=0
+period=50000000
+duty_cycle=100000
+ Devno EccErr CrcErr HdrErr WcErr fifofull   decode
+     0      0      0      0     0        0    raw10
+ Devno EccErr CrcErr HdrErr WcErr fifofull   decode
+     1      0      0      0     0        0    raw10
+
+Final deployed artifact hashes:
+a67fb2700feb89a83cef01493eaf219840de08da018092989edf445218768262  bin/schurvins_stereo
+ba54ddc98ce0de54cb2a7054c2a10bccd1df16450d85e005e6ad146a18055768  bin/schurvins_camera
+fffdd05e6cdd2547b64fb01bd2eb5c1af0547cefa9af7014664de493d6a023dd  bin/fsin.sh
+3278d0b5ff744d913765a8b10b5e0b09237f0bd20efa91886332fee6fc51121b  camera-smoke.yaml

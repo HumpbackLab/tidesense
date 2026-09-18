@@ -1,0 +1,88 @@
+diff --git a/svo/src/frame_handler_base.cpp b/svo/src/frame_handler_base.cpp
+index a6e31d3..cc5575d 100644
+--- a/svo/src/frame_handler_base.cpp
++++ b/svo/src/frame_handler_base.cpp
+@@ -145,7 +145,7 @@ FrameHandlerBase::FrameHandlerBase(const BaseOptions& base_options, const Reproj
+   if (options_.poseoptim_using_unit_sphere)
+     pose_optimizer_->setErrorType(PoseOptimizer::ErrorType::kBearingVectorDiff);
+ 
+-  bool user_schur_vins = true;
++  bool user_schur_vins = options_.use_imu;
+   if (user_schur_vins) {
+     const int WINDOW_SIZE = options_.window_size_;
+     double OBS_DEV = options_.obs_dev_;
+@@ -495,7 +495,7 @@ bool FrameHandlerBase::addFrameBundle(const FrameBundlePtr& frame_bundle)
+ 
+ #ifdef USE_SCHUR_VINS
+   // schur vins keyframe slidewindow
+-  schur_vins_->SetKeyframe(new_frames_->isKeyframe());
++  if (schur_vins_) schur_vins_->SetKeyframe(new_frames_->isKeyframe());
+ #endif
+ 
+ #ifdef SVO_LOOP_CLOSING
+@@ -824,6 +824,7 @@ size_t FrameHandlerBase::projectMapInFrame()
+ }
+ 
+ void FrameHandlerBase::schurvinsForward() {
++    if (!options_.use_imu) return;
+ #ifdef USE_SCHUR_VINS
+     if (schur_vins_ && imu_handler_ && new_frames_->imu_ready_) {
+         schur_vins_->Forward(new_frames_);
+@@ -834,6 +835,7 @@ void FrameHandlerBase::schurvinsForward() {
+ }
+ 
+ int FrameHandlerBase::schurvinsBackward() {
++    if (!options_.use_imu) return 0;
+ #ifdef USE_SCHUR_VINS
+     if (schur_vins_ && imu_handler_ && new_frames_->imu_ready_) {
+         return schur_vins_->Backward(new_frames_);
+@@ -855,7 +857,14 @@ size_t FrameHandlerBase::optimizePose()
+   {
+     SVO_START_TIMER("pose_optimizer");
+   }
+-#ifndef USE_SCHUR_VINS
++  size_t sfba_n_edges_final;
++#ifdef USE_SCHUR_VINS
++  if (options_.use_imu) {
++    sfba_n_edges_final = schurvinsBackward();
++  } else
++#endif
++  {
++  // Stereo visual-only mode uses the existing SVO pose optimizer.
+   pose_optimizer_->reset();
+   if (have_motion_prior_)
+   {
+@@ -863,10 +872,8 @@ size_t FrameHandlerBase::optimizePose()
+     pose_optimizer_->setRotationPrior(new_frames_->get_T_W_B().getRotation().inverse(),
+                                       options_.poseoptim_prior_lambda);
+   }
+-  size_t sfba_n_edges_final = pose_optimizer_->run(new_frames_, options_.poseoptim_thresh);
+-#else
+-  size_t sfba_n_edges_final = schurvinsBackward();
+-#endif
++  sfba_n_edges_final = pose_optimizer_->run(new_frames_, options_.poseoptim_thresh);
++  }
+ 
+   if (options_.trace_statistics)
+   {
+@@ -919,14 +926,13 @@ void FrameHandlerBase::optimizeStructure(const FrameBundle::Ptr& frames, int max
+     }
+     for (const PointPtr& point : pts)
+     {
+-    #ifndef USE_SCHUR_VINS
+-      point->optimize(max_iter, optimize_on_sphere);
+-      point->last_structure_optim_ = frame->id_;
+-    #else
+-      schur_vins_->StructureOptimize(point);
+-      // point->optimize(max_iter, optimize_on_sphere);
+-      point->last_structure_optim_ = frame->id_;
++    #ifdef USE_SCHUR_VINS
++      if (options_.use_imu)
++        schur_vins_->StructureOptimize(point);
++      else
+     #endif
++        point->optimize(max_iter, optimize_on_sphere);
++      point->last_structure_optim_ = frame->id_;
+     }
+     num_pts_opt += pts.size();
+   }

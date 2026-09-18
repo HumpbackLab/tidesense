@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Native stereo + IMU entry point for the upstream SchurVINS pipeline.
+#include "live_camera.hpp"
 #include <algorithm>
 #include <cmath>
 #include <chrono>
@@ -25,6 +26,8 @@
 #include <svo/common/frame.h>
 
 namespace {
+volatile sig_atomic_t interrupted = 0;
+void interrupt(int) { interrupted = 1; }
 uint64_t clockNs(clockid_t clock) {
   timespec ts;
   if (clock_gettime(clock, &ts)) throw std::runtime_error("clock_gettime failed");
@@ -66,30 +69,50 @@ int main(int argc, char** argv) {
     std::cout << "SchurVINS stereo + IMU (A53, no ROS)\n"
       "  schurvins_stereo CALIB.yaml STEREO.csv IMU.csv POSES.csv\n"
       "  schurvins_stereo --self-test SYNTHETIC_CALIB.yaml\n"
+      "  schurvins_stereo --camera CALIB.yaml SENSOR.ini POSES.csv [FRAMES]\n"
+      "  schurvins_stereo --camera-smoke SENSOR.ini [FRAMES]\n"
+      "Camera modes run the stereo visual frontend without IMU. FRAMES defaults to 120; 0 runs until Ctrl-C.\n"
+      "Camera smoke uses test-only geometry, reports input validation, and writes no poses.\n"
       "STEREO: timestamp_ns,left_image,right_image (paths relative to CSV)\n"
       "IMU: timestamp_ns,gx,gy,gz,ax,ay,az (rad/s, m/s^2)\n"
       "Rows must be strictly time-ordered; comments start with #.\n";
     return 0;
   }
   bool self = argc == 3 && std::string(argv[1]) == "--self-test";
-  if (!self && argc != 5) { std::cerr << "Use --help for usage\n"; return 2; }
+  bool smoke = argc >= 2 && std::string(argv[1]) == "--camera-smoke";
+  bool camera = smoke || (argc >= 2 && std::string(argv[1]) == "--camera");
+  if ((smoke && argc != 3 && argc != 4) ||
+      (camera && !smoke && argc != 5 && argc != 6) ||
+      (!camera && !self && argc != 5)) { std::cerr << "Use --help for usage\n"; return 2; }
   google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = true;
   cv::setNumThreads(1);
   try {
-    const std::string calibration = argv[self ? 2 : 1];
+    const uint64_t frame_limit = camera ? ((smoke ? argc == 4 : argc == 6) ?
+      stamp(argv[smoke ? 3 : 5]) : 120) : 0;
+    const std::string calibration = smoke ? executableDirectory() + "/../camera-smoke.yaml" : argv[(self || camera) ? 2 : 1];
     auto yaml = YAML::LoadFile(calibration);
-    if (!yaml["imu_params"] || !yaml["imu_initialization"])
+    if (!camera && (!yaml["imu_params"] || !yaml["imu_initialization"]))
       throw std::runtime_error("Calibration must include imu_params and imu_initialization");
     auto cams = svo::CameraBundle::loadFromYaml(calibration);
     if (!cams || cams->numCameras() != 2) throw std::runtime_error("Two cameras required");
-    auto imu_cal = svo::ImuHandler::loadCalibrationFromFile(calibration);
-    if (imu_cal.delay_imu_cam != 0.0)
-      throw std::runtime_error("Pre-align IMU/camera timestamps and set delay_imu_cam to zero");
-    auto imu_init = svo::ImuHandler::loadInitializationFromFile(calibration);
-    auto imu = std::make_shared<svo::ImuHandler>(imu_cal, imu_init, svo::IMUHandlerOptions());
+    if (camera && !smoke && ((yaml["test_only"] && yaml["test_only"].as<bool>()) ||
+        (yaml["label"] && yaml["label"].as<std::string>().find("SYNTHETIC") != std::string::npos)))
+      throw std::runtime_error("Use real calibration for --camera; test geometry is only allowed in --camera-smoke");
+    if (camera) for (size_t c = 0; c < 2; ++c)
+      if (cams->getCamera(c).imageWidth() != 640 || cams->getCamera(c).imageHeight() != 400)
+        throw std::runtime_error("Live camera calibration must be 640x400");
+    svo::ImuCalibration imu_cal;
+    std::shared_ptr<svo::ImuHandler> imu;
+    if (!camera) {
+      imu_cal = svo::ImuHandler::loadCalibrationFromFile(calibration);
+      if (imu_cal.delay_imu_cam != 0.0)
+        throw std::runtime_error("Pre-align IMU/camera timestamps and set delay_imu_cam to zero");
+      auto imu_init = svo::ImuHandler::loadInitializationFromFile(calibration);
+      imu = std::make_shared<svo::ImuHandler>(imu_cal, imu_init, svo::IMUHandlerOptions());
+    }
     svo::BaseOptions base;
-    base.use_imu = true;
+    base.use_imu = !camera;
     base.max_n_kfs = 5;
     base.window_size_ = 4;
     base.quality_min_fts = 20;
@@ -111,14 +134,28 @@ int main(int argc, char** argv) {
     init.init_min_features = 20;
     svo::FrameHandlerStereo vio(base, depth, detector, init,
         svo::StereoTriangulationOptions(), reproj, svo::FeatureTrackerOptions(), cams);
-    vio.setImuHandler(imu);
+    if (imu) vio.setImuHandler(imu);
     vio.start();
     std::ifstream images, inertial;
     std::ofstream poses;
-    if (!self) {
+    if (!self && !camera) {
       images.open(argv[2]); inertial.open(argv[3]); poses.open(argv[4]);
       if (!images || !inertial || !poses) throw std::runtime_error("Cannot open input/output files");
       poses << "#timestamp_ns,px,py,pz,qx,qy,qz,qw\n";
+    }
+    if (camera && !smoke) {
+      poses.open(argv[4]);
+      if (!poses) throw std::runtime_error("Cannot open pose output");
+      poses << "# visual-only, no IMU; timestamp is left VI arrival PTS, not calibrated exposure time\n"
+            << "#timestamp_ns,px,py,pz,qx,qy,qz,qw\n";
+    }
+    std::unique_ptr<LiveCamera> live;
+    if (camera) {
+      struct sigaction sa{}; sa.sa_handler = interrupt;
+      sigaction(SIGINT, &sa, nullptr); sigaction(SIGTERM, &sa, nullptr);
+      const char* helper = std::getenv("SCHUR_CAMERA_HELPER");
+      live.reset(new LiveCamera(helper ? helper : executableDirectory() + "/schurvins_camera", argv[smoke ? 2 : 3]));
+      std::cout << "Live stereo visual frontend, IMU disabled; timestamps are VI arrival PTS\n";
     }
     std::ofstream timings;
     if (const char* timing_path = std::getenv("SCHUR_TIMING_CSV")) {
@@ -146,10 +183,33 @@ int main(int argc, char** argv) {
         last_imu = t;
       }
     }
+    uint64_t test_delay_ms = 0;
+    if (camera && std::getenv("SCHUR_TEST_PROCESS_DELAY_MS")) {
+      test_delay_ms = stamp(std::getenv("SCHUR_TEST_PROCESS_DELAY_MS"));
+      if (test_delay_ms > 1000) throw std::runtime_error("Test processing delay must be <=1000ms");
+    }
+    double max_age_ms = 0;
+    uint64_t first_live_stamp = 0, last_live_stamp = 0;
     while (true) {
       uint64_t t;
       std::vector<cv::Mat> pair;
-      if (self) {
+      if (camera) {
+        if (frame_limit && frames >= frame_limit) break;
+        LivePair input;
+        if (!live->next(input, interrupted)) break;
+        t = input.header.left_ns;
+        if (!first_live_stamp) first_live_stamp = t;
+        last_live_stamp = t;
+        if (t <= last_image) throw std::runtime_error("Live timestamps not increasing");
+        last_image = t;
+        const uint64_t now = clockNs(CLOCK_MONOTONIC);
+        if (now < t) throw std::runtime_error("VI PTS is not in the expected monotonic clock domain");
+        max_age_ms = std::max(max_age_ms, (now-t)*1e-6);
+        pair = {input.left, input.right};
+        // Optional consumer-delay injection for bounded-queue board testing.
+        if (test_delay_ms)
+          std::this_thread::sleep_for(std::chrono::milliseconds(test_delay_ms));
+      } else if (self) {
         if (frames == 6) break;
         t = 1000000000ULL + frames * 50000000ULL;
         cv::Mat right = cv::Mat::zeros(synthetic.size(), CV_8UC1);
@@ -186,13 +246,13 @@ int main(int argc, char** argv) {
           throw std::runtime_error("Image missing or dimensions disagree with calibration");
       }
       svo::Quaternion rotation;
-      if (!vio.hasStarted()) {
+      if (imu && !vio.hasStarted()) {
         if (!imu->getInitialAttitude(t * 1e-9, rotation)) {
           ++frames;
           continue;
         }
         vio.setRotationPrior(rotation);
-      } else if (vio.getLastFrames() && imu->getRelativeRotationPrior(
+      } else if (imu && vio.getLastFrames() && imu->getRelativeRotationPrior(
           vio.getLastFrames()->getMinTimestampSeconds(), t * 1e-9, false, rotation)) {
         vio.setRotationIncrementPrior(rotation);
       }
@@ -216,11 +276,22 @@ int main(int argc, char** argv) {
       const auto p = T.getPosition(); const auto q = T.getEigenQuaternion();
       if (!p.allFinite() || !q.coeffs().allFinite()) throw std::runtime_error("Non-finite pose");
       ++tracked;
-      if (!self) poses << t << std::setprecision(12) << ',' << p.x() << ',' << p.y() << ',' << p.z()
+      if (poses.is_open()) poses << t << std::setprecision(12) << ',' << p.x() << ',' << p.y() << ',' << p.z()
         << ',' << q.x() << ',' << q.y() << ',' << q.z() << ',' << q.w() << '\n';
     }
     std::cout << "frames=" << frames << " tracking=" << tracked << " imu_fused=" << fused << '\n';
-    if (tracked == 0 || fused == 0 || (self && (tracked != 6 || fused != 6)))
+    if (camera) {
+      if (live->stop()) throw std::runtime_error("Camera helper exited with an error during cleanup");
+      live->report();
+      std::cout << "frontend_frames=" << frames << " max_input_age_ms=" << max_age_ms
+                << " image_span_s=" << (last_live_stamp-first_live_stamp)*1e-9 << '\n';
+      if (!frames) throw std::runtime_error("No camera images reached visual frontend");
+      if (smoke) {
+        std::cout << "CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)\n";
+        return 0;
+      }
+    }
+    if (tracked == 0 || (!camera && fused == 0) || (self && (tracked != 6 || fused != 6)))
       throw std::runtime_error("Stereo/IMU pipeline did not track expected frames");
     std::cout << (self ? "SELF-TEST PASS (synthetic data; not a VIO accuracy test)\n" : "Completed\n");
     return 0;
