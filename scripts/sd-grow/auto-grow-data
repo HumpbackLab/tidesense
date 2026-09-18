@@ -1,0 +1,25 @@
+#!/bin/sh
+# Run before mounting DATA. SDK make_ext4fs images require offline growth.
+set -eu
+sectors=$(cat /sys/class/block/mmcblk0/size)
+marker=/etc/tidesense-data-grown-sectors
+if [ -f "$marker" ] && [ "$(cat "$marker")" = "$sectors" ] &&
+   [ "$(cat /sys/class/block/mmcblk0p3/size)" = "$((sectors - 575488))" ]; then
+    exit 0
+fi
+if grep -q '^/dev/mmcblk0p3 ' /proc/mounts; then
+    echo 'TideSense: unmount DATA before expansion' >&2
+    exit 1
+fi
+/sbin/tidesense-grow-data
+rc=0
+/sbin/e2fsck -fy /dev/mmcblk0p3 || rc=$?
+[ "$rc" -le 1 ] || exit "$rc"
+/sbin/resize2fs /dev/mmcblk0p3
+rc=0
+/sbin/e2fsck -fy /dev/mmcblk0p3 || rc=$?
+[ "$rc" -le 1 ] || exit "$rc"
+printf '%s\n' "$sectors" > "$marker.tmp"
+sync
+mv "$marker.tmp" "$marker"
+sync
