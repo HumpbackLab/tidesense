@@ -11,7 +11,7 @@ ${CROSS_COMPILE}gcc -O2 -Wall -Wextra -Werror -I cvi_mpi/include \
  -I cvi_mpi/modules/isp/include/cv181x -I cvi_mpi/sample/common \
  -I cvi_mpi/component/isp/sensor/cv182x/ov_ov9281 \
  -I cvi_mpi/component/isp/common -I cvi_mpi/3rdparty/inih \
- scripts/ov9281/capture.c -o install/ov9281-test/capture \
+ scripts/ov9281/capture.c -o install/ov9281-test/capture -Wl,--wrap=CVI_VI_SetChnAttr \
  -Wl,-Bstatic -Wl,--start-group -L cvi_mpi/lib -L cvi_mpi/lib/3rd \
  -lsample -lsys -lvi -lvo -lvpss -lrgn -lgdc -lvenc -lcvi_bin -lcvi_bin_isp \
  -lisp -lisp_algo -lae -laf -lawb -lsns_full -lini \
@@ -23,3 +23,5 @@ ${CROSS_COMPILE}gcc -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-section
  scripts/ov9281/mode_check.c -o install/ov9281-test/mode_check \
  -Wl,--gc-sections -Wl,-Bstatic -L cvi_mpi/lib -lsys -Wl,-Bdynamic -lpthread -lm
 ${CROSS_COMPILE}strip install/ov9281-test/mode_check
+
+cp scripts/ov9281/fsin.sh install/ov9281-test/fsin.sh

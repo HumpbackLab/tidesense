@@ -2,11 +2,59 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include "ov9281_cmos_ex.h"
 #include "sample_comm.h"
+#include "cvi_ae.h"
 
 #define CHECK(call) do { int r = (call); if (r) { \
  fprintf(stderr, "%s failed: %#x\n", #call, r); goto out; } } while (0)
+
+/* The SDK sample enables channels with depth 0 (delivery only while waiting).
+ * Set a bounded queue before EnableChn so sequential stereo reads tolerate
+ * scheduling delays. This SDK's SetChnAttr cannot safely be called again after
+ * initialization: it appends channels rather than updating existing ones. */
+CVI_S32 __real_CVI_VI_SetChnAttr(VI_PIPE pipe, VI_CHN chn, VI_CHN_ATTR_S *attr);
+CVI_S32 __wrap_CVI_VI_SetChnAttr(VI_PIPE pipe, VI_CHN chn, VI_CHN_ATTR_S *attr)
+{
+ VI_CHN_ATTR_S queued = *attr;
+ queued.u32Depth = 3;
+ return __real_CVI_VI_SetChnAttr(pipe, chn, &queued);
+}
+
+/* Use hardware PWM8, never a userspace sleep loop, for the test pulses. */
+static int fsin_control(const char *action, int hz, int count)
+{
+ pid_t pid = fork();
+ if (pid < 0) return -1;
+ if (pid == 0) {
+  char rate[24], pulses[24];
+  snprintf(rate, sizeof(rate), "%d", hz);
+  snprintf(pulses, sizeof(pulses), "%d", count);
+  const char *tool = "/mnt/data/ov9281-update/fsin.sh";
+  if (!strcmp(action, "train")) execl(tool, tool, action, rate, pulses, (char *)NULL);
+  else execl(tool, tool, action, (char *)NULL);
+  perror("fsin.sh");
+  _exit(127);
+ }
+ int status;
+ if (waitpid(pid, &status, 0) < 0) return -1;
+ return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+}
+
+static int expect_no_frames(const char *phase)
+{
+ for (int p = 0; p < 2; p++) {
+  VIDEO_FRAME_INFO_S f = {0};
+  if (CVI_VI_GetChnFrame(0, p, &f, 300) == CVI_SUCCESS) {
+   CVI_VI_ReleaseChnFrame(0, p, &f);
+   fprintf(stderr, "%s: pipe %d emitted a frame without a trigger\n", phase, p);
+   return -1;
+  }
+ }
+ printf("PASS %s: neither pipe emitted a frame (300ms timeout each, expected)\n", phase);
+ return 0;
+}
 
 int main(int argc, char **argv)
 {
@@ -22,17 +70,22 @@ int main(int argc, char **argv)
  long long min_delta = 0, max_delta = 0;
  int rc = 1, sys_ready = 0, vi_ready = 0;
  int frames = 600;
+ int fsin_test = argc == 3 && !strcmp(argv[2], "--fsin-test");
+ int fsin_max_exposure = fsin_test && getenv("OV9281_FSIN_MAX_EXPOSURE") != NULL;
+ int fsin_prepared = 0;
+ int warmup = fsin_test ? 4 : 0;
  setvbuf(stdout, NULL, _IONBF, 0);
  if (argc > 3) {
-  fprintf(stderr, "Usage: %s [sensor_cfg.ini [--free-run]]\n", argv[0]);
+  fprintf(stderr, "Usage: %s [sensor_cfg.ini [--free-run|--fsin-test]]\n", argv[0]);
   return 2;
  }
- if (argc == 3 && strcmp(argv[2], "--free-run")) return 2;
+ if (argc == 3 && strcmp(argv[2], "--free-run") && !fsin_test) return 2;
  CHECK(SAMPLE_COMM_VI_SetIniPath(argc > 1 ? argv[1] : "/mnt/data/sensor_cfg.ini"));
  CHECK(SAMPLE_COMM_VI_ParseIni(&ini));
  if (ini.devNum != 2) { fprintf(stderr, "Expected two cameras\n"); return 2; }
  for (int p = 0; p < 2; p++) {
-  if (argc == 3) ini.u8HwSync[p] = 0;
+  if (argc == 3 && !fsin_test) ini.u8HwSync[p] = 0;
+  if (fsin_test && ini.u8HwSync[p] != 1) { fprintf(stderr, "FSIN test requires hw_sync=1\n"); goto out; }
   CHECK(SAMPLE_COMM_VI_GetSizeBySensor(ini.enSnsType[p], &pic));
   CHECK(SAMPLE_COMM_SYS_GetPicSize(pic, &size[p]));
   ISP_PUB_ATTR_S pub = {0};
@@ -44,6 +97,10 @@ int main(int argc, char **argv)
  if (size[0].u32Width != size[1].u32Width || size[0].u32Height != size[1].u32Height) {
   fprintf(stderr, "This stereo test requires equal image sizes\n");
   goto out;
+ }
+ if (fsin_test) {
+  CHECK(fsin_control("prepare", 0, 0));
+  fsin_prepared = 1;
  }
  CHECK(CVI_VI_SetDevNum(2));
  CHECK(SAMPLE_COMM_VI_IniToViCfg(&ini, &vi));
@@ -59,31 +116,67 @@ int main(int argc, char **argv)
  sys_ready = 1;
  CHECK(SAMPLE_PLAT_VI_INIT(&vi));
  vi_ready = 1;
- for (int p = 0; p < 2; p++) {
-  VI_CHN_ATTR_S attr;
-  CHECK(CVI_VI_GetChnAttr(p, p, &attr));
-  attr.u32Depth = 3;
-  CHECK(CVI_VI_SetChnAttr(p, p, &attr));
+ if (fsin_test) {
+  if (fsin_max_exposure) {
+   for (int p = 0; p < 2; p++) {
+    ISP_EXPOSURE_ATTR_S exp;
+    CHECK(CVI_ISP_GetExposureAttr(p, &exp));
+    exp.enOpType = OP_TYPE_MANUAL;
+    exp.stManual.enExpTimeOpType = OP_TYPE_MANUAL;
+    exp.stManual.u32ExpTime = 100000; /* Must clamp to the FSIN limit. */
+    CHECK(CVI_ISP_SetExposureAttr(p, &exp));
+   }
+  }
+  CHECK(expect_no_frames("before FSIN"));
+  /* Let VI/ISP finish its startup frame suppression, then count a fresh
+   * finite train. Startup sensor interrupts are not all delivered by VI. */
+  CHECK(fsin_control("start", 0, 0));
+  for (int n = 0; n < 4; n++) {
+   for (int p = 0; p < 2; p++) {
+    VIDEO_FRAME_INFO_S f = {0};
+    CHECK(CVI_VI_GetChnFrame(0, p, &f, 3000));
+    CHECK(CVI_VI_ReleaseChnFrame(0, p, &f));
+   }
+  }
+  CHECK(fsin_control("stop", 0, 0));
+  for (int p = 0; p < 2; p++) {
+   int n;
+   for (n = 0; n < 120; n++) {
+    VIDEO_FRAME_INFO_S f = {0};
+    if (CVI_VI_GetChnFrame(0, p, &f, 300) != CVI_SUCCESS) break;
+    CHECK(CVI_VI_ReleaseChnFrame(0, p, &f));
+   }
+   if (n == 120) { fprintf(stderr, "Frames continued after stopping FSIN\n"); goto out; }
+  }
+  CHECK(expect_no_frames("after warmup stop"));
+  CHECK(fsin_control("train", 20, frames + warmup));
  }
- for (int n = 0; n < frames; n++) {
+ for (int n = -warmup; n < frames; n++) {
   for (int p = 0; p < 2; p++) {
    VIDEO_FRAME_INFO_S f = {0};
-   CHECK(CVI_VI_GetChnFrame(0, p, &f, 3000));
+   int get_rc = CVI_VI_GetChnFrame(0, p, &f, 3000);
+   if (get_rc) { fprintf(stderr, "pipe %d frame %d timeout: %#x\n", p, n, get_rc); fsin_control("status", 0, 0); system("cat /proc/cvitek/vi"); goto out; }
    int valid = f.stVFrame.u32Width == size[p].u32Width &&
     f.stVFrame.u32Height == size[p].u32Height &&
-    (n == 0 || f.stVFrame.u64PTS > last[p]);
+    (n <= 0 || f.stVFrame.u64PTS > last[p]);
    if (n == 0) first[p] = f.stVFrame.u64PTS;
    last[p] = f.stVFrame.u64PTS;
-   if (n == 0 || n == frames - 1)
+   if (n % 100 == 0 || n == frames - 1)
     printf("pipe %d frame %d: %ux%u pts=%llu\n", p, n,
      f.stVFrame.u32Width, f.stVFrame.u32Height, (unsigned long long)last[p]);
    if (n == frames - 1) { saved[p] = f; held[p] = 1; }
    else CHECK(CVI_VI_ReleaseChnFrame(0, p, &f));
    if (!valid) { fprintf(stderr, "Invalid dimensions or timestamp\n"); goto out; }
   }
+  if (n < 0) continue;
   long long delta = (long long)last[1] - (long long)last[0];
   if (n == 0 || delta < min_delta) min_delta = delta;
   if (n == 0 || delta > max_delta) max_delta = delta;
+ }
+ if (fsin_test) {
+  CHECK(fsin_control("status", 0, 0));
+  CHECK(expect_no_frames("after finite FSIN train"));
+  CHECK(fsin_control("stop", 0, 0));
  }
  printf("VI arrival PTS delta right-left: min=%lld max=%lld us; not an exposure sync measurement\n",
   min_delta, max_delta);
@@ -98,11 +191,15 @@ int main(int argc, char **argv)
    vts,
    ((ov9281_read_register(p, 0x3500) << 16) | (ov9281_read_register(p, 0x3501) << 8) |
     ov9281_read_register(p, 0x3502)) >> 4);
+  if (fsin_max_exposure && (((ov9281_read_register(p, 0x3500) << 16) |
+   (ov9281_read_register(p, 0x3501) << 8) | ov9281_read_register(p, 0x3502)) >> 4) != 546) {
+   fprintf(stderr, "FSIN exposure did not clamp to 546 lines\n"); goto out;
+  }
   if (w != (int)size[p].u32Width || h != (int)size[p].u32Height) goto out;
-  if (vts != (nominal_fps[p] == 20 ? 2730 : 910)) {
+  if (vts != (ini.u8HwSync[p] ? 910 : (nominal_fps[p] == 20 ? 2730 : 910))) {
    fprintf(stderr, "Unexpected sensor frame period\n"); goto out;
   }
-  if (nominal_fps[p] == 20) {
+  if (fsin_test || nominal_fps[p] == 20) {
    double fps = (frames - 1) * 1000000.0 / (last[p] - first[p]);
    if (fps < 19 || fps > 21) { fprintf(stderr, "20fps mode rate out of range\n"); goto out; }
   }
@@ -137,12 +234,13 @@ int main(int argc, char **argv)
   CVI_SYS_Munmap(y, len);
   printf("pipe %d image: min=%u max=%u mean=%.2f saved=%s\n", p, low, high,
    (double)sum / (w * h), name);
-  if (low == high) valid = 0;
+  if (low == high && !fsin_max_exposure) valid = 0;
   if (!valid) goto out;
  }
  system("cat /proc/mipi-rx; cat /proc/cvitek/vi");
  rc = 0;
 out:
+ if (fsin_prepared) fsin_control("stop", 0, 0);
  for (int p = 0; p < 2; p++)
   if (held[p]) CVI_VI_ReleaseChnFrame(0, p, &saved[p]);
  if (vi_ready) { SAMPLE_COMM_VI_DestroyIsp(&vi); SAMPLE_COMM_VI_DestroyVi(&vi); }

@@ -40,6 +40,22 @@ int main(void)
   assert(ae.u32MaxIntTime == (unsigned)modes[i].vts * 2 - 25);
   assert(cmos_fps_set(0, modes[i].fps + 1, &ae) == CVI_FAILURE);
   assert(cmos_fps_set(0, modes[i].fps, &ae) == CVI_SUCCESS);
+  g_au16Ov9281_HwSync[0] = 1;
+  assert(cmos_get_ae_default(0, &ae) == CVI_SUCCESS);
+  assert(ae.u32MaxIntTime == 546 && ae.u32MaxIntTimeTarget == 546);
+  assert(cmos_fps_set(0, modes[i].fps, &ae) == CVI_SUCCESS);
+  assert(ae.u32MaxIntTime == 546);
+  assert(ae.u32LinesPer500ms == 27300 && ae.u32HmaxTimes == 18);
+  ISP_SNS_REGS_INFO_S *regs = &state.astSyncInfo[0].snsCfg;
+  assert(((regs->astI2cData[LINEAR_VTS_0].u32Data << 8) |
+   regs->astI2cData[LINEAR_VTS_1].u32Data) == 910);
+  CVI_U32 exposure = 65535;
+  assert(cmos_inttime_update(0, &exposure) == CVI_SUCCESS);
+  assert(((regs->astI2cData[LINEAR_EXP_0].u32Data << 12) |
+   (regs->astI2cData[LINEAR_EXP_1].u32Data << 4) |
+   (regs->astI2cData[LINEAR_EXP_2].u32Data >> 4)) == 546);
+  g_au16Ov9281_HwSync[0] = 0;
+  assert(cmos_fps_set(0, modes[i].fps, &ae) == CVI_SUCCESS);
   const float invalid[] = {0, -1, 61, NAN};
   for (unsigned int n = 0; n < sizeof(invalid) / sizeof(invalid[0]); n++) {
    image.f32Fps = invalid[n];
@@ -49,7 +65,7 @@ int main(void)
   image.f32Fps = modes[i].fps;
   image.u16Width = 800;
   assert(cmos_set_image_mode(0, &image) == CVI_FAILURE);
-  printf("PASS mode %dx%d@%d: RX/ISP size, WDR preservation, AE full/half rate, rejected invalid modes\n",
+  printf("PASS mode %dx%d@%d: RX/ISP size, WDR preservation, AE full/half rate, FSIN timing/exposure clamp, rejected invalid modes\n",
    modes[i].width, modes[i].height, modes[i].fps);
  }
  return 0;
