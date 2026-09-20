@@ -25,21 +25,13 @@ class LiveImu {
   void report() const;
   void check() const;
  private:
-  void initialize();
-  void prime();
-  void prioritizeSpiWorker();
-  void restoreSpiWorker() noexcept;
   void acquire();
-  void read(uint8_t reg, uint8_t *data, size_t size);
-  void write(uint8_t reg, uint8_t data);
-  void expect(uint8_t reg, uint8_t value);
+  void setting(const std::string& name, const std::string& value);
   void powerDown() noexcept;
   int fd_ = -1;
-  bool identified_ = false;
-  pid_t spi_worker_ = -1;
-  int spi_policy_ = 0;
-  sched_param spi_priority_{};
-  std::string spi_worker_name_;
+  bool enabled_ = false;
+  std::string sysfs_;
+  double accel_scale_ = 0, gyro_scale_ = 0;
   std::atomic<bool> stopping_{false};
   std::thread worker_;
   mutable std::mutex mutex_;

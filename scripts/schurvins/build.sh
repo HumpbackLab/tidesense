@@ -155,7 +155,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
     "${SCHUR_OPT_HALFSAMPLE_NEON:-OFF}" "${SCHUR_OPT_ZMSSD_NEON:-OFF}" "${SCHUR_OPT_FAST10_NEON:-OFF}"
   printf 'SCHUR_OPT_ALIGN2D_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_NEON:-OFF}"
   printf 'SCHUR_OPT_ALIGN2D_HESSIAN_NEON=%s\nSCHUR_OPT_WARP_AFFINE_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_HESSIAN_NEON:-OFF}" "${SCHUR_OPT_WARP_AFFINE_NEON:-OFF}"
-  printf 'LIVE_CAMERA=OV9281_640x400_20fps\nLIVE_IMU=SC7U22_200Hz\nCAMERA_HELPER=GCC6_MPI_static_system_libc_dynamic\n'
+  printf 'LIVE_CAMERA=OV9281_640x400_20fps\nLIVE_IMU=SC7U22_IIO_INT1_200Hz\nCAMERA_HELPER=GCC6_MPI_static_system_libc_dynamic\n'
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
   printf 'SCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$micro_ros"
 } > "$out/BUILD-INFO"

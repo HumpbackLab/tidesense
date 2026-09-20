@@ -13,7 +13,7 @@ sleep 1
 if "$app/run.sh" --imu-test auto 1 > "$logs/exclusive.log" 2>&1; then
     echo 'Concurrent IMU reader was not rejected' >&2; exit 1
 fi
-grep -q 'owned by another process' "$logs/exclusive.log"
+grep -Eq 'owned by another process|Device or resource busy' "$logs/exclusive.log"
 wait "$active_pid"
 active_pid=
 "$app/run.sh" --self-test "$app/synthetic.yaml" > "$logs/self.log" 2>&1
@@ -34,6 +34,10 @@ if "$app/run.sh" --vio-smoke "$ini" /dev/nonexistent-sc7u22 1 > "$logs/missing-i
     echo 'Missing IMU was accepted' >&2; exit 1
 fi
 grep -q 'Cannot open IMU' "$logs/missing-imu.log"
+imu_device=$("$app/bin/prepare-imu.sh")
+iio_sys=/sys/bus/iio/devices/${imu_device##*/}
+cat "$iio_sys/diagnostics" > "$logs/iio-diagnostics-final.log"
+[ "$(cat "$iio_sys/buffer/enable")" = 0 ] || { echo 'IIO buffer left enabled' >&2; exit 1; }
 "$app/bin/fsin.sh" status > "$logs/fsin-final.log"
 grep -q '^enable=0$' "$logs/fsin-final.log"
 for comm in /proc/[0-9]*/comm; do
