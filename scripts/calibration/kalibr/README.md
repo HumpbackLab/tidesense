@@ -55,6 +55,42 @@ scripts/calibration/kalibr.sh /path/to/ros2-bag \
 
 ## 输出和检查
 
+### 相机–IMU 模式
+
+已完成双目标定后，对包含双目图像和 IMU 的 ROS 2 bag 执行：
+
+```bash
+scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-imucam \
+  --imu-cam \
+  --cam /path/to/stereo-camchain.yaml \
+  --imu /path/to/sc7u22-imu.yaml
+```
+
+`--cam` 使用双目标定生成的 YAML；`--imu` 需要真实的更新频率、话题和四个噪声参数，
+不能直接使用含 null 的模板。相机话题和模型从 camchain 读取，因此不要再传
+`--topics` / `--models`。保持双目标定时的分辨率与图像方向，包括右相机倒装 180°。
+无需先在板端加载双目内参、去畸变或旋转图像。
+
+脚本自动转换并调用 `kalibr_calibrate_imu_camera`，使用 `calibrated` IMU 模型，
+默认同时估计时间偏移。不自动校正输入 IMU 的尺度、零偏或单位。
+所有 IMU 消息均保留，用各自 header 时间作为 bag 索引时间；图像仍仅保留精确配对帧。
+检查 IMU 时间戳递增、有限数值、与图像时间重叠以及图像分辨率是否匹配 camchain。
+转换摘要附带 IMU 数量、平均频率、最大时间间隔和与图像重叠的样本数。
+
+输出为 `imucam.bag`、`imucam.conversion.json`、`imucam-camchain-imucam.yaml`、
+`imucam-results-imucam.txt` 和 `imucam-report-imucam.pdf`。
+也支持 `--target`、`--output` 和 `--convert-only`。原始输入只读，结果目录拒绝覆盖。
+相机/IMU YAML、转换脚本副本、容器信息和日志一并保存。
+入口使用当前仓库的转换脚本。旧镜像的 Focal SciPy 1.3 与 NumPy 1.24 不兼容，
+相机–IMU 模块会报 `numpy.typeDict` 不存在。已将 SciPy 固定为 1.10.1。
+本机已升级；其他机器可只更新运行依赖，无需重编译 Kalibr C++：
+
+```bash
+scripts/calibration/kalibr/build.sh --runtime-only
+```
+
+### 双目模式输出
+
 - `stereo.bag`：ROS 1 图像 bag，仅保留 header 时间戳完全一致的左右图像对。
 - `stereo.conversion.json`：输入数量、有效配对数、丢弃孤立帧数、分辨率和时间范围。
 - `stereo-camchain.yaml`：双目内参、畸变、相机之间的外参。
@@ -80,3 +116,16 @@ scripts/calibration/kalibr.sh /path/to/ros2-bag --convert-only
 观察角点覆盖、重投影误差、基线是否接近设计的 50 mm，并用独立采集复核结果。
 没有 IMU 消息的 bag 只能标定双目，不能得到相机–IMU 外参或时间偏移。
 完整打印、摆放和采集方法见 [上级 README](../README.md)。
+
+## 回归测试
+
+测试使用合成数据和仅供测试的噪声参数，不产生实际标定结果：
+
+```bash
+podman run --rm --init --network=none \
+  --volume "$PWD/scripts/calibration/kalibr:/tests:ro" \
+  localhost/tidesense-kalibr:noetic python3 /tests/test_convert.py
+```
+
+覆盖 IMU/图像数值与时间戳保留、旧双目转换、缺失 IMU、时间不重叠、重复时间戳、
+未填写噪声参数及分辨率不匹配。

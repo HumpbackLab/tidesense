@@ -338,29 +338,37 @@ ros2 bag record --storage sqlite3 -o tidesense-imucam \
 明显偏离标准重力，应先检查并校准 IMU。下面的 `calibrated` 模型要求输入已完成惯性内参校准；
 不要把采集正常等同于惯性精度合格。
 
-先转换 ROS 2 bag（沿用前文已安装的 rosbags 虚拟环境）：
+使用一键入口，无需在主机安装或 source ROS 1；容器环境与双目标定相同：
+
+本机容器已更新相机–IMU 所需的 SciPy 依赖。其他机器若使用旧镜像，先执行
+`scripts/calibration/kalibr/build.sh --runtime-only`，无需重编译 Kalibr。
 
 ```sh
-/home/ncer/tidesense-calibration/rosbags-venv/bin/rosbags-convert \
-  /home/ncer/tidesense-calibration/tidesense-imucam \
-  --dst /home/ncer/tidesense-calibration/tidesense-imucam.bag
+scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-imucam \
+  --imu-cam \
+  --cam ~/sophpi/cali/tidesense-stereo-calib-kalibr-20260922-001523/stereo-camchain.yaml \
+  --imu ~/sophpi/cali/sc7u22-imu.yaml
 ```
 
-在独立 ROS 1 / Kalibr 终端中执行，替换 `--cam` 和 `--imu` 为实际文件路径：
+替换 `--cam` 为本次双目标定结果、`--imu` 为已填好实测噪声参数的文件。
+相机话题、模型和分辨率从 camchain 读取，IMU 话题从 IMU YAML 的 `rostopic` 读取；
+联合模式不再传 `--topics` / `--models`。可用 `--target` 指定实际打印的标定板。
+双目采集时若一正一倒，此处继续保持原方向，不要修改寄存器旋转或先校正图像。
 
-```sh
-source /opt/ros/noetic/setup.bash
-source /home/ncer/kalibr_ws/devel/setup.bash
-rosrun kalibr kalibr_calibrate_imu_camera \
-  --bag /home/ncer/tidesense-calibration/tidesense-imucam.bag \
-  --cam /home/ncer/tidesense-calibration/camchain-tidesense-stereo-calib.yaml \
-  --imu /home/ncer/tidesense-calibration/sc7u22-imu.yaml \
-  --imu-models calibrated \
-  --target /home/ncer/sophpi/scripts/calibration/tidesense-aprilgrid-a4-6x4-32mm.yaml
-```
+脚本自动校验并转换 ROS 2 bag，再运行 `kalibr_calibrate_imu_camera --imu-models calibrated`。
+转换保留所有 IMU 样本及 header 时间戳；图像仅保留时间戳精确匹配的左右帧对，
+bag 索引时间取各自 header 时间，不取网络接收时间。检查分辨率与已有内参是否一致、
+IMU 时间戳递增且与图像重叠，拒绝噪声参数为 null 或非正数的模板。
+不会自动校正 IMU 零偏/尺度，也不旋转图像或 IMU 坐标轴。
+
+可先在相同命令末尾加 `--convert-only` 检查数据；默认新建输出目录，已有目录拒绝覆盖。
+输出包含 `imucam.bag`、`imucam.conversion.json`、`imucam-camchain-imucam.yaml`、
+`imucam-results-imucam.txt`、`imucam-report-imucam.pdf`，以及输入 YAML 副本和日志。
+`imucam.conversion.json` 中有 IMU 数量、实际平均频率、最大采样间隔和重叠样本数，
+这些检查通过不代表运动激励、惯性内参或标定质量合格。
 
 默认启用时间偏移标定，不加 `--no-time-calibration`。检查报告中的重投影误差、惯性残差、
-各轴运动激励以及时间戳间隔。输出包括 `camchain-imucam-*.yaml`、报告 PDF 和结果文本。
+各轴运动激励以及时间戳间隔。输出包括 `imucam-camchain-imucam.yaml`、报告 PDF 和结果文本。
 根据 [Kalibr YAML 定义](https://github.com/ethz-asl/kalibr/wiki/yaml-formats)：
 
 - `T_cam_imu` 把 IMU 坐标转换到相机坐标；SchurVINS 的 `T_B_C` 需要其逆矩阵（B 为同一芯片 IMU 坐标系）。

@@ -64,3 +64,21 @@ Kalibr 的初始化/选帧可能使重复运行结果略有变化。没有采集
 - `igraph` 生成 PDF 时缺少 cairo：容器依赖加入 `python3-cairo`，完整复跑后报告生成成功。
 
 日志里的 `rosdep view is empty` 不影响本流程：依赖已在构建阶段安装，离线标定无需 rosdep 更新。
+
+## ROS 2 相机–IMU 入口验证（2026-09-22）
+
+- 容器内 `test_convert.py` 的 7 个测试通过：图像像素、IMU 数值、header 与 bag
+  时间保留；双目模式兼容；缺失 IMU、无时间重叠、重复 IMU 时间戳、null 噪声参数和
+  分辨率不匹配均拒绝。
+- 完整 `kalibr.sh --imu-cam --convert-only` 使用合成 ROS 2 bag 通过：输入左 21、
+  右 20 帧，输出 20 对；全部 210 条 IMU 保留，平均 200 Hz、最大间隔 5 ms。
+  测试故意使接收时间比采集时间晚 1000 秒，输出仍使用 header 时间。
+- 非 convert-only 路径已进入 Kalibr 的图像提取和时间偏移初始化；合成图无标定板，
+  因无有效角点而失败，外层脚本正确返回非零状态，没有输出成功提示。
+  这不代表真实数据的相机–IMU 外参或报告已求解成功。
+- 发现并修复旧容器 SciPy 1.3.3 与 NumPy 1.24 的 `typeDict` 不兼容，
+  运行依赖升级为 SciPy 1.10.1；`build.sh --runtime-only` 上机验证通过。
+  entrypoint 的 ROS 环境加载隔离了业务命令参数，避免误处理 `--help`。
+
+合成噪声参数只用于软件测试，不得用于 SC7U22 实际标定。
+测试产物位于忽略目录 `install/kalibr-podman/imucam-entry-test/`。
