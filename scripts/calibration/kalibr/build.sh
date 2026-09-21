@@ -5,6 +5,13 @@ sdk=$(cd -- "$here/../../.." && pwd)
 revision=1f60227442d25e36365ef5f72cd80b9666d73467
 work="$sdk/install/kalibr-podman"
 image=${KALIBR_IMAGE:-localhost/tidesense-kalibr:noetic}
+if [[ $# -gt 0 ]]; then
+  [[ $# == 1 && $1 == --runtime-only ]] || { echo "Usage: $0 [--runtime-only]" >&2; exit 2; }
+  podman image exists "$image" || { echo "Build the base Kalibr image first: $0" >&2; exit 2; }
+  podman build --network=host --build-arg "BASE_IMAGE=$image" \
+    -t "$image" -f "$here/Containerfile.runtime" "$here"
+  exit 0
+fi
 mkdir -p "$work/context"
 archive="$work/kalibr-$revision.tar.gz"
 if ! tar -tzf "$archive" >/dev/null 2>&1; then

@@ -1,0 +1,6 @@
+ARG BASE_IMAGE=localhost/tidesense-kalibr:noetic
+FROM ${BASE_IMAGE}
+# Upgrade an existing image without rebuilding Kalibr's C++ dependencies.
+RUN python3 -m pip install --index-url https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir 'scipy==1.10.1'
+COPY entrypoint.sh /usr/local/bin/tidesense-kalibr
+COPY convert.py /usr/local/lib/tidesense-convert.py
