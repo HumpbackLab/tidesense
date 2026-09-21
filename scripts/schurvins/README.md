@@ -28,7 +28,8 @@ SchurVINS、OpenCV、yaml-cpp、glog 0.4.0 和 FAST；Eigen、minkindr、Boost �
 
 构建缓存：`install/schurvins-gcc11-static/`，源码缓存位于 `install/schurvins-build/deps/`。
 输出目录：`install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static/`。
-安装包：同级 `schurvins-gcc11-static-a53.tar.gz`。
+安装包：同级 `schurvins-gcc11-static-a53.tar`（不压缩，板端无须 gzip）。
+传到板端后使用 `tar -xf schurvins-gcc11-static-a53.tar -C /mnt/data` 解包。
 该版本无须部署 OpenCV 动态库，也无须升级板上 glibc。
 `BUILD-INFO` 记录编译器与构建模式；全静态程序可直接执行：
 

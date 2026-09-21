@@ -68,7 +68,7 @@ VI 到达时间有毫秒级左右差异，不是测量曝光偏差；两张 ROS 
 ```
 
 大小：6034696 字节。重建最终 32-MTU 配置后，与通过图像测试的二进制哈希一致。
-包名：`schurvins-gcc11-static-micro-ros-a53.tar.gz`。
+包名：`schurvins-gcc11-static-micro-ros-a53.tar`。
 
 原始文件位于 SDK 忽略目录 `install/micro-ros/`：
 

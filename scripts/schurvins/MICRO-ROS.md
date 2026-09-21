@@ -66,8 +66,8 @@ reconnecting micro-ROS cannot reseed the estimator's random sequence.
 The existing NEON environment switches still apply; their defaults remain OFF.
 Outputs are separate, so an optional build does not replace the standalone VIO:
 
-- Standalone: `install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-a53.tar.gz`
-- Optional micro-ROS: `install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros-a53.tar.gz`
+- Standalone: `install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-a53.tar`
+- Optional micro-ROS: `install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros-a53.tar`
 
 For direct CMake use: `-DSCHUR_WITH_MICRO_ROS=ON` and optionally
 `-DSCHUR_MICRO_ROS_ROOT=/path/to/firmware/build`.

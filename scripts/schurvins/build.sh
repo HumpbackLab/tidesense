@@ -159,5 +159,5 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
   printf 'SCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$micro_ros"
 } > "$out/BUILD-INFO"
-tar -C "$(dirname "$out")" -czf "$out-a53.tar.gz" "$(basename "$out")"
-printf '\nBuilt: %s\nPackage: %s-a53.tar.gz\n' "$out" "$out"
+tar -C "$(dirname "$out")" -cf "$out-a53.tar" "$(basename "$out")"
+printf '\nBuilt: %s\nPackage: %s-a53.tar\n' "$out" "$out"
