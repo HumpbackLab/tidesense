@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include "sample_comm.h"
+#include "ov9281_isp.h"
 #include "camera_protocol.h"
 _Static_assert(sizeof(struct CameraHeader) == 56, "IPC header layout");
 static volatile sig_atomic_t stopped;
@@ -102,9 +103,16 @@ int main(int argc, char **argv) {
  vb.astCommPool[0].u32BlkCnt = 12;
  CHECK(SAMPLE_COMM_SYS_Init(&vb)); sys_ready = 1;
  CHECK(SAMPLE_PLAT_VI_INIT(&vi)); vi_ready = 1;
+ /* Override generic ISP defaults after initialization for mono OV9281. */
+ for (int p = 0; p < 2; ++p) {
+  CHECK(ov9281_isp_profile(p, 0, 0));
+  fprintf(stderr, "camera: pipe %d OV9281 mono ISP, AE max 2000 us, sharpening/TNR off\n", p);
+ }
  if (prepared) CHECK(fsin("start"));
  int warmup = 4, unmatched = 0;
  while (!stopped) {
+  /* AE query is unavailable until startup frames have been processed. */
+  if (sent) for (int p = 0; p < 2; ++p) CHECK(ov9281_isp_update_black_level(p));
   for (int p = 0; p < 2; ++p) if (!held[p]) {
    int ret = CVI_VI_GetChnFrame(0, p, &frame[p], prev[p] ? 1000 : 3000);
    if (ret) {
