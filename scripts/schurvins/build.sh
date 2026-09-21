@@ -125,6 +125,7 @@ cp "$here/board-test-imu.log" "$here/IMU.md" "$here/CAMERA.md" "$here/camera-smo
 mkdir -p "$out/licenses"
 cp "$here/MICRO-ROS.md" "$here/CALIBRATION.md" "$here/CALIBRATION-VALIDATION.md" "$out/"
 cp "$here/micro_ros/VALIDATION.md" "$out/MICRO-ROS-VALIDATION.md"
+cp "$sdk/scripts/calibration/sc7u22-imu.yaml.example" "$out/"
 if [[ "$micro_ros" == ON ]]; then
   mkdir -p "$out/licenses/micro-ROS"
   cp -a "$sdk/install/micro-ros/firmware/build/licenses/." "$out/licenses/micro-ROS/"

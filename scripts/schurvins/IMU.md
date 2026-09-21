@@ -56,7 +56,7 @@ cd /mnt/data/schurvins-gcc11-static
 左 VI PTS 和 IMU 都使用单调时钟，但 VI PTS 是图像到达时间，IMU 是硬中断响应时间。
 INT 时间不包含用户态调度和 SPI 读取延迟，但仍存在 GPIO/CPU 中断响应延迟和传感器内部滤波延迟。
 这不等于曝光中心和惯性物理测量时刻已精确对齐；需要重新标定相机–IMU 时间偏移。
-`--calibrate` 当前仍只发图像，本次 IIO 改造不自动增加 ROS IMU 话题。
+`--calibrate` 默认只发图像；增加 `--imu auto` 后同时发布 200 Hz `/tidesense/imu`，使用本驱动的 IRQ 时间戳。详见 [联合标定说明](CALIBRATION.md)。
 可在 YAML 顶层填入已标定的 `live_camera_time_offset_ns`（有符号整数）：
 
 ```yaml
@@ -125,7 +125,7 @@ SPI 错误、未就绪、超时读取丢弃、内核缓冲丢弃、异常间隔�
 静止加速度模长约 **9.02 m/s²**，偏离标准重力；仍需校准尺度/零偏并检查传感器精度，
 不能把读取和时序测试通过解释为惯性测量准确。VIO 测试使用占位标定，不验证位姿精度。
 相机 VI 到达时刻与 IMU 数据就绪时刻之间的偏移仍需 cam–IMU 标定；
-标定模式当前没有新增 ROS IMU 话题。
+标定模式可用 `--imu auto` 录制图像和 IMU，之后通过 Kalibr 求解外参与时间偏移。
 
 原始记录：主机 `install/sc7u22-iio/board-restarts.log`、
 `install/sc7u22-iio/results/sc7u22-iio-acceptance/`；

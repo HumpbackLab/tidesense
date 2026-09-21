@@ -7,7 +7,7 @@
 class MicroRosBridge {
  public:
   // Runtime opt-in: SCHUR_MICRO_ROS=1. Off creates no thread or ROS context.
-  explicit MicroRosBridge(bool calibration = false);
+  explicit MicroRosBridge(bool calibration = false, bool imu = false);
   ~MicroRosBridge();
   MicroRosBridge(const MicroRosBridge&) = delete;
   MicroRosBridge& operator=(const MicroRosBridge&) = delete;
@@ -21,6 +21,9 @@ class MicroRosBridge {
   // Both images use the pair's left VI acquisition stamp. Individual VI stamps
   // are retained in the calibration CSV, not treated as exposure timestamps.
   bool submitImages(uint64_t timestamp_ns, const uint8_t* left, const uint8_t* right);
+  // Calibration IMU: bounded FIFO; failure is fatal rather than silently dropping samples.
+  bool submitImu(uint64_t timestamp_ns, const double* gyro, const double* accel);
+  void finishImu(); // Wait for queued IMU publication (bounded timeout).
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

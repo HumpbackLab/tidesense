@@ -3,7 +3,7 @@
 实测结果与当前 WSL 环境限制见 [CALIBRATION-VALIDATION.md](CALIBRATION-VALIDATION.md)。
 
 `--calibrate` 只采集并发布左右 OV9281 原始灰度图，不创建 SchurVINS 估计器，
-不采集 IMU，不需要预先存在相机标定参数。没有 TCP 图像桥接器；两路图像直接
+默认不采集 IMU；加 `--imu auto` 启用 SC7U22 IIO 200 Hz 联合采集。无需预先存在相机标定参数。没有 TCP 图像桥接器；两路图像直接
 通过 micro-ROS / XRCE-DDS / USB RNDIS 到达电脑端 Agent。
 
 ## 构建与启动
@@ -106,7 +106,8 @@ XRCE UDP MTU 为 1400，可靠输出历史为 32 个 MTU，输入历史为 4。
 实测此配置优于一次缓存整张图像的大窗口配置，后者在当前链路上造成更多等待。
 每次可靠流确认等待配置为 500 ms（不是整张图像的最坏时间上界）。
 
-Agent 缺席时采集仍能停止；连接断开后后台重新创建发布者。
+仅图像模式中，Agent 缺席时采集仍能停止；连接断开后后台重新创建发布者。
+联合 IMU 模式的错误处理见下文。
 本通道用于实时采样，无法补录断线期间的所有图像，也不保证任意网络下达到请求帧率。
 
 ## 验证工具
@@ -115,3 +116,46 @@ Agent 缺席时采集仍能停止；连接断开后后台重新创建发布者�
 按公共 stamp 配对，并保存第一张左右 PGM。`--mock` 还验证每个像素和左右对应关系。
 `tests/board-calibration.py` 自动上传到临时目录，运行真实采集或 `--mock` 指定的
 相机辅助程序，支持 `--fps`、`--frames` 和 `--restart`（重启 Agent）。
+
+## 相机–IMU 联合采集
+
+需要已部署支持 SC7U22 INT1 的 IIO 内核，见 [IMU.md](IMU.md)。在同一程序包目录运行：
+
+```sh
+SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
+  ./run.sh --calibrate /mnt/data/sensor_cfg.ini --fps 20 --imu auto
+```
+
+也可用 `--imu /dev/iio:device0` 显式指定设备。不传 `--imu` 时保持只出双目图像。
+图像帧率由 `--fps` 控制，IMU 始终为硬件 200 Hz；不会随图像抽帧或只保留最新 IMU。
+新增 `/tidesense/imu`（`sensor_msgs/msg/Imu`），`frame_id=imu_link`，保持芯片 XYZ 轴，
+角速度 rad/s、加速度 m/s²（含重力）。不发布估计姿态：`orientation_covariance[0]=-1`；
+角速度/加速度协方差全零表示未知，不代表无噪声。
+
+IIO 的每条 INT1 硬中断时间戳直接加上**与图像完全相同的、启动时固定的**
+`CLOCK_REALTIME - CLOCK_MONOTONIC` 偏移。不会使用 SPI 完成、ROS 发送或接收时刻替换时间戳。
+可增加 `--imu-timestamps /tmp/imu-stamps.csv` 保存 IRQ 单调时钟、ROS 时间、六轴 SI 数值，
+同时用 `--timestamps /tmp/image-stamps.csv` 记录图像映射。两个 CSV 必须使用不同文件。
+CSV 中出现记录只代表进入发送队列；是否收到应以 ROS bag 为准。
+
+IMU 独立采集/转发，使用最多 2000 条（约 10 秒）的发送 FIFO；通信线程串行操作全部 RCL/RMW。
+正常结束会停止 IMU 并最多等待 3 秒发送剩余 IMU；图像仍是最新一对邮箱。
+启动时 Agent 尚未就绪可短暂缓存，但 IMU 队列满、IIO 时序错误或已建立的通信失败会报错退出。
+联合模式不自动重连后继续一份标定录制；发生错误应检查原因并重新录包。
+仅图像模式保留原来的重连行为。正常 Ctrl-C 会关闭 IIO 和 FSIN。
+
+在已设置 ROS 2 环境的本机终端录制三个话题：
+
+```sh
+ros2 bag record --storage sqlite3 -o tidesense-imucam \
+  /tidesense/left/image_raw /tidesense/right/image_raw /tidesense/imu
+```
+
+IMU 使用 reliable/volatile QoS。开始运动前，确认三个话题均已订阅、两路图像持续更新，
+IMU 接收约 200 Hz；首尾发现/退出阶段可能少收消息。检查 IMU 的 `header.stamp` 间隔约 5 ms，
+不要用成批网络接收间隔衡量采样抖动。接收者也应有足够的历史深度并监测丢消息。
+
+这里提供的是原始 SI 数据和可用于时间标定的时间轴，不自动补偿 IMU 尺度、零偏或滤波延迟。
+此前静止加速度模长约 9.02 m/s²，正式外参标定前需检查并校准 IMU；不能把未校准数据直接当成
+Kalibr `calibrated` 模型所假定的准确惯性测量。完整 Kalibr 流程见
+[标定板与联合标定说明](../calibration/README.md)。

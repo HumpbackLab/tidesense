@@ -19,9 +19,12 @@ p.add_argument('--fps', type=float, default=5)
 p.add_argument('--agent-verbosity', type=int, default=4)
 p.add_argument('--frames', type=int, default=100)
 p.add_argument('--restart', action='store_true')
+p.add_argument('--imu', action='store_true')
 p.add_argument('--board', default='root@192.168.123.99')
 p.add_argument('--host-ip', default='192.168.123.2')
 a = p.parse_args()
+if a.imu and a.restart:
+    raise SystemExit('Combined recording must fail on disconnect; use a dedicated failure test')
 if 'SSHPASS' not in os.environ:
     raise SystemExit('Set SSHPASS')
 a.output.mkdir(parents=True, exist_ok=False)
@@ -48,7 +51,7 @@ def agent(name):
 
 try:
     subprocess.run(ssh+['mkdir '+remote], check=True)
-    for name in ('schurvins_stereo', 'schurvins_camera', 'fsin.sh'):
+    for name in ('schurvins_stereo', 'schurvins_camera', 'fsin.sh', 'prepare-imu.sh'):
         subprocess.run(scp+[str(a.package/'bin'/name), a.board+':'+remote+'/'+name], check=True)
     if a.mock:
         subprocess.run(scp+[str(a.mock), a.board+':'+remote+'/mock'], check=True)
@@ -58,6 +61,8 @@ try:
            '--ready-file', str(a.output/'ready')]
     if a.mock:
         cmd.append('--mock')
+    if a.imu:
+        cmd.append('--imu')
     receiver = start(cmd, 'receiver')
     deadline = time.monotonic()+60
     while not (a.output/'ready').exists():
@@ -72,6 +77,9 @@ try:
     args = ['env']+variables+[remote+'/schurvins_stereo', '--calibrate', '/mnt/data/sensor_cfg.ini',
                             '--fps', str(a.fps), '--frames', str(a.frames),
                             '--timestamps', remote+'/stamps.csv']
+    if a.imu:
+        device = subprocess.check_output(ssh+[remote+'/prepare-imu.sh'], text=True).strip()
+        args += ['--imu', device, '--imu-timestamps', remote+'/imu-stamps.csv']
     board = start(ssh+['echo $$ > '+remote+'/pid; exec '+shlex.join(args)], 'board')
     if a.restart:
         time.sleep(8)
@@ -83,6 +91,15 @@ try:
     assert receiver.wait(timeout=30) == 0, 'Image validation failed'
     subprocess.run(scp+[a.board+':'+remote+'/stamps.csv', str(a.output/'stamps.csv')], check=True)
     data = json.loads((a.output/'received.json').read_text())
+    if a.imu:
+        subprocess.run(scp+[a.board+':'+remote+'/imu-stamps.csv', str(a.output/'imu-stamps.csv')], check=True)
+        import csv
+        rows = [r for r in csv.reader((a.output/'imu-stamps.csv').read_text().splitlines()) if r and not r[0].startswith('#')]
+        samples = {int(r[1]): [float(v) for v in r[2:]] for r in rows}
+        image_rows = [r for r in csv.reader((a.output/'stamps.csv').read_text().splitlines()) if r and not r[0].startswith('#')]
+        offsets = {int(r[1])-int(r[0]) for r in rows}
+        assert len(offsets) == 1 and offsets == {int(r[3])-int(r[1]) for r in image_rows}, 'Different image/IMU clock mapping'
+        assert all(m['stamp'] in samples and m['values'] == samples[m['stamp']] for m in data['imu']), 'ROS changed IMU timestamp or SI data'
     if a.restart:
         stop = next(e['time'] for e in events if e['name']=='agent-stop')
         restart = next(e['time'] for e in events if e['name']=='agent-2')

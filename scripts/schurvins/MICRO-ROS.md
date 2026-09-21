@@ -23,7 +23,7 @@ computer. No covariance or velocity is fabricated. No TF is published yet.
 This first integration provides optional ROS telemetry. Keyframe images,
 landmark messages, remote reset/parameters, map persistence and remote loop
 closure are not implemented. No global correction is fed back into VIO.
-The micro-ROS build limits entities to one node and two publishers; extend
+The micro-ROS build limits entities to one node and three publishers; extend
 `micro_ros/colcon.meta` when adding services/subscriptions. A publisher-only node
 needs no rclc executor; all rcl/rmw calls are owned by the communication thread.
 
@@ -32,7 +32,8 @@ needs no rclc executor; all rcl/rmw calls are owned by the communication thread.
 The independent `--calibrate SENSOR.ini --fps HZ` mode publishes two reliable
 `sensor_msgs/msg/Image` topics without running VIO. See [CALIBRATION.md](CALIBRATION.md)
 for command lines, timestamps, recording and limitations. It requires the same
-build/runtime opt-in. The mode uses the two publisher slots for left/right images;
+build/runtime opt-in. With `--imu auto`, a third reliable publisher sends `/tidesense/imu` at 200 Hz.
+The image mode uses two publisher slots for left/right images;
 ordinary VIO still uses them for pose/tracking. No images are sent by ordinary VIO.
 
 ## Build switches

@@ -41,8 +41,8 @@ scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-stereo-calib
 
 ## 标定前先确定图像方向
 
-本流程标定两颗相机的内参、畸变和双目外参；**不包含相机与 IMU 的外参或时间偏移标定**。
-当前标定模式不采集 IMU，后续相机–IMU 联合标定需要另行同步采集。
+前半部分完成双目内参、畸变和外参标定；后面的“相机–IMU 联合标定”章节说明
+如何使用 `--imu auto` 同步录制 IMU，进一步估计相机–IMU 外参和时间偏移。
 
 - 左相机：I2C 7 位地址 `0x10`、2 lane；右相机：`0x60`、1 lane；设计基线 50 mm。
 - 如果一颗绕光轴倒装 180°，但两颗仍朝向同一方向，Kalibr 可以直接标定一正一倒的图像。
@@ -129,7 +129,7 @@ SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
 ```
 
 `--fps` 是图像对/秒，必填，支持 0.1–20；默认持续运行，Ctrl-C 退出。
-相机硬件仍以 FSIN 20 Hz 采集，程序成对抽帧发布；不会启动 VIO 或 IMU。
+相机硬件仍以 FSIN 20 Hz 采集，程序成对抽帧发布；不会启动 VIO，未传 `--imu` 时不启动 IMU。
 如需有限采集并保存原始 VI 时间戳诊断，可改为：
 
 ```sh
@@ -277,6 +277,98 @@ rosrun kalibr kalibr_calibrate_cameras \
 
 版本库保留标定板 PDF、PNG 预览、target YAML、生成器、采集/标定脚本和验证摘要。
 Python 虚拟环境及字节码由本目录 `.gitignore` 忽略。
+
+## 相机–IMU 联合标定
+
+### 联合采集与录包
+
+先完成上述双目标定，保留 `camchain-*.yaml`。确认板上已经安装 SC7U22 IIO/INT1 内核和
+新版 micro-ROS 程序包。Agent 和主机 ROS 2 环境设置沿用前文。
+
+板端运行（推荐图像 20 对/秒、IMU 200 Hz）：
+
+```sh
+cd /mnt/data/schurvins-gcc11-static-micro-ros
+SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
+  ./run.sh --calibrate /mnt/data/sensor_cfg.ini --fps 20 --imu auto \
+  --timestamps /tmp/image-stamps.csv --imu-timestamps /tmp/imu-stamps.csv
+```
+
+`--imu auto` 启用 IMU，也可指定 `--imu /dev/iio:device0`。不加此参数则保持纯双目模式。
+`--fps` 只改变图像发布频率，IMU 固定为 200 Hz。这里不运行 SchurVINS 估计器、不需要加载
+双目 YAML，输出的 IMU 也没有姿态融合。图像与 IMU 共用同一时钟映射，保留每条硬中断时间。
+相机到达时间仍不是曝光中心，需要通过后续时间标定估计偏移。
+
+主机新终端：
+
+```sh
+source /home/ncer/sophpi/scripts/calibration/ros2-env.sh
+cd /home/ncer/tidesense-calibration
+ros2 bag record --storage sqlite3 -o tidesense-imucam \
+  /tidesense/left/image_raw /tidesense/right/image_raw /tidesense/imu
+```
+
+检查三个话题都出现 `Subscribed to topic`，确认图像清晰、IMU 约 200 Hz 后开始运动。
+录制完成先 Ctrl-C 停止板端采集，等 IMU 队列发送结束，再停止录包。若板端报队列满、
+通信失败或 IIO 时序错误，本次录制不应作为完整数据使用，修复后重新录制。
+详细消息单位、缓冲和错误行为见 [CALIBRATION.md](../schurvins/CALIBRATION.md)。
+
+### 板子怎么运动
+
+这一步**固定 AprilGrid，手持整个 TideSense 运动**。先从约 40–60 cm 的清晰共同视野开始，
+实际距离按前文的画面占比和标签像素大小调整。镜头、图像方向、裁剪与双目标定时保持一致。
+
+- 建议录制约 60–120 秒，开始和结束各留几秒静止数据。
+- 在标定板持续可见的前提下，分别绕三个轴做平滑往返旋转，再加入各轴的平移和组合运动。
+- 幅度以保持可见、清晰为准，避免只绕一个轴、只做平面运动或全程静止。
+- 不要猛烈抖动或撞击；提高均匀照明、减少运动模糊。
+
+20 Hz 图像 / 200 Hz IMU 与多轴激励依据
+[Kalibr 官方联合标定说明](https://github.com/ethz-asl/kalibr/wiki/Camera-IMU-calibration)。
+上述距离和时长是采集起点，仍需通过角点覆盖和结果报告判断数据质量。
+
+### IMU 参数与 Kalibr 命令
+
+复制 [sc7u22-imu.yaml.example](sc7u22-imu.yaml.example) 为自己的 `sc7u22-imu.yaml`，
+填入实际测量得到的四个噪声参数。模板中的 `null` 是待填写标记，不能直接交给 Kalibr；
+没有虚构 SC7U22 的噪声密度和随机游走系数。可通过静止数据的 Allan 分析估计，
+定义见 [Kalibr IMU noise model](https://github.com/ethz-asl/kalibr/wiki/IMU-Noise-Model)。
+
+当前驱动做的是原始值到 SI 单位换算，不校准尺度/零偏。先前这块板静止加速度模长约 9.02 m/s²，
+明显偏离标准重力，应先检查并校准 IMU。下面的 `calibrated` 模型要求输入已完成惯性内参校准；
+不要把采集正常等同于惯性精度合格。
+
+先转换 ROS 2 bag（沿用前文已安装的 rosbags 虚拟环境）：
+
+```sh
+/home/ncer/tidesense-calibration/rosbags-venv/bin/rosbags-convert \
+  /home/ncer/tidesense-calibration/tidesense-imucam \
+  --dst /home/ncer/tidesense-calibration/tidesense-imucam.bag
+```
+
+在独立 ROS 1 / Kalibr 终端中执行，替换 `--cam` 和 `--imu` 为实际文件路径：
+
+```sh
+source /opt/ros/noetic/setup.bash
+source /home/ncer/kalibr_ws/devel/setup.bash
+rosrun kalibr kalibr_calibrate_imu_camera \
+  --bag /home/ncer/tidesense-calibration/tidesense-imucam.bag \
+  --cam /home/ncer/tidesense-calibration/camchain-tidesense-stereo-calib.yaml \
+  --imu /home/ncer/tidesense-calibration/sc7u22-imu.yaml \
+  --imu-models calibrated \
+  --target /home/ncer/sophpi/scripts/calibration/tidesense-aprilgrid-a4-6x4-32mm.yaml
+```
+
+默认启用时间偏移标定，不加 `--no-time-calibration`。检查报告中的重投影误差、惯性残差、
+各轴运动激励以及时间戳间隔。输出包括 `camchain-imucam-*.yaml`、报告 PDF 和结果文本。
+根据 [Kalibr YAML 定义](https://github.com/ethz-asl/kalibr/wiki/yaml-formats)：
+
+- `T_cam_imu` 把 IMU 坐标转换到相机坐标；SchurVINS 的 `T_B_C` 需要其逆矩阵（B 为同一芯片 IMU 坐标系）。
+- `timeshift_cam_imu` 满足 `t_imu = t_cam + shift`，单位秒。当前实时入口以左相机 VI PTS 为图像时间，
+  对应 cam0 的 shift 转为纳秒后填入 `live_camera_time_offset_ns`，并保持 `delay_imu_cam: 0.0`，避免重复修正。
+- 改动相机翻转、采样率、IMU 滤波等配置后，应重新评估空间/时间标定；不直接照搬其他板子的参数。
+
+本功能验证的是联合采集和消息时间戳，尚不代表已经完成这块板的 Kalibr 外参求解。
 
 ## 来源、重建与验证
 

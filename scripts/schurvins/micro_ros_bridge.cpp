@@ -15,6 +15,7 @@ bool requested() {
 
 #ifdef SCHUR_WITH_MICRO_ROS
 #include <arpa/inet.h>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -24,6 +25,7 @@ bool requested() {
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <deque>
 #include <sys/resource.h>
 #include <rcl/rcl.h>
 #include <rcl/error_handling.h>
@@ -32,6 +34,7 @@ bool requested() {
 #include <geometry_msgs/msg/pose_stamped.h>
 #include <std_msgs/msg/bool.h>
 #include <sensor_msgs/msg/image.h>
+#include <sensor_msgs/msg/imu.h>
 #include <rosidl_runtime_c/string_functions.h>
 #include <rosidl_runtime_c/primitives_sequence_functions.h>
 
@@ -62,7 +65,14 @@ struct MicroRosBridge::Impl {
     double p[3] = {}, q[4] = {0,0,0,1};
   };
   static constexpr size_t pixels = 640 * 400;
-  const bool calibration;
+  struct ImuSample { uint64_t timestamp; double gyro[3], accel[3]; };
+  const bool calibration, imu_enabled;
+  std::deque<ImuSample> imu_queue;
+  std::atomic<bool> imu_failed{false};
+  uint64_t imu_published = 0;
+  size_t imu_high_water = 0;
+  static constexpr size_t imu_capacity = 2000; // 10 seconds at 200 Hz.
+
   std::vector<uint8_t> image_pair;
   std::string agent, port;
   unsigned domain;
@@ -75,9 +85,10 @@ struct MicroRosBridge::Impl {
   std::thread worker;
   uint64_t published = 0, connections = 0, image_pairs = 0;
 
-  explicit Impl(bool images) : calibration(images), image_pair(images ? pixels*2 : 0), agent(env("SCHUR_MICRO_ROS_AGENT", "")),
+  explicit Impl(bool images, bool imu) : calibration(images), imu_enabled(imu), image_pair(images ? pixels*2 : 0), agent(env("SCHUR_MICRO_ROS_AGENT", "")),
            port(std::to_string(integer("SCHUR_MICRO_ROS_PORT", 8888, 1, 65535))),
            domain(integer("SCHUR_MICRO_ROS_DOMAIN", 0, 0, 232)) {
+    if (imu && !images) throw std::runtime_error("IMU publishing requires calibration mode");
     in_addr addr;
     if (inet_pton(AF_INET, agent.c_str(), &addr) != 1)
       throw std::runtime_error("Set SCHUR_MICRO_ROS_AGENT to the computer's numeric IPv4 address");
@@ -88,7 +99,8 @@ struct MicroRosBridge::Impl {
     wake.notify_one();
     worker.join();
     std::cerr << "micro-ROS: connections=" << connections << " poses=" << published
-              << " image_pairs=" << image_pairs
+              << " image_pairs=" << image_pairs << " imu_published=" << imu_published
+              << " imu_queue_high_water=" << imu_high_water
               << " overwritten_or_busy=" << dropped.load() << '\n';
   }
   void submit(const Sample& s) {
@@ -113,6 +125,23 @@ struct MicroRosBridge::Impl {
     wake.notify_one();
     return true;
   }
+  bool submitImu(uint64_t timestamp, const double* gyro, const double* accel) {
+    if (!imu_enabled) throw std::runtime_error("IMU publishing was not enabled");
+    std::lock_guard<std::mutex> lock(mutex);
+    if (imu_failed || stop || imu_queue.size() >= imu_capacity) return false;
+    ImuSample s{}; s.timestamp = timestamp;
+    std::memcpy(s.gyro, gyro, sizeof(s.gyro)); std::memcpy(s.accel, accel, sizeof(s.accel));
+    imu_queue.push_back(s);
+    imu_high_water = std::max(imu_high_water, imu_queue.size());
+    wake.notify_one();
+    return true;
+  }
+  void finishImu() {
+    if (!imu_enabled) return;
+    std::unique_lock<std::mutex> lock(mutex);
+    if (!wake.wait_for(lock, std::chrono::seconds(3), [this] { return imu_queue.empty() || imu_failed.load(); }) || imu_failed)
+      throw std::runtime_error("IMU publication incomplete; discard incomplete calibration recording");
+  }
   void pause() {
     std::unique_lock<std::mutex> lock(mutex);
     wake.wait_for(lock, std::chrono::seconds(1), [this]{return stop.load();});
@@ -125,6 +154,9 @@ struct MicroRosBridge::Impl {
     geometry_msgs__msg__PoseStamped pose{};
     std_msgs__msg__Bool tracking{};
     sensor_msgs__msg__Image images[2]{};
+    sensor_msgs__msg__Imu imu{};
+    rcl_publisher_t imu_pub = rcl_get_zero_initialized_publisher();
+    bool imu_ok = false, imu_message_ok = false;
     bool images_ok[2] = {false, false};
     auto allocator = rcl_get_default_allocator();
     bool support_ok = false, node_ok = false, pose_ok = false, tracking_ok = false;
@@ -134,6 +166,8 @@ struct MicroRosBridge::Impl {
         discard(rmw_uros_set_context_entity_destroy_session_timeout(
           rcl_context_get_rmw_context(&support.context), 0));
       }
+      if (imu_ok) discard(rcl_publisher_fini(&imu_pub, &node));
+      if (imu_message_ok) sensor_msgs__msg__Imu__fini(&imu);
       if (tracking_ok) discard(rcl_publisher_fini(&tracking_pub, &node));
       if (pose_ok) discard(rcl_publisher_fini(&pose_pub, &node));
       if (node_ok) discard(rcl_node_fini(&node));
@@ -182,6 +216,20 @@ struct MicroRosBridge::Impl {
         if (!rosidl_runtime_c__String__assign(&pose.header.frame_id, "odom"))
           throw std::runtime_error("frame_id allocation");
       }
+      if (imu_enabled) {
+        auto qos = rmw_qos_profile_default; qos.depth = 200;
+        check(rclc_publisher_init(&imu_pub, &node,
+          ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, Imu), "imu", &qos), "IMU publisher");
+        imu_ok = true;
+        check(rmw_uros_set_publisher_session_timeout(rcl_publisher_get_rmw_handle(&imu_pub), 100), "IMU timeout");
+        if (!sensor_msgs__msg__Imu__init(&imu)) throw std::runtime_error("IMU message init");
+        imu_message_ok = true;
+        if (!rosidl_runtime_c__String__assign(&imu.header.frame_id, "imu_link"))
+          throw std::runtime_error("IMU frame allocation");
+        imu.orientation.w = 1;
+        imu.orientation_covariance[0] = -1; // Orientation unavailable; no fusion here.
+        // Zero angular/linear covariance means unknown, not zero sensor noise.
+      }
       ++connections;
       std::cerr << "micro-ROS: connected " << agent << ':' << port << " domain=" << domain << '\n';
       auto next_ping = std::chrono::steady_clock::now() + std::chrono::seconds(1);
@@ -190,7 +238,7 @@ struct MicroRosBridge::Impl {
         bool have_sample;
         {
           std::unique_lock<std::mutex> lock(mutex);
-          wake.wait_until(lock, next_ping, [this]{return pending || stop.load();});
+          wake.wait_until(lock, next_ping, [this]{return pending || !imu_queue.empty() || stop.load();});
           if (stop) break;
           have_sample = pending;
           if (pending) {
@@ -204,6 +252,24 @@ struct MicroRosBridge::Impl {
         if (std::chrono::steady_clock::now() >= next_ping) {
           if (rmw_uros_ping_agent(100, 1) != RMW_RET_OK) throw std::runtime_error("agent disconnected");
           next_ping = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        }
+        // Publish a bounded batch before images. Keep each FIFO entry until
+        // successful publication; an error ends combined calibration explicitly.
+        for (unsigned n = 0; imu_enabled && n < 64 && !stop; ++n) {
+          ImuSample sample;
+          { std::lock_guard<std::mutex> lock(mutex);
+            if (imu_queue.empty()) break;
+            sample = imu_queue.front();
+          }
+          if (sample.timestamp / 1000000000ULL > uint64_t(std::numeric_limits<int32_t>::max()))
+            throw std::runtime_error("IMU timestamp exceeds ROS range");
+          imu.header.stamp.sec = int32_t(sample.timestamp / 1000000000ULL);
+          imu.header.stamp.nanosec = uint32_t(sample.timestamp % 1000000000ULL);
+          imu.angular_velocity.x = sample.gyro[0]; imu.angular_velocity.y = sample.gyro[1]; imu.angular_velocity.z = sample.gyro[2];
+          imu.linear_acceleration.x = sample.accel[0]; imu.linear_acceleration.y = sample.accel[1]; imu.linear_acceleration.z = sample.accel[2];
+          check(rcl_publish(&imu_pub, &imu, nullptr), "IMU publish");
+          { std::lock_guard<std::mutex> lock(mutex); imu_queue.pop_front(); ++imu_published; }
+          wake.notify_all();
         }
         if (!have_sample) continue;
         if (calibration) {
@@ -251,20 +317,24 @@ struct MicroRosBridge::Impl {
         if (rmw_uros_ping_agent_options(100, 1, rmw_options) == RMW_RET_OK) {
           try { session(options); }
           catch (const std::exception& e) {
-            std::cerr << "micro-ROS: " << e.what() << "; retrying\n";
+            std::cerr << "micro-ROS: " << e.what() << (imu_enabled ? "; calibration stopped\n" : "; retrying\n");
             rcl_reset_error();
+            if (imu_enabled) { imu_failed = true; stop = true; wake.notify_all(); }
           }
         }
         if (!stop) pause();
       }
     } catch (const std::exception& e) {
+      imu_failed = imu_enabled; wake.notify_all();
       std::cerr << "micro-ROS: communication stopped: " << e.what() << '\n';
       rcl_reset_error();
     }
     if (initialized) discard(rcl_init_options_fini(&options));
   }
 };
-MicroRosBridge::MicroRosBridge(bool calibration) { if (requested()) impl_.reset(new Impl(calibration)); }
+MicroRosBridge::MicroRosBridge(bool calibration, bool imu) { if (requested()) impl_.reset(new Impl(calibration, imu)); }
+bool MicroRosBridge::submitImu(uint64_t t, const double* g, const double* a) { return impl_ && impl_->submitImu(t,g,a); }
+void MicroRosBridge::finishImu() { if (impl_) impl_->finishImu(); }
 bool MicroRosBridge::submitImages(uint64_t t, const uint8_t* l, const uint8_t* r) {
   return impl_ && impl_->submitImages(t, l, r);
 }
@@ -278,10 +348,12 @@ void MicroRosBridge::submit(uint64_t t, bool tracking, const double* p, const do
 }
 #else
 struct MicroRosBridge::Impl {};
-MicroRosBridge::MicroRosBridge(bool) {
+MicroRosBridge::MicroRosBridge(bool, bool) {
   if (requested()) throw std::runtime_error("micro-ROS was not compiled in; rebuild with SCHUR_WITH_MICRO_ROS=ON or set SCHUR_MICRO_ROS=0");
 }
 bool MicroRosBridge::compiled() { return false; }
+bool MicroRosBridge::submitImu(uint64_t, const double*, const double*) { return false; }
+void MicroRosBridge::finishImu() {}
 void MicroRosBridge::submit(uint64_t, bool, const double*, const double*) {}
 bool MicroRosBridge::submitImages(uint64_t, const uint8_t*, const uint8_t*) { return false; }
 #endif
