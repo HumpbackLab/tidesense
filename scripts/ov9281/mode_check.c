@@ -16,6 +16,20 @@ int main(void)
  sensor_global_init(0);
  assert(state.u8ImgMode == OV9281_MODE_640X400P20);
  assert(state.u32FLStd == 2730);
+ /* Exercise the actual AE callback contract: linear gain -> index -> regs. */
+ for (CVI_U32 i = 0; i < again_table_size; ++i) {
+  CVI_U32 linear = Again_table[i], index = 0, dgain = 0;
+  assert(cmos_again_calc_table(0, &linear, &index) == CVI_SUCCESS);
+  assert(index == i);
+  assert(cmos_gains_update(0, &index, &dgain) == CVI_SUCCESS);
+  ISP_SNS_REGS_INFO_S *r = &state.astSyncInfo[0].snsCfg;
+  CVI_U32 code = (r->astI2cData[LINEAR_AGAIN0].u32Data << 8) |
+   r->astI2cData[LINEAR_AGAIN1].u32Data;
+  assert(code == linear / 64);
+ }
+ CVI_U32 invalid_gain = again_table_size, dgain = 0;
+ assert(cmos_gains_update(0, &invalid_gain, &dgain) == CVI_FAILURE);
+ puts("PASS AE analog gain callback: all table entries and invalid index");
  for (unsigned int i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
   ISP_CMOS_SENSOR_IMAGE_MODE_S image = {
    .u16Width = modes[i].width, .u16Height = modes[i].height, .f32Fps = modes[i].fps,
