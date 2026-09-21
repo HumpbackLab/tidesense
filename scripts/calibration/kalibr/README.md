@@ -117,6 +117,21 @@ scripts/calibration/kalibr.sh /path/to/ros2-bag --convert-only
 没有 IMU 消息的 bag 只能标定双目，不能得到相机–IMU 外参或时间偏移。
 完整打印、摆放和采集方法见 [上级 README](../README.md)。
 
+## 静止 IMU Allan 分析
+
+```bash
+scripts/calibration/kalibr.sh cali/sc7u22-static --allan
+```
+
+直接读取 ROS 2 IMU，无需相机话题或转包。可加 `--imu-topic`、`--skip-seconds`、
+`--duration`、`--output`。输出六轴重叠 Allan 曲线 PNG/PDF/CSV、拟合 JSON、Markdown
+报告和 Kalibr 格式 `imu.yaml`。算法脚本随结果存档，无需为此功能重建容器。
+不改变原始数据、单位或滤波；使用 header 时间检查采样，统计窗口不跨越明显缺口。
+
+自动拟合 −1/2 和 +1/2 斜率区间。没有足够证据的分量写 null，而非虚构四个完整参数。
+`imu.yaml` 三轴汇总取最大值；报告标明时间范围、斜率、静止检查和数据长度限制。
+详细算法和本次数据结果见 [上级 README](../README.md#一键-allan-分析静止-ros-2-bag)。
+
 ## 回归测试
 
 测试使用合成数据和仅供测试的噪声参数，不产生实际标定结果：
@@ -129,3 +144,6 @@ podman run --rm --init --network=none \
 
 覆盖 IMU/图像数值与时间戳保留、旧双目转换、缺失 IMU、时间不重叠、重复时间戳、
 未填写噪声参数及分辨率不匹配。
+
+同一命令将 `test_convert.py` 换为 `test_allan.py` 可验证 Allan 算法：直接窗口均值
+计算对照、恒定偏置不变性、已知白噪声/随机游走系数恢复、错误斜率拒绝和时间缺口分段。

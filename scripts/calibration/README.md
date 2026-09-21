@@ -329,6 +329,47 @@ ros2 bag record --storage sqlite3 -o tidesense-imucam \
 
 ### IMU 参数与 Kalibr 命令
 
+#### 一键 Allan 分析静止 ROS 2 bag
+
+```sh
+scripts/calibration/kalibr.sh cali/sc7u22-static --allan
+```
+
+无需 ROS 1 转包或相机消息，直接读取 `/tidesense/imu` 的加速度（m/s²）和角速度（rad/s）。
+可指定 `--imu-topic /your/imu`、`--output 新目录`，也可使用
+`--skip-seconds 60 --duration 1200` 跳过开始阶段并截取一段时间；时间以第一条 IMU
+header 为起点，不使用主机接收时间。不会重采样、插值、降采样或去除线性漂移。
+
+输出 `allan.png`、`allan.pdf`、`allan.csv`、`allan.json`、`allan-report.md` 和 `imu.yaml`，
+保留命令、分析脚本与容器信息。使用重叠 Allan 偏差，按 XYZ 分轴拟合：
+
+- 白噪声：`ADEV(τ) = N / sqrt(τ)`，拟合斜率 −1/2，输出噪声密度 N。
+- 偏置随机游走：`ADEV(τ) = K * sqrt(τ/3)`，拟合斜率 +1/2，输出 K。
+- 曲线最低点/偏置不稳定性不直接当作 Kalibr 的 random_walk。
+- 采样间隔偏离中位数超过 20% 时分段，统计窗口不会跨越缺口。
+- 拟合至少 5 点、跨度半个十倍区间、10 个不重叠样本对；自由斜率偏差不超过 0.15，
+  固定斜率拟合 log10 RMS 不超过 0.06。白噪声搜索 0.02–1 s；随机游走从 1 s 后、
+  且在曲线最低点之后搜索。阈值是自动筛选规则，不是统计置信区间。
+
+Kalibr 每种噪声只接收一个标量，脚本在三轴均可拟合时取三轴最大值，不自动乘放大系数。
+某轴缺少可靠区间，或检测到明显运动/漂移，该参数写为 `null` 并说明原因；
+必须先检查报告，不能将含 `null` 的 YAML 直接用于 `--imu-cam`。
+没有温度数据，无法证明温度稳定；“未检测到明显运动”也不是静止状态的严格证明。
+只有完整且经检查的 `imu.yaml` 才作为下一步 `--imu` 输入。
+
+本次 `cali/sc7u22-static` 实测约 1310.49 s / 261472 条、199.524 Hz，未发现时间倒退
+或超过上述阈值的间隔。结果存于 `cali/sc7u22-static-allan-20260922/`：
+陀螺仪白噪声密度约 `1.238e-4 rad/s/√Hz`，加速度计约 `1.339e-3 m/s²/√Hz`。
+随机游走未在所有轴找到足够区间，两个 random_walk 保留 null，尚非完整 Kalibr 输入。
+此数据的加速度模长均值约 9.1047 m/s²；Allan 分析不会修正零偏或比例系数，
+若后续改变标定尺度/滤波配置，需要重新评估噪声参数。
+
+建议传感器预热后，保持板子和温度稳定，延长静止记录以观察长时间漂移。
+[Kalibr 官方](https://github.com/ethz-asl/kalibr/wiki/IMU-Noise-Model)建议约 15–24 小时静止数据；
+21 分钟可先估计短时间白噪声，但不能保证随机游走估计充分。
+
+#### 使用噪声参数进行联合标定
+
 复制 [sc7u22-imu.yaml.example](sc7u22-imu.yaml.example) 为自己的 `sc7u22-imu.yaml`，
 填入实际测量得到的四个噪声参数。模板中的 `null` 是待填写标记，不能直接交给 Kalibr；
 没有虚构 SC7U22 的噪声密度和随机游走系数。可通过静止数据的 Allan 分析估计，
