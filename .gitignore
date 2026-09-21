@@ -28,6 +28,8 @@ middleware
 sophon_media
 sophliteos
 ubuntu
+# SchurVINS upstream checkout, fetched/pinned by scripts/schurvins/build.sh
+/SchurVINS/
 
 # Local ROS recordings and calibration runs (source targets live in scripts/calibration).
 /cali/
