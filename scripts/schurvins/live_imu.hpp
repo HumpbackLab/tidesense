@@ -11,9 +11,10 @@
 #include <vector>
 #include <sched.h>
 #include <sys/types.h>
+#include "accel_calibration.hpp"
 struct ImuSample {
  uint64_t stamp_ns;
- std::array<double,3> gyro, accel; // rad/s, m/s^2; raw sensor axes = calibrated IMU/body axes
+ std::array<double,3> gyro, accel; // rad/s, m/s^2; chip axes, accel six-face correction applied
 };
 // Unlike images, every IMU sample is retained until delivered to the estimator.
 class LiveImu {
@@ -32,6 +33,7 @@ class LiveImu {
   bool enabled_ = false;
   std::string sysfs_;
   double accel_scale_ = 0, gyro_scale_ = 0;
+  AccelCalibration accel_calibration_;
   std::atomic<bool> stopping_{false};
   std::thread worker_;
   mutable std::mutex mutex_;

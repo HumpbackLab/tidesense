@@ -63,6 +63,22 @@ LiveImu::LiveImu(const std::string& requested) {
    throw std::runtime_error("SC7U22 must sample at 200 Hz");
   accel_scale_=std::stod(value(sysfs_+"/in_accel_scale"));
   gyro_scale_=std::stod(value(sysfs_+"/in_anglvel_scale"));
+  const char* configured=std::getenv("SCHUR_IMU_CALIBRATION");
+  const std::string calibration=configured ? configured :
+    "/mnt/data/penguin-flight-console/accelerometer-calibration.json";
+  if (calibration == "none") {
+   std::cerr << "imu: accelerometer calibration explicitly DISABLED; raw SI values\n";
+  } else {
+   try {
+    accel_calibration_=AccelCalibration::parse(YAML::LoadFile(calibration),accel_scale_);
+   } catch (const std::exception& e) {
+    throw std::runtime_error("Cannot load accelerometer calibration " + calibration + ": " + e.what());
+   }
+   std::cerr << "imu: six-face accelerometer calibration applied: " << calibration << '\n';
+   for (int i=0;i<3;++i)
+    std::cerr << "imu: axis=" << i << " bias_m_s2=" << accel_calibration_.bias[i]
+              << " correction_scale=" << accel_calibration_.scale[i] << '\n';
+  }
   setting("buffer/length","512"); setting("buffer/watermark","1");
   setting("buffer/enable","1"); enabled_=true;
   std::cerr << "imu: SC7U22 " << device << " IIO 200Hz, INT1 hard-IRQ CLOCK_MONOTONIC timestamps\n";
@@ -88,7 +104,8 @@ void LiveImu::acquire() {
      const int16_t a=le16(scans+n+axis*2),g=le16(scans+n+6+axis*2);
      if (a>=32760 || a<=-32760 || g>=32760 || g<=-32760)
       throw std::runtime_error("IMU raw sample saturated");
-     sample.accel[axis]=a*accel_scale_; sample.gyro[axis]=g*gyro_scale_;
+     sample.accel[axis]=accel_calibration_.apply(axis,a*accel_scale_);
+     sample.gyro[axis]=g*gyro_scale_;
     }
     std::lock_guard<std::mutex> lock(mutex_);
     if (last_) {

@@ -375,8 +375,10 @@ Kalibr 每种噪声只接收一个标量，脚本在三轴均可拟合时取三�
 没有虚构 SC7U22 的噪声密度和随机游走系数。可通过静止数据的 Allan 分析估计，
 定义见 [Kalibr IMU noise model](https://github.com/ethz-asl/kalibr/wiki/IMU-Noise-Model)。
 
-当前驱动做的是原始值到 SI 单位换算，不校准尺度/零偏。先前这块板静止加速度模长约 9.02 m/s²，
-明显偏离标准重力，应先检查并校准 IMU。下面的 `calibrated` 模型要求输入已完成惯性内参校准；
+新版 LiveImu 会加载网页保存的六面校准 JSON，修正加速度计的固定零偏/比例后发布；
+启动时核对 `six-face accelerometer calibration applied` 日志。历史 bag 不会自动修正。
+此前这块板未经修正的静止加速度模长约 9.02 m/s²，明显偏离标准重力。
+下面的 `calibrated` 模型要求输入已完成惯性内参校准；
 不要把采集正常等同于惯性精度合格。
 
 使用一键入口，无需在主机安装或 source ROS 1；容器环境与双目标定相同：

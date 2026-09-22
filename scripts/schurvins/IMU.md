@@ -49,6 +49,39 @@ cd /mnt/data/schurvins-gcc11-static
 
 ## 标定与时间
 
+### 六面加速度计校准
+
+LiveImu 默认读取网页六面校准保存的
+`/mnt/data/penguin-flight-console/accelerometer-calibration.json`。
+每次启动读取一次，在 IIO 原始值换算为 m/s² 后执行
+`corrected[i] = (raw_si[i] - bias_m_s2[i]) * correction_scale[i]`。
+VIO、`--calibrate --imu auto` 的 ROS IMU 发布以及 `--imu-test` 共用此读取层，均生效。
+芯片轴方向、陀螺仪与 IRQ 时间戳保持原值；不向内核回写偏移。
+
+程序检查 schema/board/sensor/frame、200 Hz、IIO scale 和有限且有效的 XYZ 参数。
+文件缺失/损坏/不匹配会拒绝启动。`SCHUR_IMU_CALIBRATION=/path/to/file.json`
+可指定另一份校准；仅在明确需要原始 SI 数据时设置 `SCHUR_IMU_CALIBRATION=none`，
+日志会明确标为 DISABLED。正常启动日志打印文件路径、零偏和比例系数。
+网页重新校准后需要重启消费者才能加载新参数。
+
+此前采集的 bag 不会自动修改；此前 cam–IMU 试验使用的是未修正 IMU 数据，
+不能将其结果视为应用六面校准后的正式标定。后续应对校正后的数据重新标定。
+此文件的 bias/scale 是传感器固定修正；VIO 中的 acc_bias 是修正后残余偏置的估计，
+不要将同一组六面 bias 再填入初始化参数重复扣除。
+
+数值/元数据回归目标：`schurvins_accel_calibration_test`，可通过
+`cmake --build install/schurvins-gcc11-static/core-micro-ros --target schurvins_accel_calibration_test`
+交叉构建后上板运行。
+
+2026-09-22 接入验证：使用板端已保存的 JSON，回归测试通过；独立读取各 5 秒，
+修正后加速度均值约 `[-0.5803, 0.4275, 9.9582] m/s²`、模长 9.9842；
+显式关闭修正时约 `[-1.0486, 0.5884, 9.2355] m/s²`、模长 9.3134。
+两次为顺序采样，不能视为逐样本对照，但与固定修正公式一致。
+采样率约 199.53 Hz，无丢弃和异常间隔。修正后的重力模长仍有残差，
+校准参数的最终精度需另行复核。
+VIO 入口验证确认加载修正、100 帧全部有 IMU 覆盖；当时场景三角化不足，tracking=0，
+该次不是成功定位测试。micro-ROS 保持关闭，测试结束后没有后台运行进程。
+
 `--vio` 要求真实 640×400 双目标定及 `imu_params` / `imu_initialization`，其中 `imu_rate: 200`。
 `T_B_C` 的 B 必须是上述芯片 IMU 坐标系，不能把原来相机坐标系的双目标定直接当成惯性外参。
 需要实际测定噪声、偏置、相机—IMU 外参与时间偏移。

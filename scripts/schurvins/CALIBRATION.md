@@ -1,5 +1,9 @@
 # TideSense 双目 ROS 标定采集模式
 
+IMU 发布现默认应用网页保存的六面加速度计校准，使用共用 LiveImu 读取层。
+启动日志应包含 `six-face accelerometer calibration applied`；历史 bag 不自动改变。
+校准文件路径与显式原始数据模式见 [IMU.md](IMU.md#六面加速度计校准)。
+
 实测结果与当前 WSL 环境限制见 [CALIBRATION-VALIDATION.md](CALIBRATION-VALIDATION.md)。
 
 `--calibrate` 只采集并发布左右 OV9281 原始灰度图，不创建 SchurVINS 估计器，
