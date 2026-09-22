@@ -232,6 +232,105 @@ bag 索引时间取各自 header 时间，不取网络接收时间。检查分�
 IMU 时间戳递增且与图像重叠，拒绝噪声参数为 null 或非正数的模板。
 不会自动校正 IMU 零偏/尺度，也不旋转图像或 IMU 坐标轴。
 
+## 将 Kalibr 结果用于 SchurVINS
+
+### 一键生成运行配置
+
+`--imu-cam` 联合标定成功后，脚本自动在结果目录生成 **`schurvins.yaml`**，
+同时保存转换脚本 `export_schurvins.py` 和日志 `schurvins-export.log`。
+转换在已有 Kalibr 容器内运行，不需要重建镜像。仅双目标定缺少相机–IMU 外参，
+不能生成完整 VIO 配置；`--allan` 和 `--convert-only` 不生成此文件。
+
+已经标定完成的结果无需重跑，直接在本机执行：
+
+```bash
+scripts/calibration/kalibr.sh --export-schurvins \
+  cali/tidesense-imucam-kalibr-20260922-221039
+```
+
+该目录必须包含 `imucam-camchain-imucam.yaml` 和 `imucam-imu.yaml`。
+此模式不需要原始 bag、ROS 或 Podman；本机 Python 3 需要 `numpy` 和 `PyYAML`
+（Ubuntu 包名 `python3-numpy`、`python3-yaml`）。默认写入该目录的 `schurvins.yaml`。
+**不覆盖已有文件**；如果目录中已有之前转换的配置，可指定另一个输出文件：
+
+```bash
+scripts/calibration/kalibr.sh --export-schurvins \
+  cali/tidesense-imucam-kalibr-20260922-221039 \
+  --output /tmp/tidesense-schurvins.yaml
+```
+
+注意：此模式的 `--output` 是 YAML **文件路径**，其父目录需已存在；
+标定模式的 `--output` 仍是新建的结果**目录**。
+
+### 参数如何转换
+
+| Kalibr 参数 | SchurVINS 参数 / 处理 |
+| --- | --- |
+| `cam0` / `cam1` | `cameras[0]` / `cameras[1]`；必须分别为左 / 右相机 |
+| `intrinsics: [fx, fy, cx, cy]` | `camera.intrinsics.data`，顺序不变 |
+| `distortion_coeffs: [k1, k2, p1, p2]` | `camera.distortion.parameters.data`；`radtan` 映射到 `radial-tangential` |
+| `resolution: [width, height]` | `image_width` / `image_height` |
+| 每颗相机的 `T_cam_imu` | **取逆矩阵**得到 `T_B_C`，以行优先展开；B 是 SC7U22 芯片 IMU 坐标系 |
+| cam0 的 `timeshift_cam_imu`（秒） | 乘 `1e9` 四舍五入为 `live_camera_time_offset_ns`；保留正负号 |
+| `gyroscope_noise_density` | `imu_params.sigma_omega_c` |
+| `accelerometer_noise_density` | `imu_params.sigma_acc_c` |
+| `gyroscope_random_walk` | `imu_params.sigma_omega_bias_c` |
+| `accelerometer_random_walk` | `imu_params.sigma_acc_bias_c` |
+
+四个噪声参数直接取联合标定输出 `imucam-imu.yaml` 的 `imu0`，不额外乘除采样率。
+SC7U22 实际测量频率可略低于 200 Hz，转换允许 190–210 Hz，运行配置固定
+`imu_rate: 200`。重力设为 `9.80665`，量程按当前 ±16g / ±2000°/s 设置。
+`imu_initialization` 的速度与残余偏置初值为零，初始化标准差采用运行入口示例默认值；
+这些是启动参数，不是 Kalibr 标定结果。
+
+时间关系为 `t_imu = t_cam + shift`。实时输入以左相机时间代表同步帧对，
+因此只应用 cam0 的时间补偿，保持 `delay_imu_cam: 0.0`，避免重复修正。
+转换日志列出左右相机各自的 shift；差异超过 1 ms 时提示检查同步与标定，
+不会分别移动两颗相机的图像。未输出时间标定字段时补偿为零。
+
+转换支持当前 TideSense 的 **640×400、双 pinhole-radtan、单 calibrated IMU**。
+它检查旋转矩阵、非零基线、双目/IMU 外参一致性、IMU 坐标系和噪声参数。
+非有限数、非正噪声、不支持的模型或分辨率会报错；自动转换失败时，已完成的
+Kalibr 原始结果仍保留，可检查 `schurvins-export.log`。转换通过只说明配置符合入口要求，
+仍应检查 Kalibr 报告中的重投影误差、惯性残差和运动激励。
+
+相机倒装 180° 已包含在外参中，转换不旋转图像；运行时保持标定时的图像方向、
+分辨率和裁剪。不要把物理基线 50 mm 直接写回替代实测外参。
+
+### 部署并运行（关闭 micro-ROS）
+
+本机复制生成的配置到已安装的程序目录：
+
+```bash
+scp -O cali/tidesense-imucam-kalibr-20260922-221039/schurvins.yaml \
+  root@192.168.123.99:/mnt/data/schurvins-gcc11-static-micro-ros/tidesense.yaml
+```
+
+如果上一步指定了 `--output`，这里改用对应文件路径。关闭 PFC 实时预览网页并等待
+约 3 秒释放 IMU，停止标定发布/其他 IMU 采集程序，然后在板端执行：
+
+```sh
+cd /mnt/data/schurvins-gcc11-static-micro-ros
+export SCHUR_MICRO_ROS=0
+export SCHUR_IMU_CALIBRATION=/mnt/data/penguin-flight-console/accelerometer-calibration.json
+./run.sh --vio tidesense.yaml /mnt/data/sensor_cfg.ini auto /tmp/vio-poses.csv 0
+```
+
+`0` 表示持续运行，Ctrl-C 停止。开始时保持静止，两颗镜头共同看向有纹理的场景。
+位姿先写 `/tmp`，避免当前 SD 同步写盘影响实时性能；需要保留时在结束后复制出来。
+
+六面校准 JSON **单独加载**，不合并进 `schurvins.yaml`。LiveImu 启动时读取一次，执行
+`(raw_si - bias) * correction_scale`；启动日志打印文件路径及系数。
+`imu_initialization.acc_bias` 表示修正后的残余偏置，不要再填六面零偏重复扣除。
+采集 cam–IMU 标定数据和运行 VIO 应使用同一份六面系数；旧 bag 不会因更换 JSON
+自动修正。完成新的六面校准后，应重新评估相机–IMU 标定并重启 SchurVINS。
+
+转换回归测试：
+
+```bash
+python3 scripts/calibration/kalibr/test_export_schurvins.py
+```
+
 ## 来源、重建与验证
 
 编码、位顺序、黑边及角点布局依据 [Kalibr 官方生成器](https://github.com/ethz-asl/kalibr/blob/1f60227442d25e36365ef5f72cd80b9666d73467/aslam_offline_calibration/kalibr/python/kalibr_create_target_pdf)。

@@ -11,6 +11,7 @@ if [[ ! -f /opt/ros/humble/setup.bash ]]; then
   return 1
 fi
 source /opt/ros/humble/setup.bash
+source /home/ncer/sophpi/install/micro-ros/agent-install/local_setup.bash
 # Existing SDK test dependencies can also supply Cyclone when not installed globally.
 _tidesense_cyclone="$_tidesense_sdk/install/micro-ros/host-cyclone/opt/ros/humble"
 if [[ -f "$_tidesense_cyclone/lib/librmw_cyclonedds_cpp.so" ]]; then

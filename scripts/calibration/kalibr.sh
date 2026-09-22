@@ -4,24 +4,31 @@ here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
   cat <<'HELP'
 Usage: scripts/calibration/kalibr.sh ROS2_BAG_DIR [options]
+       scripts/calibration/kalibr.sh --export-schurvins RESULTS_DIR [--output NEW_YAML]
   --output DIR       New output directory (default: BAG_DIR-kalibr-TIMESTAMP)
   --target YAML      AprilGrid target (default: TideSense A4 6x4, 32 mm)
   --models LEFT RIGHT  Kalibr models (default: pinhole-radtan pinhole-radtan)
   --topics LEFT RIGHT  Raw Image topics (default: /tidesense/{left,right}/image_raw)
-  --imu-cam          Calibrate camera-IMU extrinsics/time offset instead of stereo
+  --imu-cam          Calibrate camera-IMU and automatically export schurvins.yaml
   --cam YAML         Existing stereo camchain (required with --imu-cam)
   --imu YAML         Measured IMU noise/rate/topic configuration (required with --imu-cam)
   --allan            Analyze a stationary ROS 2 IMU bag; write curves and noise YAML
   --imu-topic TOPIC  Allan IMU topic (default: /tidesense/imu)
   --skip-seconds N   Allan: skip N seconds from first header stamp (default: 0)
   --duration N       Allan: analyze at most N seconds after the skip
-  --convert-only     Validate/pair/convert without running Kalibr
+  --convert-only     Validate/pair/convert without running Kalibr or exporting SchurVINS
+  --export-schurvins  Convert existing IMU-camera results locally; no bag/ROS/Podman needed
+                     Requires Python 3 with numpy and PyYAML; refuses to overwrite output
 Environment: KALIBR_IMAGE (default localhost/tidesense-kalibr:noetic)
 Build first: scripts/calibration/kalibr/build.sh
 HELP
 }
 [[ ${1:-} != --help && ${1:-} != -h ]] || { usage; exit 0; }
 [[ $# -gt 0 ]] || { usage >&2; exit 2; }
+if [[ $1 == --export-schurvins ]]; then
+  shift
+  exec python3 "$here/kalibr/export_schurvins.py" "$@"
+fi
 bag=$(realpath -- "$1"); shift
 original_args=("$bag" "$@")
 target="$here/tidesense-aprilgrid-a4-6x4-32mm.yaml"
@@ -130,5 +137,10 @@ if [[ $convert_only == 0 ]]; then
   for result in "${results[@]}"; do
     [[ -s "$output/$result" ]] || { echo "Kalibr did not produce $result; inspect $output/kalibr.log" >&2; exit 1; }
   done
+  if [[ $imu_cam == 1 ]]; then
+    cp -- "$here/kalibr/export_schurvins.py" "$output/export_schurvins.py"
+    "${run[@]}" python3 /output/export_schurvins.py /output \
+      2>&1 | tee "$output/schurvins-export.log"
+  fi
 fi
 printf '\nResults: %s\n' "$output"
