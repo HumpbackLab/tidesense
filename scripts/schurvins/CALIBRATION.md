@@ -18,7 +18,10 @@ IMU 发布现默认应用网页保存的六面加速度计校准，使用共用 
 先在电脑启动 Humble Agent（沿用 [MICRO-ROS.md](MICRO-ROS.md) 的安装与环境配置）：
 
 ```sh
-export FASTRTPS_DEFAULT_PROFILES_FILE=/path/to/package/calibration-agent.xml
+source /opt/ros/humble/setup.bash
+source /home/ncer/sophpi/install/micro-ros/agent-install/local_setup.bash
+export ROS_DOMAIN_ID=0
+export FASTRTPS_DEFAULT_PROFILES_FILE=/home/ncer/sophpi/scripts/schurvins/micro_ros/calibration-agent.xml
 ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 ```
 
