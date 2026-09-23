@@ -76,6 +76,98 @@ cd /mnt/data/schurvins-gcc11-static
 执行六帧双目跟踪与 SchurVINS 融合，检查融合标志及位姿有限值。
 `synthetic.yaml` **只供自检，绝非 TideSense 标定参数**。
 
+## 实时 VIO + micro-ROS 位姿发布
+
+以下为当前 TideSense 已验证的配置：板端 `192.168.123.99`，电脑端
+`192.168.123.2`，UDP `8888`，ROS domain `0`。更换电脑时将 Agent 地址改为实际地址。
+需要带 micro-ROS 的程序包；`./run.sh --help` 应显示 `micro-ROS compiled: yes`。
+
+### 1. 电脑端启动 Agent
+
+在电脑终端 A 执行（如果端口 8888 已有 Agent，直接复用，不要重复启动）：
+
+```bash
+cd /home/ncer/sophpi
+source scripts/calibration/ros2-env.sh
+export FASTRTPS_DEFAULT_PROFILES_FILE=/home/ncer/sophpi/scripts/schurvins/micro_ros/calibration-agent.xml
+ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
+```
+
+环境脚本加载 ROS 2 Humble、SDK 内的 Agent 和 Cyclone DDS，设置 domain `0`。
+当前 DDS 配置用于这台电脑上的本地订阅；在另一台电脑订阅还需配置 DDS 网络发现。
+
+### 2. 板端启动 VIO
+
+使用转换后的 SchurVINS YAML，不能直接传入 Kalibr camchain。
+[转换方法](../calibration/README.md#将-kalibr-结果用于-schurvins)见标定说明。
+当前已上传的配置为 `tidesense-20260922-221039.yaml`；更新标定时替换此文件名。
+
+先停止已有 VIO、标定采集和 IMU 测试；关闭 PFC 实时预览网页，等待约 3 秒释放 IMU。
+启动前确认板端 `date` 正确，ROS 时间戳使用板端系统时间；校准时间偏移不会自动同步两台机器的时钟。
+在板端执行：
+
+```sh
+cd /mnt/data/schurvins-gcc11-static-micro-ros
+vio_output=/mnt/data/vio-$(date +%Y%m%d-%H%M%S)
+mkdir -p "$vio_output"
+export SCHUR_MICRO_ROS=1
+export SCHUR_MICRO_ROS_AGENT=192.168.123.2
+export SCHUR_MICRO_ROS_PORT=8888
+export SCHUR_MICRO_ROS_DOMAIN=0
+export SCHUR_IMU_CALIBRATION=/mnt/data/penguin-flight-console/accelerometer-calibration.json
+
+nohup ./run.sh --vio tidesense-20260922-221039.yaml \
+  /mnt/data/sensor_cfg.ini auto "$vio_output/poses.csv" 0 \
+  >"$vio_output/vio.log" 2>&1 </dev/null &
+echo $! >/tmp/vio-micro-ros.pid
+echo "VIO PID: $(cat /tmp/vio-micro-ros.pid); output: $vio_output"
+```
+
+`auto` 查找 SC7U22 IIO 设备，`0` 表示持续运行。启动时保持静止，并让双目共同看向
+有纹理的场景。六面校准 JSON 在启动时加载；日志应显示 `calibration applied`、
+`Camera timestamp offset_ns=...` 和 `micro-ROS: connected ... domain=0`。
+
+当前 `/mnt/data` 已取消 `sync` 挂载，日志和轨迹写入 SD 数据分区，避免持续占满 `/tmp`。
+每次启动创建新的输出目录。若使用旧镜像，先检查 `mount` 中 `/mnt/data` 是否仍含 `sync`，
+同步写盘会拖慢 VIO。关闭 micro-ROS 时设置 `SCHUR_MICRO_ROS=0` 即可独立运行。
+
+停止本次后台 VIO（在板端执行）：
+
+```sh
+kill -INT "$(cat /tmp/vio-micro-ros.pid)"
+```
+
+### 3. 电脑端订阅位姿和跟踪状态
+
+电脑另开终端 B，**每个新终端都先加载环境**：
+
+```bash
+source /home/ncer/sophpi/scripts/calibration/ros2-env.sh
+ros2 topic echo /tidesense/pose \
+  geometry_msgs/msg/PoseStamped \
+  --qos-reliability best_effort --no-daemon
+```
+
+查看跟踪状态（另开已加载同一环境的终端，或先 Ctrl-C 退出位姿订阅）：
+
+```bash
+ros2 topic echo /tidesense/tracking \
+  std_msgs/msg/Bool \
+  --qos-reliability best_effort --no-daemon
+```
+
+- 位姿为 **body/IMU 到 odom 的变换**，`header.frame_id=odom`，位置单位米，四元数为 xyzw。
+  它不是左相机位姿；此模式不发布图像、TF、速度或协方差。
+- `tracking.data=true` 时发布有效跟踪阶段的位姿；失去跟踪时不发布位姿。
+  Agent 断连时状态消息也会中断，接收端应检测消息超时。
+- 发布使用 best-effort、volatile QoS，订阅需兼容。VIO 重启/重置后局部坐标系可能变化。
+- **保留 `--no-daemon`**：当前电脑曾出现普通 `ros2 topic echo` 卡在连接本机
+  `127.0.0.1:11511` 的 ROS 2 CLI daemon，连 `ros2 daemon stop` 也等待不返回；
+  `--no-daemon` 绕过该路径后已实测正常收到数据，不需要重启板端 VIO 或 Agent。
+
+2026-09-22 当前标定上板复测：20 秒接收 401 条位姿，约 20 Hz。
+这验证了发布/订阅链路，不代表完成运动定位精度验证。
+
 ## 离线输入
 
 ```sh
