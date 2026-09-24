@@ -434,3 +434,7 @@ SCHUR_PREDICTION=1 SCHUR_PREDICTION_CSV=/mnt/data/predicted-poses.csv \
 完整语义见 [MICRO-ROS.md](MICRO-ROS.md#imu-rate-predicted-poses)。
 
 验证记录见 [PREDICTION-VALIDATION.md](tests/PREDICTION-VALIDATION.md)：板端到 ROS 2 实测约 199.54 Hz。
+
+## warpAffine 两像素尾部优化
+
+宏开关、A53 测试结果及复测方法见 [WARP-TAIL2.md](bench/WARP-TAIL2.md)。

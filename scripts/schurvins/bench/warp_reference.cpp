@@ -1,3 +1,5 @@
+#undef SCHUR_OPT_WARP_TAIL2
+#define SCHUR_OPT_WARP_TAIL2 0
 // Independent macro-OFF compilation of the actual production source.
 #undef SCHUR_OPT_WARP_AFFINE_NEON
 #define SCHUR_OPT_WARP_AFFINE_NEON 0
