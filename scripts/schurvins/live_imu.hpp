@@ -14,6 +14,7 @@
 #include "accel_calibration.hpp"
 struct ImuSample {
  uint64_t stamp_ns;
+ std::array<double,3> raw_accel{}; // SI before six-face correction, for recording diagnostics
  std::array<double,3> gyro, accel; // rad/s, m/s^2; chip axes, accel six-face correction applied
 };
 // Unlike images, every IMU sample is retained until delivered to the estimator.
@@ -25,6 +26,7 @@ class LiveImu {
   void stop();
   void report() const;
   void check() const;
+  YAML::Node recordingMetadata() const;
  private:
   void acquire();
   void setting(const std::string& name, const std::string& value);
@@ -34,6 +36,7 @@ class LiveImu {
   std::string sysfs_;
   double accel_scale_ = 0, gyro_scale_ = 0;
   AccelCalibration accel_calibration_;
+  std::string calibration_path_;
   std::atomic<bool> stopping_{false};
   std::thread worker_;
   mutable std::mutex mutex_;

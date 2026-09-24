@@ -4,6 +4,7 @@
 #include "live_imu.hpp"
 #include "micro_ros_bridge.hpp"
 #include "calibration.hpp"
+#include "recording.hpp"
 #include <algorithm>
 #include <cmath>
 #include <chrono>
@@ -68,6 +69,34 @@ std::string path(const std::string& csv, const std::string& name) {
 }
 
 int main(int argc, char** argv) {
+  bool allow_incomplete = argc == 5 && std::string(argv[1]) == "--replay"
+    && std::string(argv[4]) == "--allow-incomplete";
+  if (allow_incomplete) --argc;
+  std::string record_dir;
+  if (argc >= 3 && std::string(argv[argc-2]) == "--record") {
+    if (std::string(argv[1]) != "--vio" || !argv[argc-1][0]) {
+      std::cerr << "--record NEW_DIR is only supported as the final arguments of --vio\n"; return 2;
+    }
+    record_dir = argv[argc-1]; argc -= 2;
+  }
+  std::string replay_calibration, replay_images, replay_imu;
+  char* replay_args[5];
+  if (argc == 4 && std::string(argv[1]) == "--replay") {
+    const std::string dir = argv[2];
+    const bool incomplete = !std::ifstream(dir + "/COMPLETE") || bool(std::ifstream(dir + "/INCOMPLETE"));
+    if (incomplete && !allow_incomplete) {
+      std::cerr << "Replay requires a completed recording (COMPLETE marker). "
+                << "Use --allow-incomplete explicitly to replay its committed prefix.\n";
+      return 2;
+    }
+    if (incomplete) std::cerr << "WARNING: replaying incomplete recording; only committed stereo.csv rows are used.\n";
+    replay_calibration = dir + "/replay.yaml";
+    replay_images = dir + "/stereo.csv";
+    replay_imu = dir + "/imu.csv";
+    replay_args[0] = argv[0]; replay_args[1] = &replay_calibration[0];
+    replay_args[2] = &replay_images[0]; replay_args[3] = &replay_imu[0];
+    replay_args[4] = argv[3]; argv = replay_args; argc = 5;
+  }
   if (argc == 2 && std::string(argv[1]) == "--help") {
     std::cout << "SchurVINS stereo + IMU (A53, optional micro-ROS)\n"
       "  schurvins_stereo CALIB.yaml STEREO.csv IMU.csv POSES.csv\n"
@@ -76,7 +105,10 @@ int main(int argc, char** argv) {
       "  schurvins_stereo --self-test SYNTHETIC_CALIB.yaml\n"
       "  schurvins_stereo --camera CALIB.yaml SENSOR.ini POSES.csv [FRAMES]\n"
       "  schurvins_stereo --camera-smoke SENSOR.ini [FRAMES]\n"
-      "  schurvins_stereo --vio CALIB.yaml SENSOR.ini IMU_DEVICE POSES.csv [FRAMES]\n"
+      "  schurvins_stereo --vio CALIB.yaml SENSOR.ini IMU_DEVICE POSES.csv [FRAMES] [--record NEW_DIR]\n"
+      "  schurvins_stereo --replay RECORD_DIR POSES.csv [--allow-incomplete]\n"
+      "    Records consumed mono8 pairs + continuous IMU with input calibration snapshots.\n"
+      "    Replay uses already aligned timestamps and corrected IMU; no hardware/ROS required.\n"
       "  schurvins_stereo --vio-smoke SENSOR.ini IMU_DEVICE [FRAMES]\n"
       "VIO modes acquire SC7U22 accel/gyro at 200Hz. Use run.sh with IMU_DEVICE=auto.\n"
       "Camera modes run the stereo visual frontend without IMU. FRAMES defaults to 120; 0 runs until Ctrl-C.\n"
@@ -161,6 +193,9 @@ int main(int argc, char** argv) {
         svo::StereoTriangulationOptions(), reproj, svo::FeatureTrackerOptions(), cams);
     if (imu) vio.setImuHandler(imu);
     vio.start();
+    std::unique_ptr<VioRecording> recording;
+    if (!record_dir.empty())
+      recording.reset(new VioRecording(record_dir, yaml, argv[3]));
     std::ifstream images, inertial;
     std::ofstream poses;
     if (!self && !camera) {
@@ -190,6 +225,7 @@ int main(int argc, char** argv) {
         if (!live->next(warmup,interrupted)) throw std::runtime_error("Interrupted during camera startup");
         ++startup_pairs_skipped;
         live_imu.reset(new LiveImu(argv[smoke ? 3 : 4]));
+        if (recording) recording->setImuMetadata(live_imu->recordingMetadata());
         live_ready_ns = clockNs(CLOCK_MONOTONIC)+100000000ULL;
       }
       std::cout << (live_vio ? "Live stereo + SC7U22 200Hz IMU\n" : "Live stereo visual frontend, IMU disabled\n")
@@ -263,6 +299,7 @@ int main(int argc, char** argv) {
             ++imu_added;
           }
           if (last_imu <= t) throw std::runtime_error("IMU does not cover image interpolation edge");
+          if (recording) recording->submit(t, input, samples);
         }
         // Optional consumer-delay injection for bounded-queue board testing.
         if (test_delay_ms)
@@ -350,6 +387,7 @@ int main(int argc, char** argv) {
       if (live_imu) { live_imu->stop(); live_imu->check(); }
       if (live->stop()) throw std::runtime_error("Camera helper exited with an error during cleanup");
       live->report();
+      if (recording) recording->finish();
       if (live_imu) {
         live_imu->report();
         std::cout << "schur_imu_added=" << imu_added << " max_imu_batch=" << max_imu_batch << " startup_pairs_skipped=" << startup_pairs_skipped << '\n';

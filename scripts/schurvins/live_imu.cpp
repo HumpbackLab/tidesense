@@ -66,6 +66,7 @@ LiveImu::LiveImu(const std::string& requested) {
   const char* configured=std::getenv("SCHUR_IMU_CALIBRATION");
   const std::string calibration=configured ? configured :
     "/mnt/data/penguin-flight-console/accelerometer-calibration.json";
+  calibration_path_=calibration;
   if (calibration == "none") {
    std::cerr << "imu: accelerometer calibration explicitly DISABLED; raw SI values\n";
   } else {
@@ -104,7 +105,8 @@ void LiveImu::acquire() {
      const int16_t a=le16(scans+n+axis*2),g=le16(scans+n+6+axis*2);
      if (a>=32760 || a<=-32760 || g>=32760 || g<=-32760)
       throw std::runtime_error("IMU raw sample saturated");
-     sample.accel[axis]=accel_calibration_.apply(axis,a*accel_scale_);
+     sample.raw_accel[axis]=a*accel_scale_;
+     sample.accel[axis]=accel_calibration_.apply(axis,sample.raw_accel[axis]);
      sample.gyro[axis]=g*gyro_scale_;
     }
     std::lock_guard<std::mutex> lock(mutex_);
@@ -162,4 +164,19 @@ void LiveImu::report() const {
   << " imu_rate_hz=" << (last_>first_ ? (samples_-1)*1e9/(last_-first_) : 0)
   << " imu_max_gap_ms=" << max_gap_*1e-6 << " imu_late_intervals=" << late_
   << " imu_queue_high_water=" << high_water_ << " imu_discarded=0\n";
+}
+
+YAML::Node LiveImu::recordingMetadata() const {
+ YAML::Node n;
+ n["sensor"]="sc7u22"; n["frame"]="imu_chip_xyz";
+ n["sampling_frequency_hz"]=200;
+ n["source"]=calibration_path_;
+ n["six_face_applied"]=calibration_path_!="none";
+ n["accel_scale_m_s2_per_lsb"]=accel_scale_;
+ n["gyro_scale_rad_s_per_lsb"]=gyro_scale_;
+ for (int i=0;i<3;++i) {
+  n["bias_m_s2"].push_back(accel_calibration_.bias[i]);
+  n["correction_scale"].push_back(accel_calibration_.scale[i]);
+ }
+ return n;
 }

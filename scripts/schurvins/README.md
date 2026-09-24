@@ -168,6 +168,25 @@ ros2 topic echo /tidesense/tracking \
 2026-09-22 当前标定上板复测：20 秒接收 401 条位姿，约 20 Hz。
 这验证了发布/订阅链路，不代表完成运动定位精度验证。
 
+## 录制现场输入并离线 replay
+
+为复现初始化后转动/移动发散，可在 `--vio` 命令末尾增加 `--record NEW_DIR`：
+
+```sh
+cd /mnt/data/schurvins-gcc11-static-micro-ros
+record_dir=/mnt/data/vio-record-$(date +%Y%m%d-%H%M%S)
+SCHUR_MICRO_ROS=0 ./run.sh --vio tidesense-20260922-221039.yaml \
+  /mnt/data/sensor_cfg.ini auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
+# Ctrl-C 正常结束录制后：
+SCHUR_MICRO_ROS=0 ./run.sh --replay "$record_dir" "$record_dir/replay-poses.csv"
+```
+
+不要提前创建录制目录；父目录需存在。录制默认关闭，micro-ROS 可独立开启。
+保存 VIO 实际消费的双目灰度图、连续 IMU、左右原始时间戳、帧序号和标定快照。
+回放不会再次应用六面系数或时间偏移。相机消费队列中已被替换的帧不包含在录制中。
+20 Hz 约 614 MB/分钟；写盘跟不上或空间不足会明确报错，异常录制需显式
+`--allow-incomplete` 才尝试回放。详见 [录制和回放说明](RECORDING.md)。
+
 ## 离线输入
 
 ```sh
