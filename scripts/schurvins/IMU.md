@@ -40,8 +40,8 @@ cd /mnt/data/schurvins-gcc11-static
 - 用户态 `poll()` 等待的是 IIO 文件描述符可读，**不是轮询传感器寄存器**。
   IIO 内核缓冲 512 条；每次图像处理前消费全部未交付 IMU，包含第一条晚于图像的样本。
   用户态历史最多 2000 条；时间倒退、间隔达到 15 ms、溢出、饱和或中断流停滞均报错。
-- 正常退出/Ctrl-C 禁用 IIO 缓冲并关闭传感器测量。SIGKILL 无法执行清理；异常退出后先确认
-  无消费者，再手动 `echo 0 > /sys/bus/iio/devices/iio:deviceN/buffer/enable`，然后重新启动。
+- 正常退出/Ctrl-C 禁用 IIO 缓冲；只有 FSIN 也已关闭时才停止传感器测量。SIGKILL 无法执行清理；异常退出后先确认
+  无消费者，再手动 `echo 0 > /sys/bus/iio/devices/iio:deviceN/buffer/enable`，同时通过 `bin/fsin.sh stop` 停止遗留的相机触发，然后重新启动。
 - 诊断：`cat /sys/bus/iio/devices/iio:deviceN/diagnostics`。
   包含硬中断数、入队数、SPI 错误、未就绪、超时丢弃、内核缓冲丢弃、间隔异常、
   最大中断线程调度延迟及最大中断到读取完成时间，均为本次驱动加载以来累计值。
@@ -185,3 +185,11 @@ SPI 错误、未就绪、超时读取丢弃、内核缓冲丢弃、异常间隔�
 测试摘要见 `board-test-imu.log`，原始日志保存在主机
 `install/schurvins-gcc11-static/imu-results/schur-imu-acceptance/`。
 部署前设备程序备份在主机 `install/schurvins-gcc11-static/backup-before-imu-20260918/board-app.tar`。
+
+## INT1 分频触发相机
+
+当前内核支持 PWR_GPIO0 FSIN：开启后每 10 次 INT1 硬中断触发一次（约 20 Hz），
+上升沿在读取 SPI 之前直接写 GPIO，100 µs 后由硬高精度定时器拉低。
+启用 FSIN 会自动维持 200 Hz IMU，即使没有 IIO 消费者也会读取并清除 DRDY。
+相机先启动、IIO 后启动不会重置分频；相机停止后已有 IIO 消费者仍能继续读取。
+接口与软件延迟统计见 [OV9281 说明](../ov9281/README.md)。

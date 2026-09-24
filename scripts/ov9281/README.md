@@ -27,7 +27,7 @@ scripts/ov9281/build.sh
 设备上已部署：
 
 - `/mnt/data/sensor_cfg.ini`：默认 640×400、20fps，`hw_sync=1`，等待 FSIN 触发。
-- `/mnt/data/ov9281-update/fsin.sh`：PWR_GPIO0 / PWM8 硬件脉冲工具。
+- `/mnt/data/ov9281-update/fsin.sh`：PWR_GPIO0 内核 IMU 中断分频触发工具。
 - `/mnt/data/ov9281-update/capture`：实际双路 VI 取帧工具。
 - `/mnt/data/ov9281-update/mode_check`：真实驱动回调测试，无传感器 I/O。
 - `/mnt/data/ov9281-update/libsns_ov9281.so`、`libsns_full.so`：新动态库。
@@ -95,7 +95,7 @@ sed s/400P_20FPS/800P_60FPS/g /mnt/data/sensor_cfg.ini > /tmp/sensor-800.ini
 
 ## PWR_GPIO0 驱动双目 FSIN
 
-两颗相机共用 SG2002 的 PWR_GPIO0。工具将该焊盘复用为 **PWM8**，由硬件产生默认 **20Hz、100µs 高电平**脉冲，避免用户态 sleep 循环的调度抖动。未新增开机常驻脉冲；采集程序必须先完成两路初始化，再启用脉冲，退出前停脉冲。
+两颗相机共用 SG2002 的 PWR_GPIO0。当前由 SC7U22 内核驱动在每第 10 次 INT1 硬中断中直接拉高 GPIO，200 Hz IMU 对应约 **20 Hz FSIN**；高精度硬定时器约 **100 µs** 后拉低，不在中断中忙等，也不经过用户态或 SPI 读数线程。GPIO 不再复用为 PWM8。采集程序先完成两路初始化，再启用触发，退出前停触发。未启用 IIO buffer 时，驱动仍读取 IMU 以清除 DRDY；启停 IIO buffer 不重置正在工作的 FSIN 分频。
 
 `hw_sync=0` 自由运行，20fps 模式仍使用 VTS=2730。`hw_sync=1` 现在启用外部快照：FSIN 上升沿触发一帧，`0x303f=1`、`0x4f00=1`、`0x0100=0` 等待触发；不再只设置 `0x3823`。无脉冲不出图。参考本仓库 `docs/OV9281_DataSheet.md` §4.8.3，以及 [ArduCAM 外部触发示例](https://github.com/ArduCAM/MIPI_Camera/blob/master/RPI/ov9281_external_trigger.c)。standby/exit 清除唤醒使能，restart 恢复等待触发。
 
@@ -120,9 +120,13 @@ OV9281_FSIN_MAX_EXPOSURE=1 /mnt/data/ov9281-update/capture /mnt/data/sensor_cfg.
 /mnt/data/ov9281-update/fsin.sh stop
 ```
 
-`train 20 604` 可输出有限 604 个脉冲，`status` 的 `out_count` 是硬件实际输出计数。开始新一轮前先 `stop`。工具保留 GPIO/PWM 导出和 `/run/tidesense-fsin` 所有权标记，拒绝抢占未由本工具导出的端口；脚本互斥锁防止并发配置。PWR_GPIO0 由板端输出，不应再接另一个主动驱动的信号源。
+`train 20 604` 输出有限 604 个脉冲；`status` 的 `pulses` 是内核实际执行的 GPIO 拉高次数。达到数量后保持低电平，但仍需 `stop` 释放触发状态和 IMU 采样需求。仅支持 20 Hz（固定 10 分频）；标定发布的较低帧率仍由程序抽帧实现。脚本互斥锁防止并发配置；GPIO 由内核独占，不再导出 GPIO/PWM。PWR_GPIO0 不应接另一个主动驱动源。
 
-原参考 DT 将 PWR_GPIO0/1/2 分配给不存在的显示面板，`cv181x_mipi_tx` 因而占用 FSIN。板级 DTS 已删除这些显示 GPIO 属性；同时 rootfs loader 使用 `gpio=-1,0,-1,0,-1,0`，兼容尚未更换 DT 的设备。本机已重载该模块并持久更新 loader，无需刷内核。整卡镜像会打包 `fsin.sh`，首次运行按需加载现有 `cv181x_pwm.ko`。
+需要同时安装新内核、板级 DT 和新版 `fsin.sh`，旧内核缺少接口时脚本明确失败，不回退到独立 PWM。DT 的 `fsin-gpios` 指定 PWR_GPIO0，`silan,fsin-pinmux` 配置该 SDK 的焊盘复用寄存器。原参考 DT 的显示 GPIO 属性已删除。整卡构建会包含新版脚本。
+
+`/sys/bus/iio/devices/iio:deviceN/fsin_diagnostics` 提供脉冲数、最后一次触发的 IRQ 编号/单调时钟时间戳、最大 IRQ 入口至 GPIO 写入耗时、高电平耗时及过期计数。统计的是软件路径，不包含 INT 引脚边沿到进入中断的延迟；电气时序需示波器核对。`diagnostics` 中的 IMU gaps/late_reads 也应一起检查，因为丢失 DRDY 会延长触发周期。
+
+以下为旧 PWM 实现的历史测试数据，不代表当前中断分频实现：
 
 2026-09-18 实测：预热处理 VI/ISP 启动时约 30 帧不交付的行为后，硬件发送 604 个脉冲，两路各取到 604 帧，丢弃前 4 帧后统计 600 帧，两路均 **20.000fps**。触发前、停止预热后、有限脉冲结束后均没有新帧。MIPI ECC/CRC/Header/WordCount/FIFO 错误和 VI LostFrame/VbFail 均为 0。日志见 `board-test-fsin.log`。
 
