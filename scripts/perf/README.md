@@ -78,3 +78,44 @@ task-clock/context-switches/page-faults 均能计数。按 99 Hz 进行 cycles �
 回退时把启动镜像备份复制回 SD 第一分区的 `boot.sd`，并用
 `tar xf /mnt/data/perf-test/ko.before-perf.tar -C /mnt/system` 恢复匹配的模块，
 同步后重启。如果模块异常导致正常重启无法完成，先 `sync` 再 `busybox reboot -f`。
+
+## TideSense A53 1 GHz
+
+TideSense ARM64 SD 构建在 FSBL 中单独将 MPLL/A53 从 800 MHz 设置为 1 GHz，
+通过 `TIDESENSE_A53_1GHZ` 隔离，仅匹配 `PROJECT_FULLNAME=sg2002_tidesense_arm64_sd`。
+保留 ND 模式的外围时钟，不启用整套 `OD_CLK_SEL`，不修改供电。
+板级 DT 同步设置温控频率表为 CPU 1000/500/500 MHz、TPU 700/375/300 MHz，
+高温仍可降频，并非锁死在 1 GHz。
+
+本地 SG2002 Preliminary Datasheet V1.0-alpha 同时列出 A53 1 GHz 和 CORE 标称 0.9 V；
+不以本项变更要求手动升到 1.0 V。运行稳定性仍应以具体板子的负载测试为准。
+
+```sh
+source build/envsetup_soc.sh
+defconfig sg2002_tidesense_arm64_sd
+build_fsbl
+build_kernel
+```
+
+更新 SD BOOT 分区根目录的两个文件：
+
+- `install/soc_sg2002_tidesense_arm64_sd/fip.bin`
+- `install/soc_sg2002_tidesense_arm64_sd/rawimages/boot.sd`（FIT 格式，勿用上一层 CIMG 同名文件）
+
+重启后检查（设备已挂载 debugfs 时）：
+
+```sh
+cat /sys/kernel/debug/clk/clk_summary | grep -E 'clk_mpll|clk_a53'
+cat /sys/class/thermal/thermal_zone0/temp
+```
+
+`clk_mpll` 和 `clk_a53` 正常最高档应为 `1000000000`；温度单位为毫摄氏度。
+设备更新前的启动文件保存在 `/mnt/data/backup-before-1ghz-20260924/`。
+
+2026-09-24 上板短时验证：原电压，时钟树确认 1 GHz；874 帧离线回放完成，
+位姿数值与 800 MHz 的同一诊断程序回放一致。VIO 总耗时 32.835→27.548 秒（减少 16.1%），
+单帧中位数 35.132→29.401 ms。400 帧双目+IMU smoke 通过：相机 19.954 fps、
+IMU 199.537 Hz，配对丢弃/消费替换/IMU 丢弃均为 0；驱动无 SPI 错误或采样间隔异常。
+采样温度约 40–41°C；手动检查 cooling state 1→0，A53 正常 500 MHz→1 GHz。
+这是短时稳定性测试，不等同于温度/电压全范围长期验证。
+日志位于 `install/tidesense-1ghz-validation/`。本次更新了启动文件，未重打整卡镜像。
