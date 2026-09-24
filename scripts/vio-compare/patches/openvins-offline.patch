@@ -1,0 +1,38 @@
+diff --git a/ov_msckf/CMakeLists.txt b/ov_msckf/CMakeLists.txt
+index 5f8a2eb..6b26837 100644
+--- a/ov_msckf/CMakeLists.txt
++++ b/ov_msckf/CMakeLists.txt
+@@ -24,6 +24,7 @@ else ()
+     add_definitions(-DENABLE_ARUCO_TAGS=1)
+ endif ()
+ 
++
+ # We need c++14 for ROS2, thus just require it for everybody
+ # NOTE: To future self, hope this isn't an issue...
+ set(CMAKE_CXX_STANDARD 14)
+@@ -53,4 +54,6 @@ else ()
+ endif ()
+ 
+ 
+-
++add_executable(run_record ${CMAKE_CURRENT_SOURCE_DIR}/../../run_record.cpp)
++target_link_libraries(run_record ov_msckf_lib ${thirdparty_libraries})
++set_target_properties(run_record PROPERTIES LINK_FLAGS "-static")
+diff --git a/ov_msckf/cmake/ROS1.cmake b/ov_msckf/cmake/ROS1.cmake
+index 2ea4292..c0543bf 100644
+--- a/ov_msckf/cmake/ROS1.cmake
++++ b/ov_msckf/cmake/ROS1.cmake
+@@ -92,7 +92,7 @@ if (catkin_FOUND AND ENABLE_ROS)
+     list(APPEND LIBRARY_SOURCES src/ros/ROS1Visualizer.cpp src/ros/ROSVisualizerHelper.cpp)
+ endif ()
+ file(GLOB_RECURSE LIBRARY_HEADERS "src/*.h")
+-add_library(ov_msckf_lib SHARED ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
++add_library(ov_msckf_lib STATIC ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
+ target_link_libraries(ov_msckf_lib ${thirdparty_libraries})
+ target_include_directories(ov_msckf_lib PUBLIC src/)
+ install(TARGETS ov_msckf_lib
+@@ -157,4 +157,3 @@ install(TARGETS test_sim_repeat
+         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ )
+-

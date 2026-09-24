@@ -1,0 +1,6 @@
+VINS_MONO_URL=https://github.com/HKUST-Aerial-Robotics/VINS-Mono.git
+VINS_MONO_REV=90dabb5ec79946ae42fd2e1e91d4e69aabe1e25d
+VINS_FUSION_URL=https://github.com/HKUST-Aerial-Robotics/VINS-Fusion.git
+VINS_FUSION_REV=be55a937a57436548ddfb1bd324bc1e9a9e828e0
+OPENVINS_URL=https://github.com/rpng/open_vins.git
+OPENVINS_REV=69488123ed9362dd44b6f28e7f4680abbff1442b

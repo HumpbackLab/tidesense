@@ -1,0 +1,2 @@
+# Patch files preserve upstream whitespace verbatim for git apply.
+*.patch -whitespace
