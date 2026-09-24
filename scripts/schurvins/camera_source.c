@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
  /* Override generic ISP defaults after initialization for mono OV9281. */
  for (int p = 0; p < 2; ++p) {
   CHECK(ov9281_isp_profile(p, 0, 0));
-  fprintf(stderr, "camera: pipe %d OV9281 mono ISP, AE max 2000 us, sharpening/TNR off\n", p);
+  fprintf(stderr, "camera: pipe %d OV9281 mono ISP, manual exposure 2000 us, analog gain 4x, digital/ISP gain 1x, sharpening/TNR off\n", p);
  }
  if (prepared) CHECK(fsin("start"));
  int warmup = 4, unmatched = 0;
@@ -142,6 +142,12 @@ int main(int argc, char **argv) {
   struct CameraHeader h = { CAMERA_MAGIC, CAMERA_VERSION, 640, 400,
    sent + 1, l * 1000, r * 1000, frame[0].stVFrame.u32TimeRef,
    frame[1].stVFrame.u32TimeRef, prepared ? CAMERA_FSIN : 0, 0 };
+  if (sent && sent % 100 == 1) for (int p = 0; p < 2; ++p) {
+   ISP_EXP_INFO_S exposure;
+   CHECK(CVI_ISP_QueryExposureInfo(p, &exposure));
+   fprintf(stderr, "camera: pipe %d actual exposure %u us, gains Q10 %u/%u/%u\n",
+    p, exposure.u32ExpTime, exposure.u32AGain, exposure.u32DGain, exposure.u32ISPDGain);
+  }
   for (int p = 0; p < 2; ++p) {
    VIDEO_FRAME_S *f = &frame[p].stVFrame;
    unsigned int len = f->u32Stride[0] * 400;

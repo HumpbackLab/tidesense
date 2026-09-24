@@ -388,3 +388,21 @@ RESULTS_DIR="$PWD/install/schurvins-gcc11-static/next-results" \
 这里 base 是之前四项全开的基线；hessian/warp/both 分别为新项 1/2/两者。
 不要与旧 `opt-binaries/base`（原优化全关）混淆。构建脚本也支持参数只构建指定组合。
 实测和第 3 项的最终汇编评估见 [HESSIAN-WARP.md](bench/HESSIAN-WARP.md)。
+
+## IMU 同步触发与固定曝光（2026-09-24）
+
+`hw_sync=1` 时，`schurvins_camera` 调用 `fsin.sh` 控制 SC7U22 内核驱动：
+
+- IMU 保持 200 Hz；每 10 次 INT1 硬中断立即向两颗 OV9281 发送一次 FSIN，约 20 Hz。
+- 高电平目标 100 µs，由硬高精度定时器结束。退出采集会停触发并拉低；若 IIO 仍在使用，则 IMU 继续采样。
+- 两路 ISP 使用手动曝光 **2000 µs**、模拟增益 **4×（Q10=4096）**、数字/ISP 增益 **1×（Q10=1024）**，不再运行自动曝光调节。实际时间由传感器行周期量化，采集日志定期报告实际值。增益仍为固定值，不随光线自动变化；4× 模拟增益用于改善室内亮度。
+- 新内核/DT 与新版 `bin/fsin.sh` 必须配套；不再使用独立 PWM8。单独采图无需另启动 IMU 用户态程序。
+
+启动 VIO、录制和 micro-ROS 的命令不变。运行中可查看：
+
+```sh
+./bin/fsin.sh status
+cat /sys/bus/iio/devices/iio:device0/diagnostics
+```
+
+触发锁相不等于所有时间误差消失：相机输入时间戳仍是 VI PTS，IMU 是硬中断入口的 CLOCK_MONOTONIC 时间戳，未将图像 PTS 偷换为 FSIN 时间戳。曝光中心相对 FSIN 的延迟以及 IMU 内部滤波延迟仍需验证。改变触发源和曝光后，应重新核实 Kalibr 的时间偏移，不能保证旧 `live_camera_time_offset_ns` 仍准确。

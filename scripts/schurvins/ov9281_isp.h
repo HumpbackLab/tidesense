@@ -52,11 +52,18 @@ static int ov9281_isp_profile(VI_PIPE pipe, int sharp, int tnr)
  ISP_EXPOSURE_ATTR_S ae;
  ISP_TRY(CVI_ISP_GetExposureAttr(pipe, &ae));
  ae.bByPass = CVI_FALSE;
- ae.enOpType = OP_TYPE_AUTO;
- /* Reduce the SDK brightness compensation (56) to preserve bright detail. */
- ae.stAuto.u8Compensation = 48;
- ae.stAuto.stExpTimeRange.u32Max = 2000;
- if (ae.stAuto.stExpTimeRange.u32Min > 2000) ae.stAuto.stExpTimeRange.u32Min = 2000;
+ /* Fixed exposure and 4x analog gain: no AE adaptation or exposure-centre drift.
+  * The sensor quantizes 2000 us to a whole number of exposure lines. */
+ ae.enOpType = OP_TYPE_MANUAL;
+ ae.stManual.enGainType = AE_TYPE_GAIN;
+ ae.stManual.enExpTimeOpType = OP_TYPE_MANUAL;
+ ae.stManual.enAGainOpType = OP_TYPE_MANUAL;
+ ae.stManual.enDGainOpType = OP_TYPE_MANUAL;
+ ae.stManual.enISPDGainOpType = OP_TYPE_MANUAL;
+ ae.stManual.u32ExpTime = 2000;
+ ae.stManual.u32AGain = 4096;
+ ae.stManual.u32DGain = 1024;
+ ae.stManual.u32ISPDGain = 1024;
  ISP_TRY(CVI_ISP_SetExposureAttr(pipe, &ae));
  ISP_WB_ATTR_S wb;
  ISP_TRY(CVI_ISP_GetWBAttr(pipe, &wb));
@@ -79,13 +86,13 @@ static int ov9281_isp_profile(VI_PIPE pipe, int sharp, int tnr)
  ISP_TRY(CVI_ISP_GetColorToneAttr(pipe, &tone));
  tone.u16RedCastGain = tone.u16GreenCastGain = tone.u16BlueCastGain = 1024;
  ISP_TRY(CVI_ISP_SetColorToneAttr(pipe, &tone));
- /* Initialize at 1x; the capture loop tracks analog gain as AE converges. */
+ /* Initialize at 4x; the capture loop verifies the applied analog gain. */
  ISP_BLACK_LEVEL_ATTR_S blc;
  ISP_TRY(CVI_ISP_GetBlackLevelAttr(pipe, &blc));
  blc.Enable = CVI_TRUE;
  blc.enOpType = OP_TYPE_MANUAL;
- blc.stManual.OffsetR = blc.stManual.OffsetGr = 132;
- blc.stManual.OffsetGb = blc.stManual.OffsetB = 132;
+ blc.stManual.OffsetR = blc.stManual.OffsetGr = ov9281_black_level(pipe, 4096);
+ blc.stManual.OffsetGb = blc.stManual.OffsetB = ov9281_black_level(pipe, 4096);
  ISP_TRY(CVI_ISP_SetBlackLevelAttr(pipe, &blc));
  /* SDK defaults enable YNR but set every ISO strength to zero.
   * 64 reduced wall temporal noise in the board comparison; 128 added little.
