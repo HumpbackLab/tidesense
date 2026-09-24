@@ -123,7 +123,8 @@ if grep -Eq 'INTERP|NEEDED' "$work/elf-program-headers.txt" "$work/elf-dynamic.t
   echo "Static ELF verification failed" >&2; exit 1
 fi
 cp "$here/board-test-imu.log" "$here/IMU.md" "$here/CAMERA.md" "$here/camera-smoke.yaml" "$here/run.sh" "$here/synthetic.yaml" "$here/README.md" "$here/RECORDING.md" "$here/sources.lock" "$out/"
-mkdir -p "$out/licenses"
+mkdir -p "$out/licenses" "$out/tests"
+cp "$here/tests/PREDICTION-VALIDATION.md" "$out/tests/"
 cp "$here/MICRO-ROS.md" "$here/CALIBRATION.md" "$here/CALIBRATION-VALIDATION.md" "$out/"
 cp "$here/micro_ros/VALIDATION.md" "$out/MICRO-ROS-VALIDATION.md"
 cp "$sdk/scripts/calibration/sc7u22-imu.yaml.example" "$out/"

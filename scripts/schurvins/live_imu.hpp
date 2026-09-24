@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <functional>
 #include <atomic>
 #include <condition_variable>
 #include <csignal>
@@ -20,7 +21,7 @@ struct ImuSample {
 // Unlike images, every IMU sample is retained until delivered to the estimator.
 class LiveImu {
  public:
-  explicit LiveImu(const std::string& device);
+  explicit LiveImu(const std::string& device, std::function<void(const ImuSample&)> on_sample = {});
   ~LiveImu();
   std::vector<ImuSample> through(uint64_t image_ns, const volatile sig_atomic_t& interrupted);
   void stop();
@@ -28,6 +29,7 @@ class LiveImu {
   void check() const;
   YAML::Node recordingMetadata() const;
  private:
+  const std::function<void(const ImuSample&)> on_sample_;
   void acquire();
   void setting(const std::string& name, const std::string& value);
   void powerDown() noexcept;

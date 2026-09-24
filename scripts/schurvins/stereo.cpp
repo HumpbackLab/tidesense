@@ -2,6 +2,8 @@
 // Native stereo + IMU entry point for the upstream SchurVINS pipeline.
 #include "live_camera.hpp"
 #include "live_imu.hpp"
+#include "imu_prediction.hpp"
+#include <svo/schur_vins.h>
 #include "micro_ros_bridge.hpp"
 #include "calibration.hpp"
 #include "recording.hpp"
@@ -111,6 +113,8 @@ int main(int argc, char** argv) {
       "    Replay uses already aligned timestamps and corrected IMU; no hardware/ROS required.\n"
       "  schurvins_stereo --vio-smoke SENSOR.ini IMU_DEVICE [FRAMES]\n"
       "VIO modes acquire SC7U22 accel/gyro at 200Hz. Use run.sh with IMU_DEVICE=auto.\n"
+      "IMU prediction defaults ON: IMU-rate micro-ROS poses; POSES.csv stays visual-rate.\n"
+      "SCHUR_PREDICTION=0 disables prediction; SCHUR_PREDICTION_CSV=<path> saves predicted poses.\n"
       "Camera modes run the stereo visual frontend without IMU. FRAMES defaults to 120; 0 runs until Ctrl-C.\n"
       "Camera smoke uses test-only geometry, reports input validation, and writes no poses.\n"
       "STEREO: timestamp_ns,left_image,right_image (paths relative to CSV)\n"
@@ -210,6 +214,35 @@ int main(int argc, char** argv) {
                            "# visual-only, no IMU; timestamp is left VI arrival PTS\n")
             << "#timestamp_ns,px,py,pz,qx,qy,qz,qw\n";
     }
+    std::ofstream prediction_csv;
+    uint64_t predicted_count = 0;
+    std::unique_ptr<ImuPrediction> prediction;
+    const char* prediction_option = std::getenv("SCHUR_PREDICTION");
+    if (prediction_option && std::string(prediction_option) != "0" && std::string(prediction_option) != "1")
+      throw std::runtime_error("SCHUR_PREDICTION must be 0 or 1");
+    const bool predict = use_imu && !self && !smoke && (!prediction_option || std::string(prediction_option) == "1");
+    if (const char* csv = std::getenv("SCHUR_PREDICTION_CSV")) {
+      if (!predict) throw std::runtime_error("SCHUR_PREDICTION_CSV requires IMU prediction");
+      prediction_csv.open(csv);
+      if (!prediction_csv) throw std::runtime_error("Cannot open prediction CSV");
+      prediction_csv << "#timestamp_ns,px,py,pz,qx,qy,qz,qw,vx,vy,vz,tracking\n";
+    }
+    if (predict) {
+      prediction.reset(new ImuPrediction([&](const PredictedState& s, bool valid) {
+        const uint64_t stamp = uint64_t(int64_t(s.stamp_ns) + ros_clock_offset);
+        micro_ros.submit(stamp, valid, valid ? s.p.data() : nullptr, valid ? s.q.coeffs().data() : nullptr);
+        if (valid) ++predicted_count;
+        if (prediction_csv.is_open()) {
+          prediction_csv << s.stamp_ns << std::setprecision(15);
+          for (int i=0;i<3;++i) prediction_csv << ',' << s.p[i];
+          for (int i=0;i<4;++i) prediction_csv << ',' << s.q.coeffs()[i];
+          for (int i=0;i<3;++i) prediction_csv << ',' << s.v[i];
+          prediction_csv << ',' << valid << '\n';
+          if (!prediction_csv) throw std::runtime_error("Prediction CSV write failed");
+        }
+      }, live_vio));
+      std::cerr << "prediction: IMU-rate poses, visual correction + repropagation; stale after 500ms\n";
+    }
     std::unique_ptr<LiveImu> live_imu;
     std::unique_ptr<LiveCamera> live;
     uint64_t live_ready_ns = 0, startup_pairs_skipped = 0;
@@ -224,7 +257,9 @@ int main(int argc, char** argv) {
         LivePair warmup;
         if (!live->next(warmup,interrupted)) throw std::runtime_error("Interrupted during camera startup");
         ++startup_pairs_skipped;
-        live_imu.reset(new LiveImu(argv[smoke ? 3 : 4]));
+        live_imu.reset(new LiveImu(argv[smoke ? 3 : 4], [&](const ImuSample& sample) {
+          if (prediction) prediction->sample(sample);
+        }));
         if (recording) recording->setImuMetadata(live_imu->recordingMetadata());
         live_ready_ns = clockNs(CLOCK_MONOTONIC)+100000000ULL;
       }
@@ -328,9 +363,14 @@ int main(int argc, char** argv) {
           if (it <= last_imu) throw std::runtime_error("IMU timestamps not increasing");
           if (last_imu == 0 && it >= t) throw std::runtime_error("IMU must start before first image");
           last_imu = it;
+          ImuSample sample{}; sample.stamp_ns=it;
+          for (int axis=0;axis<3;++axis) {
+            sample.gyro[axis]=number(pending[axis+1]); sample.accel[axis]=number(pending[axis+4]);
+          }
+          if (prediction) prediction->sample(sample);
           imu->addImuMeasurement(svo::ImuMeasurement(it * 1e-9,
-            Eigen::Vector3d(number(pending[1]), number(pending[2]), number(pending[3])),
-            Eigen::Vector3d(number(pending[4]), number(pending[5]), number(pending[6]))));
+            Eigen::Vector3d(sample.gyro[0],sample.gyro[1],sample.gyro[2]),
+            Eigen::Vector3d(sample.accel[0],sample.accel[1],sample.accel[2])));
         }
         pair = {cv::imread(path(argv[2],r[1]),cv::IMREAD_GRAYSCALE),
                 cv::imread(path(argv[2],r[2]),cv::IMREAD_GRAYSCALE)};
@@ -354,6 +394,7 @@ int main(int argc, char** argv) {
       const uint64_t cpu_begin = profile.is_open() ? clockNs(CLOCK_PROCESS_CPUTIME_ID) : 0;
       const uint64_t mono_begin = profile.is_open() ? clockNs(CLOCK_MONOTONIC) : 0;
       const auto vio_begin = std::chrono::steady_clock::now();
+      if (prediction) prediction->check();
       vio.addImageBundle(pair, t);
       const auto vio_end = std::chrono::steady_clock::now();
       const uint64_t mono_end = profile.is_open() ? clockNs(CLOCK_MONOTONIC) : 0;
@@ -368,7 +409,8 @@ int main(int argc, char** argv) {
       if (f && f->imu_ready_) ++fused;
       const uint64_t ros_stamp = uint64_t(int64_t(t) + ros_clock_offset);
       if (!f || vio.stage() != svo::Stage::kTracking) {
-        micro_ros.submit(ros_stamp, false);
+        if (prediction) prediction->invalidate();
+        else micro_ros.submit(ros_stamp, false);
         continue;
       }
       auto T = f->get_T_W_B();
@@ -377,7 +419,19 @@ int main(int argc, char** argv) {
       ++tracked;
       // Smoke modes use test geometry and must never advertise a usable pose.
       if (smoke) micro_ros.submit(ros_stamp, false);
-      else micro_ros.submit(ros_stamp, true, p.data(), q.coeffs().data());
+      else if (!prediction) micro_ros.submit(ros_stamp, true, p.data(), q.coeffs().data());
+      if (prediction) {
+        schur_vins::SchurVINS::ImuSnapshot snapshot;
+        if (f->imu_ready_ && vio.schur_vins_ && vio.schur_vins_->getImuSnapshot(snapshot)) {
+          if (std::abs(snapshot.timestamp - t * 1e-9) > 1e-6)
+            throw std::runtime_error("Visual correction timestamp differs from camera time");
+          PredictedState corrected;
+          corrected.stamp_ns=t; corrected.q=snapshot.orientation;
+          corrected.p=snapshot.position; corrected.v=snapshot.velocity;
+          corrected.ba=snapshot.accel_bias; corrected.bg=snapshot.gyro_bias; corrected.gravity=snapshot.gravity;
+          prediction->correct(corrected);
+        } else prediction->invalidate();
+      }
       if (poses.is_open()) poses << t << std::setprecision(12) << ',' << p.x() << ',' << p.y() << ',' << p.z()
         << ',' << q.x() << ',' << q.y() << ',' << q.z() << ',' << q.w() << '\n';
     }
@@ -401,6 +455,11 @@ int main(int argc, char** argv) {
                                 "CAMERA INPUT PASS (test geometry; no IMU, no VIO accuracy claim)\n");
         return 0;
       }
+    }
+    if (prediction) {
+      prediction->finish();
+      if (prediction_csv.is_open()) { prediction_csv.flush(); if (!prediction_csv) throw std::runtime_error("Prediction CSV flush failed"); }
+      std::cout << "predicted_poses=" << predicted_count << '\n';
     }
     if (tracked == 0 || (use_imu && fused == 0) || (self && (tracked != 6 || fused != 6)))
       throw std::runtime_error("Stereo/IMU pipeline did not track expected frames");

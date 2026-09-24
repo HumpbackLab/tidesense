@@ -31,7 +31,8 @@ void LiveImu::setting(const std::string& name, const std::string& text) {
  out << text; out.flush();
  if (!out) throw std::runtime_error("Cannot configure IIO " + name);
 }
-LiveImu::LiveImu(const std::string& requested) {
+LiveImu::LiveImu(const std::string& requested, std::function<void(const ImuSample&)> callback)
+ : on_sample_(std::move(callback)) {
  std::string device=requested;
  if (device == "auto") {
   const char* resolved=std::getenv("SCHUR_IMU_DEVICE");
@@ -109,6 +110,8 @@ void LiveImu::acquire() {
      sample.accel[axis]=accel_calibration_.apply(axis,sample.raw_accel[axis]);
      sample.gyro[axis]=g*gyro_scale_;
     }
+    // Queue prediction before making this sample visible to the visual consumer.
+    if (on_sample_) on_sample_(sample);
     std::lock_guard<std::mutex> lock(mutex_);
     if (last_) {
      uint64_t gap=sample.stamp_ns-last_;

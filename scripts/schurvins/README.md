@@ -165,7 +165,7 @@ ros2 topic echo /tidesense/tracking \
   `127.0.0.1:11511` 的 ROS 2 CLI daemon，连 `ros2 daemon stop` 也等待不返回；
   `--no-daemon` 绕过该路径后已实测正常收到数据，不需要重启板端 VIO 或 Agent。
 
-2026-09-22 当前标定上板复测：20 秒接收 401 条位姿，约 20 Hz。
+旧版视觉帧率发布的历史验证（2026-09-22）：20 秒接收 401 条位姿，约 20 Hz。
 这验证了发布/订阅链路，不代表完成运动定位精度验证。
 
 ## 录制现场输入并离线 replay
@@ -406,3 +406,31 @@ cat /sys/bus/iio/devices/iio:device0/diagnostics
 ```
 
 触发锁相不等于所有时间误差消失：相机输入时间戳仍是 VI PTS，IMU 是硬中断入口的 CLOCK_MONOTONIC 时间戳，未将图像 PTS 偷换为 FSIN 时间戳。曝光中心相对 FSIN 的延迟以及 IMU 内部滤波延迟仍需验证。改变触发源和曝光后，应重新核实 Kalibr 的时间偏移，不能保证旧 `live_camera_time_offset_ns` 仍准确。
+
+## 20 Hz 视觉校正 + 200 Hz 预测位姿
+
+带 IMU 的 VIO 默认开启 `SCHUR_PREDICTION=1`。每次视觉更新提供位置、姿态、
+速度、IMU 零偏和重力；独立线程按每个 IMU 样本传播，在视觉结果返回后重新传播
+已缓存的 IMU，追到最新采样时刻。双目采集/视觉校正仍约 20 Hz，初始化后
+`/tidesense/pose` 按 IMU 实际采样率输出（约 200 Hz）。
+
+板上示例（把 CALIB.yaml 换成当前标定文件，Agent 地址换成电脑地址）：
+
+```sh
+SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
+SCHUR_PREDICTION=1 SCHUR_PREDICTION_CSV=/mnt/data/predicted-poses.csv \
+  ./run.sh --vio CALIB.yaml /mnt/data/sensor_cfg.ini auto /mnt/data/visual-poses.csv 0
+```
+
+- `visual-poses.csv` 仍是视觉帧率的校正位姿；可选的 `predicted-poses.csv` 是 IMU
+  帧率的预测位姿及速度。省略 `SCHUR_PREDICTION_CSV` 可避免额外写盘。
+- `SCHUR_PREDICTION=0` 恢复原来的视觉帧率发布；`SCHUR_MICRO_ROS=0` 可独立运行。
+- 初始化前、报告丢失跟踪、IMU 间隔达到 15 ms 或视觉校正超过 500 ms 未更新，
+  停止输出有效预测。恢复需要新视觉校正。这不解决原有的跟踪失效检测/发散问题。
+- 视觉结果带延迟，校正后输出可能跳变；200 Hz 是 IMU 传播频率，不是视觉优化频率。
+- 订阅仍使用上文的 best-effort PoseStamped；micro-ROS 使用 64 条有界队列，
+  通信拥堵可能丢帧。离线回放没有实时限速，不能用其接收频率验证硬件 200 Hz。
+
+完整语义见 [MICRO-ROS.md](MICRO-ROS.md#imu-rate-predicted-poses)。
+
+验证记录见 [PREDICTION-VALIDATION.md](tests/PREDICTION-VALIDATION.md)：板端到 ROS 2 实测约 199.54 Hz。

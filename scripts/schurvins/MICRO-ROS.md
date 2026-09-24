@@ -13,7 +13,7 @@ protocol. A micro-ROS Agent on the companion computer exposes the node
 | Topic | Type | Meaning |
 | --- | --- | --- |
 | `/tidesense/pose` | `geometry_msgs/msg/PoseStamped` | Tracked body/IMU pose `T_odom_body`, metres, quaternion xyzw; `frame_id=odom` |
-| `/tidesense/tracking` | `std_msgs/msg/Bool` | Whether this processed frame has a valid pose; false suppresses pose publication |
+| `/tidesense/tracking` | `std_msgs/msg/Bool` | Whether the current output has a valid pose; false suppresses pose publication |
 
 Use a sensor-data/best-effort subscription (a reliable subscriber will not match).
 PoseStamped has no child frame: its pose is the calibrated **body/IMU frame**, not
@@ -103,8 +103,9 @@ Smoke modes never publish a usable pose with their test-only calibration.
 `--self-test` is synthetic data; do not feed its poses to navigation.
 
 Disabled: no communication thread, ROS context, socket or dynamic ROS/image buffer allocation.
-Enabled: fixed one-sample mailbox, nonblocking try-lock producer, latest sample
-wins; the worker runs at nice +5. UDP best effort avoids reliable publication
+Enabled: pose output uses a bounded 64-sample FIFO (about 320 ms at 200 Hz),
+with a short producer lock; overflow drops the oldest sample. An invalid tracking
+update clears queued valid poses. The worker runs at nice +5. UDP best effort avoids reliable publication
 waits. Agent absence/disconnect never waits inside the VIO processing thread;
 the worker pings and reconnects in the background. Exit interrupts retry waits.
 Counters on exit report connections, published poses and overwritten/busy samples.
@@ -191,3 +192,32 @@ and port 18888. It takes `--binary`, `--agent`, `--output` and an optional
 default receiver RMW is Cyclone DDS; `--rmw` selects another installed RMW for
 compatibility testing. The script waits for the ROS subscriber to be ready before
 starting the board fixture.
+
+## IMU-rate predicted poses
+
+VIO with IMU defaults to `SCHUR_PREDICTION=1`: the camera corrects the estimator
+at approximately 20 Hz, while every new IMU sample propagates position, velocity
+and orientation and publishes `/tidesense/pose` at approximately 200 Hz after
+initialization. It uses the corrected IMU biases and gravity from the visual
+backend. A delayed visual correction is applied at its own timestamp, then the
+buffered IMU samples are replayed to the latest timestamp. Correction replay does
+not republish old timestamps. Live propagation runs on a separate worker.
+
+`SCHUR_PREDICTION=0` restores visual-rate ROS poses. The positional `POSES.csv`
+argument always stores visual-rate corrected poses. Optionally set
+`SCHUR_PREDICTION_CSV=/mnt/data/predicted.csv` to record IMU-rate predictions:
+`timestamp_ns,px,py,pz,qx,qy,qz,qw,vx,vy,vz,tracking`. CSV timestamps retain the
+acquisition clock; live ROS timestamps use the existing realtime mapping.
+Prediction also works with `SCHUR_MICRO_ROS=0`.
+
+No valid prediction is published before IMU initialization, after reported loss
+of tracking, after an IMU gap of 15 ms or more, or when the latest visual
+correction is older than 500 ms. Recovery requires a fresh covered correction.
+These checks depend on SchurVINS reporting tracking correctly; they do not detect
+all divergence or make a bad visual correction accurate. This is propagation,
+not a 200 Hz visual solve, and visual corrections may cause output jumps.
+
+The sensor's actual sampling rate determines output rate. Best-effort transport
+can drop messages; monitor exit counters. Unpaced offline replay emits predictions
+at dataset timestamps as fast as computation permits, so ROS wall-clock receive
+rate during replay is not a 200 Hz hardware test.

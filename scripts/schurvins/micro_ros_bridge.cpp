@@ -82,6 +82,8 @@ struct MicroRosBridge::Impl {
   std::condition_variable wake;
   Sample latest;
   bool pending = false;
+  std::deque<Sample> pose_queue; // absorb short communication jitter at 200 Hz
+  static constexpr size_t pose_capacity = 64;
   std::thread worker;
   uint64_t published = 0, connections = 0, image_pairs = 0;
 
@@ -104,12 +106,10 @@ struct MicroRosBridge::Impl {
               << " overwritten_or_busy=" << dropped.load() << '\n';
   }
   void submit(const Sample& s) {
-    std::unique_lock<std::mutex> lock(mutex, std::try_to_lock);
-    if (!lock.owns_lock()) { ++dropped; return; }
-    if (pending) ++dropped;
-    latest = s;
-    pending = true;
-    lock.unlock();
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!s.tracking) { dropped += pose_queue.size(); pose_queue.clear(); }
+    if (pose_queue.size() >= pose_capacity) { pose_queue.pop_front(); ++dropped; }
+    pose_queue.push_back(s);
     wake.notify_one();
   }
   bool submitImages(uint64_t timestamp, const uint8_t* left, const uint8_t* right) {
@@ -238,9 +238,10 @@ struct MicroRosBridge::Impl {
         bool have_sample;
         {
           std::unique_lock<std::mutex> lock(mutex);
-          wake.wait_until(lock, next_ping, [this]{return pending || !imu_queue.empty() || stop.load();});
+          wake.wait_until(lock, next_ping, [this]{return pending || !pose_queue.empty() || !imu_queue.empty() || stop.load();});
           if (stop) break;
-          have_sample = pending;
+          have_sample = calibration ? pending : !pose_queue.empty();
+          if (!calibration && !pose_queue.empty()) { s=pose_queue.front(); pose_queue.pop_front(); }
           if (pending) {
             s = latest; pending = false;
             if (calibration) {
