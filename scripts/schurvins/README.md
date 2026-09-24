@@ -175,8 +175,7 @@ ros2 topic echo /tidesense/tracking \
 ```sh
 cd /mnt/data/schurvins-gcc11-static-micro-ros
 record_dir=/mnt/data/vio-record-$(date +%Y%m%d-%H%M%S)
-SCHUR_MICRO_ROS=0 ./run.sh --vio tidesense-20260922-221039.yaml \
-  /mnt/data/sensor_cfg.ini auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
+SCHUR_MICRO_ROS=0 ./run.sh --vio tidesense-20260922-221039.yaml /mnt/data/sensor_cfg.ini auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
 # Ctrl-C 正常结束录制后：
 SCHUR_MICRO_ROS=0 ./run.sh --replay "$record_dir" "$record_dir/replay-poses.csv"
 ```

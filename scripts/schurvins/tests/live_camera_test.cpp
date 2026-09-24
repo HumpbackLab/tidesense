@@ -24,6 +24,31 @@ int main(int argc, char **argv) {
    require(latest.right.at<unsigned char>(399,639) == 250-latest.header.sequence % 251, "bad right payload");
    camera.stop(); camera.report();
   }
+  {
+   LiveCamera camera(argv[1], "unused", 32);
+   LivePair pair;
+   require(camera.next(pair, interrupted), "FIFO first frame missing");
+   uint64_t seq = pair.header.sequence;
+   usleep(30000);
+   for (int i=0;i<10;++i) {
+    require(camera.next(pair, interrupted), "FIFO frame missing");
+    require(pair.header.sequence == ++seq, "FIFO silently replaced a frame");
+   }
+   camera.stop();
+   std::cout << "PASS recording FIFO retains every pair\n";
+  }
+  {
+   LiveCamera camera(argv[1], "unused", 2);
+   usleep(150000);
+   LivePair pair; bool rejected = false;
+   try { camera.next(pair, interrupted); }
+   catch (const std::runtime_error& e) {
+    rejected = std::string(e.what()).find("FIFO full") != std::string::npos;
+   }
+   require(rejected, "FIFO overflow was not reported");
+   camera.stop();
+   std::cout << "PASS recording FIFO overflow is fatal\n";
+  }
   for (const char *mode : {"bad-header", "truncated", "backwards"}) {
    setenv("SCHUR_CAMERA_MOCK_MODE", mode, 1);
    bool rejected = false;

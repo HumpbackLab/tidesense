@@ -1,6 +1,7 @@
 #include "recording.hpp"
 #include <cerrno>
 #include <cstring>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <sys/stat.h>
@@ -9,7 +10,19 @@
 #include <unistd.h>
 
 namespace {
-constexpr size_t capacity = 4;
+size_t recordingCapacity() {
+  const char* value = std::getenv("SCHUR_RECORD_QUEUE_PAIRS");
+  if (!value) return 32;
+  size_t count = 0;
+  for (const char* p = value; *p; ++p) {
+    if (*p < '0' || *p > '9' || count > 128)
+      throw std::runtime_error("SCHUR_RECORD_QUEUE_PAIRS must be an integer from 1 to 128");
+    count = count * 10 + (*p - '0');
+  }
+  if (!count || count > 128)
+    throw std::runtime_error("SCHUR_RECORD_QUEUE_PAIRS must be an integer from 1 to 128");
+  return count;
+}
 void directory(const std::string& path) {
   if (::mkdir(path.c_str(), 0755))
     throw std::runtime_error("Cannot create recording directory (must be new): " + path + ": " + std::strerror(errno));
@@ -36,7 +49,7 @@ void pgm(const std::string& path, const cv::Mat& image) {
 }
 
 VioRecording::VioRecording(const std::string& dir, const YAML::Node& calibration,
-                           const std::string& ini) : dir_(dir) {
+                           const std::string& ini) : dir_(dir), capacity_(recordingCapacity()) {
   directory(dir_); directory(dir_ + "/left"); directory(dir_ + "/right");
   { std::ofstream flag; open(flag, dir_ + "/INCOMPLETE"); flag << "Recording not closed successfully\n"; }
   checkSpace();
@@ -56,6 +69,7 @@ VioRecording::VioRecording(const std::string& dir, const YAML::Node& calibration
   raw_imu_ << "#timestamp_ns,gx,gy,gz,ax,ay,az; SI before six-face accel correction\n";
   frames_ << "#timestamp_ns,sequence,left_ns,right_ns,left_ref,right_ref,flags,imu_count,imu_last_ns\n";
   summary(false);
+  std::cerr << "recording: queue_capacity=" << capacity_ << " pairs\n";
   worker_ = std::thread(&VioRecording::writer, this);
 }
 VioRecording::~VioRecording() {
@@ -80,7 +94,7 @@ void VioRecording::submit(uint64_t timestamp, const LivePair& pair, const std::v
   std::lock_guard<std::mutex> lock(mutex_);
   if (!error_.empty()) throw std::runtime_error("Recording: " + error_);
   if (stopping_) throw std::runtime_error("Recording already stopped");
-  if (queue_.size() >= capacity) {
+  if (queue_.size() >= capacity_) {
     error_ = "queue full: SD cannot keep up; recording is incomplete";
     throw std::runtime_error("Recording " + error_);
   }
@@ -147,7 +161,7 @@ void VioRecording::summary(bool complete) {
   n["imu"] = "imu.csv: estimator SI values, six-face correction already applied unless explicitly disabled";
   n["pairs"] = pairs_; n["imu_samples"] = samples_;
   n["first_timestamp_ns"] = first_; n["last_timestamp_ns"] = last_;
-  n["queue_capacity"] = capacity; n["queue_high_water"] = high_water_;
+  n["queue_capacity"] = capacity_; n["queue_high_water"] = high_water_;
   n["writer_error"] = error_;
   yamlFile(dir_ + "/metadata.yaml", n);
 }

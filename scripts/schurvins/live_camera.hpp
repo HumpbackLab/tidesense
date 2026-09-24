@@ -1,5 +1,6 @@
 #pragma once
 #include <condition_variable>
+#include <deque>
 #include <csignal>
 #include <cstdint>
 #include <mutex>
@@ -11,10 +12,11 @@ struct LivePair {
  CameraHeader header{};
  cv::Mat left, right;
 };
-// Receiver drains IPC continuously. Exactly one unprocessed pair is retained.
+// Default: latest pair only. A nonzero fifo_capacity selects lossless FIFO;
+// overflow is an error, never a silent replacement (for dataset recording).
 class LiveCamera {
  public:
-  LiveCamera(const std::string& helper, const std::string& ini);
+  LiveCamera(const std::string& helper, const std::string& ini, size_t fifo_capacity = 0);
   ~LiveCamera();
   LiveCamera(const LiveCamera&) = delete;
   LiveCamera& operator=(const LiveCamera&) = delete;
@@ -27,6 +29,8 @@ class LiveCamera {
   std::thread receiver_;
   std::mutex mutex_;
   std::condition_variable ready_;
+  const size_t fifo_capacity_;
+  std::deque<LivePair> fifo_;
   LivePair latest_;
   bool pending_ = false, stopping_ = false;
   std::string error_;

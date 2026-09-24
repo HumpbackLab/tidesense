@@ -16,7 +16,8 @@ std::string executableDirectory() {
  std::string path(buf, n);
  return path.substr(0, path.find_last_of('/'));
 }
-LiveCamera::LiveCamera(const std::string& helper, const std::string& ini) {
+LiveCamera::LiveCamera(const std::string& helper, const std::string& ini, size_t fifo_capacity)
+ : fifo_capacity_(fifo_capacity) {
  int sockets[2];
  if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockets))
   throw std::runtime_error("camera socketpair failed");
@@ -68,8 +69,14 @@ void LiveCamera::receive() {
    readAll(pair.right.data, size_t(h.width)*h.height);
    std::lock_guard<std::mutex> lock(mutex_);
    if (stopping_) return;
-   if (pending_) ++replaced_;
-   latest_ = std::move(pair); pending_ = true; ++received_;
+   if (fifo_capacity_) {
+    if (fifo_.size() >= fifo_capacity_) throw std::runtime_error("Camera recording FIFO full; refusing frame loss");
+    fifo_.push_back(std::move(pair));
+   } else {
+    if (pending_) ++replaced_;
+    latest_ = std::move(pair); pending_ = true;
+   }
+   ++received_;
    ready_.notify_one();
   }
  } catch (const std::exception& e) {
@@ -80,11 +87,12 @@ void LiveCamera::receive() {
 }
 bool LiveCamera::next(LivePair& pair, const volatile sig_atomic_t& interrupted) {
  std::unique_lock<std::mutex> lock(mutex_);
- while (!pending_ && error_.empty() && !interrupted)
+ while (!pending_ && fifo_.empty() && error_.empty() && !interrupted)
   ready_.wait_for(lock, std::chrono::milliseconds(100));
  if (interrupted) return false;
  if (!error_.empty()) throw std::runtime_error(error_);
- pair = std::move(latest_); pending_ = false;
+ if (fifo_capacity_) { pair = std::move(fifo_.front()); fifo_.pop_front(); }
+ else { pair = std::move(latest_); pending_ = false; }
  return true;
 }
 int LiveCamera::stop() {
@@ -113,5 +121,5 @@ int LiveCamera::stop() {
 void LiveCamera::report() {
  std::lock_guard<std::mutex> lock(mutex_);
  std::cout << "camera_received=" << received_ << " replaced_pending=" << replaced_
-           << " pending_capacity=1\n";
+           << " pending_capacity=" << (fifo_capacity_ ? fifo_capacity_ : 1) << '\n';
 }

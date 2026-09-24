@@ -28,6 +28,7 @@ class VioRecording {
   std::deque<Batch> queue_;
   std::thread worker_;
   bool stopping_ = false, finished_ = false;
+  const size_t capacity_;
   size_t high_water_ = 0;
   uint64_t pairs_ = 0, samples_ = 0, first_ = 0, last_ = 0;
 };
