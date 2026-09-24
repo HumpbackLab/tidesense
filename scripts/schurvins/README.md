@@ -189,6 +189,25 @@ SCHUR_MICRO_ROS=0 ./run.sh --replay "$record_dir" "$record_dir/replay-poses.csv"
 
 ## 离线输入
 
+### 异常观测同步清理实验
+
+`SCHUR_SYNC_OUTLIER_OBSERVATIONS` 默认 `OFF`。开启后，当前帧观测超过
+原有 4 px 门槛时，同时删除 Schur 后端中该状态、该相机对应的观测；
+保留同一地图点的其他观测。整点 3 px 筛选、噪声参数和失跟状态逻辑不变。
+
+使用 `SCHUR_SYNC_OUTLIER_OBSERVATIONS=ON ./scripts/schurvins/build.sh` 构建，
+或在 CMake 配置时传入 `-DSCHUR_SYNC_OUTLIER_OBSERVATIONS=ON`；
+关闭时改为 `OFF` 并重新编译。这是编译选项，不是运行时环境变量开关。
+用于对照回放，不能仅凭启用此项就认定已解决发散。
+
+2026-09-24 使用新标定回放 `vio-record-20260923-191959` 的 740 对图像：
+OFF/ON 均正常结束，但末尾估计位移分别为 147.828/147.832 m，均已发散。
+25–30 s 的有效观测中位数从 11.5 增至 27.5，35 s 后两组均降至零；
+单次实验未显示持续跟踪收益，因此保持默认关闭。日志和统计位于
+`install/schurvins-gcc11-static/recording-results/vio-record-20260923-191959/outlier-sync-20260924/`。
+
+### CSV 输入
+
 ```sh
 ./run.sh actual-calibration.yaml stereo.csv imu.csv poses.csv
 ```
