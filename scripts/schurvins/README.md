@@ -437,3 +437,6 @@ SCHUR_PREDICTION=1 SCHUR_PREDICTION_CSV=/mnt/data/predicted-poses.csv \
 ## warpAffine 两像素尾部优化
 
 宏开关、A53 测试结果及复测方法见 [WARP-TAIL2.md](bench/WARP-TAIL2.md)。
+
+只采集数据、不运行 VIO 时，使用 [TideSense 独立录制程序](../dataset/README.md)：
+20 Hz 双目 / 200 Hz IMU，可导出本程序回放目录、EuRoC 和 ROS1 bag。
