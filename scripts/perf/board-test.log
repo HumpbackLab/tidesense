@@ -1,0 +1,48 @@
+[    0.182672] hw perfevents: enabled with armv8_cortex_a53 PMU driver, 7 counters available
+checksum=18176902243840610792
+
+ Performance counter stats for '/mnt/data/perf-test/perf-smoke':
+
+        2396222476      cycles                    #    0.800 GHz
+        1993338352      instructions              #    0.83  insn per cycle
+             16195      cache-misses
+             91239      branch-misses
+           2995.56 msec task-clock                #    0.978 CPUs utilized
+                51      context-switches          #    0.017 K/sec
+                21      page-faults               #    0.007 K/sec
+
+       3.064195120 seconds time elapsed
+
+       2.989049000 seconds user
+       0.007981000 seconds sys
+
+
+checksum=18176902243840610792
+[ perf record: Woken up 1 times to write data ]
+[ perf record: Captured and wrote 0.029 MB /mnt/data/perf-test/perf.data (289 samples) ]
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 289  of event 'cycles'
+# Event count (approx.): 2393271941
+#
+# Overhead  Command     Shared Object      Symbol
+# ........  ..........  .................  ..........................
+#
+   100.00%  perf-smoke  perf-smoke         [.] mix
+            |
+            ---mix
+               workload
+               main
+               __libc_start_main
+               _start
+
+     0.00%  perf        [kernel.kallsyms]  [k] armv8pmu_filter_match
+     0.00%  perf        [kernel.kallsyms]  [k] arch_local_irq_restore
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#
