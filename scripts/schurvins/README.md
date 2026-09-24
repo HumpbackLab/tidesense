@@ -186,6 +186,9 @@ SCHUR_MICRO_ROS=0 ./run.sh --replay "$record_dir" "$record_dir/replay-poses.csv"
 20 Hz 约 614 MB/分钟；写盘跟不上或空间不足会明确报错，异常录制需显式
 `--allow-incomplete` 才尝试回放。详见 [录制和回放说明](RECORDING.md)。
 
+只采集数据、不运行 VIO 时，使用 [TideSense 独立录制程序](../dataset/README.md)：
+20 Hz 双目 / 200 Hz IMU，可导出本程序回放目录、EuRoC 和 ROS1 bag。
+
 ## 离线输入
 
 ### 异常观测同步清理实验
@@ -406,6 +409,11 @@ cat /sys/bus/iio/devices/iio:device0/diagnostics
 
 触发锁相不等于所有时间误差消失：相机输入时间戳仍是 VI PTS，IMU 是硬中断入口的 CLOCK_MONOTONIC 时间戳，未将图像 PTS 偷换为 FSIN 时间戳。曝光中心相对 FSIN 的延迟以及 IMU 内部滤波延迟仍需验证。改变触发源和曝光后，应重新核实 Kalibr 的时间偏移，不能保证旧 `live_camera_time_offset_ns` 仍准确。
 
+## warpAffine 两像素尾部优化
+
+宏开关、A53 测试结果及复测方法见 [WARP-TAIL2.md](bench/WARP-TAIL2.md)。
+
+
 ## 20 Hz 视觉校正 + 200 Hz 预测位姿
 
 带 IMU 的 VIO 默认开启 `SCHUR_PREDICTION=1`。每次视觉更新提供位置、姿态、
@@ -433,10 +441,3 @@ SCHUR_PREDICTION=1 SCHUR_PREDICTION_CSV=/mnt/data/predicted-poses.csv \
 完整语义见 [MICRO-ROS.md](MICRO-ROS.md#imu-rate-predicted-poses)。
 
 验证记录见 [PREDICTION-VALIDATION.md](tests/PREDICTION-VALIDATION.md)：板端到 ROS 2 实测约 199.54 Hz。
-
-## warpAffine 两像素尾部优化
-
-宏开关、A53 测试结果及复测方法见 [WARP-TAIL2.md](bench/WARP-TAIL2.md)。
-
-只采集数据、不运行 VIO 时，使用 [TideSense 独立录制程序](../dataset/README.md)：
-20 Hz 双目 / 200 Hz IMU，可导出本程序回放目录、EuRoC 和 ROS1 bag。
