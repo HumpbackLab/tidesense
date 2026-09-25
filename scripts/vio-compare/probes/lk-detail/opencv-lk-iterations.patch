@@ -1,0 +1,53 @@
+--- a/modules/video/src/lkpyramid.cpp
++++ b/modules/video/src/lkpyramid.cpp
+@@ -42,6 +42,8 @@
+ #include "precomp.hpp"
+ #include <float.h>
+ #include <stdio.h>
++#include <atomic>
++#include <cstdlib>
+ #include "lkpyramid.hpp"
+ #include "opencl_kernels_video.hpp"
+ #include "opencv2/core/hal/intrin.hpp"
+@@ -50,6 +52,10 @@
+ 
+ #define  CV_DESCALE(x,n)     (((x) + (1 << ((n)-1))) >> (n))
+ 
++// Temporary A53 probe: one histogram update per point and pyramid level.
++static std::atomic<unsigned> lk_probe_hist[101];
++static const bool lk_probe_enabled = std::getenv("OPENVINS_LK_ITER_PROBE") != NULL;
++
+ namespace
+ {
+ static void calcScharrDeriv(const cv::Mat& src, cv::Mat& dst)
+@@ -681,6 +687,8 @@
+             }
+             prevDelta = delta;
+         }
++        if (lk_probe_enabled)
++            lk_probe_hist[std::min(j + 1, criteria.maxCount)].fetch_add(1, std::memory_order_relaxed);
+ 
+         CV_Assert(status != NULL);
+         if( status[ptidx] && err && level == 0 && (flags & OPTFLOW_LK_GET_MIN_EIGENVALS) == 0 )
+@@ -1380,6 +1388,8 @@
+ 
+     for( level = maxLevel; level >= 0; level-- )
+     {
++        if (lk_probe_enabled)
++            for (int k = 0; k <= criteria.maxCount; k++) lk_probe_hist[k].store(0, std::memory_order_relaxed);
+         Mat derivI;
+         if(lvlStep1 == 1)
+         {
+@@ -1407,6 +1417,12 @@
+                                                           status, err,
+                                                           winSize, criteria, level, maxLevel,
+                                                           flags, (float)minEigThreshold));
++        if (lk_probe_enabled) {
++            std::fprintf(stderr, "LK_ITER %d %d %d", level, npoints, criteria.maxCount);
++            for (int k = 0; k <= criteria.maxCount; k++)
++                std::fprintf(stderr, " %u", lk_probe_hist[k].load(std::memory_order_relaxed));
++            std::fprintf(stderr, "\n");
++        }
+     }
+ }
+ 

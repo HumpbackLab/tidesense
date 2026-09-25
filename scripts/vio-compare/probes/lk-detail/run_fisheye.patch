@@ -1,0 +1,72 @@
+--- a/run_fisheye.cpp
++++ b/run_fisheye.cpp
+@@ -1,4 +1,7 @@
+ #include <chrono>
++#include <algorithm>
++#include <cmath>
++#include <cstdlib>
+ #include <cstdint>
+ #include <fstream>
+ #include <iomanip>
+@@ -12,6 +15,7 @@
+ #include <opencv2/imgcodecs.hpp>
+ #include "core/VioManager.h"
+ #include "core/VioManagerOptions.h"
++#include "state/Propagator.h"
+ #include "state/State.h"
+ #include "utils/opencv_yaml_parse.h"
+ #include "utils/print.h"
+@@ -69,6 +73,8 @@
+     size_t imu_cursor = 0;
+     int frame_count = 0;
+     int initialized_count = 0;
++    double prev_camera_time = -1.0;
++    const bool imu_lk = std::getenv("OPENVINS_IMU_LK") != nullptr;
+     double total_ms = 0;
+     const auto wall_start = std::chrono::steady_clock::now();
+     while (std::getline(frames, line) && (frame_limit <= 0 || frame_count < frame_limit)) {
+@@ -85,8 +91,44 @@
+       image.sensor_ids = {0, 1};
+       image.images = {read_image(record + "/" + f[1]), read_image(record + "/" + f[2])};
+       image.masks = {cv::Mat::zeros(image.images[0].size(), CV_8UC1), cv::Mat::zeros(image.images[1].size(), CV_8UC1)};
++      if (imu_lk && prev_camera_time > 0.0) {
++        const auto pred_start = std::chrono::steady_clock::now();
++        auto state = system.get_state();
++        const double offset = state->_calib_dt_CAMtoIMU->value()(0);
++        const double from = prev_camera_time + offset;
++        const double to = camera_time + offset;
++        auto first = std::lower_bound(imu.begin(), imu.end(), from,
++                                      [](const ov_core::ImuData &m, double t) { return m.timestamp < t; });
++        if (first != imu.begin()) --first;
++        auto last = std::upper_bound(first, imu.end(), to,
++                                     [](double t, const ov_core::ImuData &m) { return t < m.timestamp; });
++        if (last != imu.end()) ++last;
++        std::vector<ov_core::ImuData> window(first, last);
++        auto segment = ov_msckf::Propagator::select_imu_readings(window, from, to, false);
++        if (segment.size() >= 2) {
++          Eigen::Matrix3d R_imu = Eigen::Matrix3d::Identity();
++          const Eigen::Vector3d bias = state->_imu->bias_g();
++          for (size_t i = 1; i < segment.size(); ++i) {
++            double dt = segment[i].timestamp - segment[i-1].timestamp;
++            Eigen::Vector3d w = 0.5 * (segment[i].wm + segment[i-1].wm) - bias;
++            double angle = w.norm() * dt;
++            if (dt > 0.0 && angle > 0.0)
++              R_imu = Eigen::AngleAxisd(-angle, w.normalized()).toRotationMatrix() * R_imu;
++          }
++          for (size_t cam = 0; cam < 2; ++cam) {
++            Eigen::Matrix3d R_ic = state->_calib_IMUtoCAM.at(cam)->Rot();
++            image.R_prev_to_curr[cam] = R_ic * R_imu * R_ic.transpose();
++          }
++        }
++        if (std::getenv("OPENVINS_LK_PROBE")) {
++          const auto pred_end = std::chrono::steady_clock::now();
++          std::fprintf(stderr, "IMU_PRED %.9f %.3f %zu\n", camera_time,
++                       std::chrono::duration<double, std::milli>(pred_end-pred_start).count(), segment.size());
++        }
++      }
+       const auto start = std::chrono::steady_clock::now();
+       system.feed_measurement_camera(image);
++      prev_camera_time = camera_time;
+       const auto end = std::chrono::steady_clock::now();
+       double elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();
+       total_ms += elapsed_ms;
