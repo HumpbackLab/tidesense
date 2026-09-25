@@ -12,7 +12,7 @@ ignores in Git. The detailed board results are in that directory's
 | --- | --- | --- |
 | VINS-Mono | `vins-mono/standalone/` ROS-free left-camera/IMU adapter and CMake build, plus `export_tum.py` and board script | `vins-mono/upstream/` |
 | VINS-Fusion | `vins-fusion/offline.cpp`, CMake build, ROS header shim, Kalibr converter, board scripts, trajectory tools, and [ROS removal patch](patches/vins-fusion-offline.patch) | `vins-fusion/VINS-Fusion/` |
-| OpenVINS | `openvins/run_record.cpp`, Kalibr converter, A53 toolchain, board script, and [static offline build patch](patches/openvins-offline.patch) | `openvins/open_vins/` |
+| OpenVINS | `openvins/run_record.cpp`, Kalibr converter, A53 toolchain, board script, [static offline build patch](patches/openvins-offline.patch), and [headless replay patch](patches/openvins-headless.patch) | `openvins/open_vins/` |
 
 Upstream license notices remain in their respective checkouts. These adapters
 are experiment code; they do not replace the SDK's SchurVINS production build.
@@ -28,7 +28,7 @@ scripts/vio-compare/build.sh fusion
 scripts/vio-compare/build.sh openvins
 ```
 
-`sync.sh` verifies the three pinned upstream revisions, applies the two patches
+`sync.sh` verifies the three pinned upstream revisions, applies the maintained patches
 once, and copies the maintained adapter files to the ignored build workspace.
 It downloads a checkout if it is absent and refuses to change a checkout at a
 different revision. `build.sh` uses the SDK's GCC 11.3 AArch64 toolchain,
@@ -69,3 +69,96 @@ its writer queue, but its committed prefix has 744 complete stereo pairs and
 8169 IMU rows. The source and output checks are in the ignored comparison
 workspace's report; large recordings and trajectories are intentionally not
 committed to the SDK.
+
+## OpenVINS headless replay optimization
+
+The upstream VIO manager re-triangulates active tracks and draws an image on
+every camera update for ROS visualization. The standalone `run_record` adapter
+does not read these outputs. To omit that work, build with:
+
+```sh
+OPENVINS_SKIP_ACTIVE_VIZ=ON scripts/vio-compare/build.sh openvins
+```
+
+The option defaults to `OFF`. It changes only the OpenVINS library used by the
+offline adapter; builds that need `get_active_tracks()` or
+`get_active_image()` should leave it off. Changing the option requires a
+rebuild. The 2026-09-25 board profile and benchmark are saved under
+`install/openvins-perf-20260925/`.
+
+On the SG2002 A53, using the 744-frame valid prefix of
+`vio-record-20260924-121320` (417 initialized frames), this option reduced
+post-initialization camera-call time from 90.07 to 75.13 ms/frame (16.6%) and
+full replay time from 86.44 to 80.37 seconds. All 744 output rows matched
+exactly apart from the `compute_ms` column. Both builds used the same camera
+and IMU data and `num_opencv_threads: 1`; these results are for offline replay,
+not a live 20 Hz throughput claim.
+
+The baseline A53 `perf` cycle samples were dominated by OpenCV KLT tracking
+(23.89%) and Scharr derivatives (11.03%). Active-track drawing contributed
+at least 7.78% through `addWeighted` and `copyMask8uC3`; the skipped
+triangulation also costs time. With the option on, drawing disappears from the
+hotspot list and KLT plus Scharr account for 41.64% of the remaining samples.
+The profile includes both initialization and steady-state frames. Further
+optimization should focus on the KLT tracker and EKF matrix work, with a
+trajectory and tracking-quality check for any parameter or algorithm change.
+
+### SG2002 IVE feasibility
+
+The current SG2002 SDK cannot directly replace OpenCV's pyramidal LK with an
+IVE call. `CVI_IVE_IOC_LKOpticalFlowPyr` exists as an ioctl number, but there
+is no public `CVI_IVE_LKOpticalFlowPyr` implementation, no ioctl dispatch
+case, and no cv181x HAL function for it. The HAL declaration is inside
+`#if 0`. The board has `/dev/cvi-ive`, and its running kernel exposes
+`cvi_ive_Resize` but no LK implementation in `/proc/kallsyms`. The official
+CV180x/CV181x IVE API guide also does not list LK optical flow.
+
+IVE Resize and programmable Sobel are implemented. Sobel's 5x5 mask can
+represent a 3x3 Scharr kernel, but OpenCV's LK expects its own interleaved
+derivative pyramid and border behavior. A compatible bridge would need
+physical buffers, image copies or shared camera buffers, cache maintenance,
+and result-format conversion. In the optimized replay profile, pyramid
+`PyrDownVecH/V` consumed 3.84% of sampled cycles, versus 28.05% in LK and
+13.59% in Scharr. Offloading Resize alone therefore has limited potential;
+measure end-to-end cost and pixel equality before adding a production path.
+
+An A53 probe using a recorded 640x400 TideSense frame put the 3x3 Scharr
+coefficients in the center of IVE Sobel's 5x5 mask. Both S16 output planes
+matched OpenCV Scharr exactly for every non-border pixel at all five pyramid
+sizes; the outermost pixel ring differed. With cached physical buffers,
+copy/flush + IVE + output sync + scalar S16C2 interleave took about 3.18,
+0.88, 0.34, 0.17, and 0.12 ms for levels 0 through 4, or about 4.7 ms per
+camera. A same-board OpenCV 3.4.20 benchmark measured 5.33 ms to build the
+five-level pyramid with derivatives versus 2.57 ms without them: about 2.76
+ms for the entire CPU derivative path. Simply substituting IVE Sobel is thus
+slower before implementing OpenCV-compatible borders and pyramid integration.
+Using non-cached IVE outputs made the CPU interleave alone about 79 ms at
+640x400, so cached output buffers are essential to any future experiment.
+The reproducible probe source, board binaries, images, and numeric output are
+under `install/ive-scharr-probe/` (ignored build workspace).
+
+IVE's SAD operates on fixed 4x4, 8x8, or 16x16 image blocks; NCC returns a
+single image-pair statistic. Neither exposes OpenVINS KLT's sparse feature
+list, subpixel image/gradient interpolation, or per-feature iterative update.
+A CPU KLT rewrite could use IVE for preprocessing, but the measured Sobel
+path offers no current latency benefit. A real hardware LK port would need a
+new driver and user API for the disabled LK block, followed by accuracy and
+end-to-end timing validation.
+
+### TPU feasibility
+
+SG2002 also exposes `/dev/cvi-tpu0`. The CV181x TPU has convolution kernels,
+and `cviruntime` accepts a physical tensor address and supports asynchronous
+forward calls. A Scharr convolution model is possible in principle. It must
+preserve signed 16-bit gradients, border behavior, and OpenCV's interleaved
+`CV_16SC2` pyramid layout after the TPU output conversion. The measured A53
+OpenCV derivative increment is only 2.76 ms per 640x400 camera image across
+all five levels; any TPU path must beat that including transfers and layout
+conversion. No TPU model or board timing for this operation has been made.
+
+With `ENABLE_CPU_FUNC`, the current runtime registers `grid_sampler` and gather operations as CPU
+functions (`cviruntime/src/common/model.cpp`), so expressing KLT's sparse,
+iterative subpixel sampling in a model would still execute crucial work on
+the A53. A TPU model for Scharr alone does not offload KLT's feature-wise
+Gauss-Newton loop. Replacing the tracker with a learned TPU frontend is a
+different algorithm and needs separate accuracy and latency validation.

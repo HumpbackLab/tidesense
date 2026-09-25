@@ -1,0 +1,36 @@
+diff --git a/ov_msckf/CMakeLists.txt b/ov_msckf/CMakeLists.txt
+index 6b26837..5e01243 100644
+--- a/ov_msckf/CMakeLists.txt
++++ b/ov_msckf/CMakeLists.txt
+@@ -14,6 +14,7 @@ message(STATUS "OPENCV: " ${OpenCV_VERSION} " | BOOST: " ${Boost_VERSION} " | CE
+ 
+ # By default we build with ROS, but you can disable this and just build as a library
+ option(ENABLE_ROS "Enable or disable building with ROS (if it is found)" ON)
++option(OPENVINS_SKIP_ACTIVE_VIZ "Skip visualization-only active track retriangulation in headless replay" OFF)
+ 
+ # If we will compile with aruco support
+ option(ENABLE_ARUCO_TAGS "Enable or disable aruco tag (disable if no contrib modules)" ON)
+@@ -54,6 +55,9 @@ else ()
+ endif ()
+ 
+ 
+ add_executable(run_record ${CMAKE_CURRENT_SOURCE_DIR}/../../run_record.cpp)
+ target_link_libraries(run_record ov_msckf_lib ${thirdparty_libraries})
+ set_target_properties(run_record PROPERTIES LINK_FLAGS "-static")
++if (OPENVINS_SKIP_ACTIVE_VIZ)
++    target_compile_definitions(ov_msckf_lib PRIVATE OPENVINS_SKIP_ACTIVE_VIZ=1)
++endif ()
+diff --git a/ov_msckf/src/core/VioManager.cpp b/ov_msckf/src/core/VioManager.cpp
+index 6a0d7b9..27f7271 100644
+--- a/ov_msckf/src/core/VioManager.cpp
++++ b/ov_msckf/src/core/VioManager.cpp
+@@ -555,7 +555,9 @@ void VioManager::do_feature_propagate_update(const ov_core::CameraData &message)
+   if (message.sensor_ids.at(0) == 0) {
+ 
+     // Re-triangulate features
++#ifndef OPENVINS_SKIP_ACTIVE_VIZ
+     retriangulate_active_tracks(message);
++#endif
+ 
+     // Clear the MSCKF features only on the base camera
+     // Thus we should be able to visualize the other unique camera stream

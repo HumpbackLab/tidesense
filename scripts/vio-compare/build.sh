@@ -37,6 +37,7 @@ if [[ "$target" == openvins || "$target" == all ]]; then
   cmake -S "$work/openvins/open_vins/ov_msckf" -B "$work/openvins/build-a53" \
     -DCMAKE_TOOLCHAIN_FILE="$work/openvins/toolchain.cmake" \
     -DCMAKE_BUILD_TYPE=Release -DENABLE_ROS=OFF -DENABLE_ARUCO_TAGS=OFF \
+    -DOPENVINS_SKIP_ACTIVE_VIZ="${OPENVINS_SKIP_ACTIVE_VIZ:-OFF}" \
     -DBOOST_ROOT="$work/openvins/deps" \
     -DOpenCV_DIR="$stage/share/OpenCV" \
     -DCeres_DIR="$work/deps/ceres/lib/cmake/Ceres" \
