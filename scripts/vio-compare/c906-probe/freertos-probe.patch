@@ -1,0 +1,50 @@
+diff --git a/cvitek/kernel/include/riscv64/FreeRTOSConfig.h b/cvitek/kernel/include/riscv64/FreeRTOSConfig.h
+index b3aaacbe5..4de405f8c 100755
+--- a/cvitek/kernel/include/riscv64/FreeRTOSConfig.h
++++ b/cvitek/kernel/include/riscv64/FreeRTOSConfig.h
+@@ -60,7 +60,7 @@
+ #define configMAX_PRIORITIES			( 8 )
+ #define configMINIMAL_STACK_SIZE		( ( unsigned short ) 1024 )
+ #ifndef FAST_IMAGE_ENABLE
+-#define configTOTAL_HEAP_SIZE			( ( size_t ) 1 * 512 * 1024 )
++#define configTOTAL_HEAP_SIZE			( ( size_t ) 1 * 504 * 1024 )
+ #else
+ #define configTOTAL_HEAP_SIZE			( ( size_t ) 1 * 650 * 1024 )
+ #endif
+diff --git a/cvitek/task/comm/src/riscv64/comm_main.c b/cvitek/task/comm/src/riscv64/comm_main.c
+index 454581662..a8ef07799 100644
+--- a/cvitek/task/comm/src/riscv64/comm_main.c
++++ b/cvitek/task/comm/src/riscv64/comm_main.c
+@@ -19,6 +19,15 @@
+ 
+ #include "comm.h"
+ #include "cvi_spinlock.h"
++#include "arch_helpers.h"
++#include "arch_time.h"
++#include "../../../../../../scripts/vio-compare/c906-probe/lk_shared.h"
++#include "../../../../../../scripts/vio-compare/c906-probe/lk_kernel.c"
++
++static uint64_t lk_probe_clock(void)
++{
++	return (uint64_t)GetSysTime();
++}
+ 
+ //#define __DEBUG__
+ 
+@@ -206,6 +215,16 @@ void prvCmdQuRunTask(void *pvParameters)
+ 		xQueueReceive(gTaskCtx[E_QUEUE_CMDQU].queHandle, &rtos_cmdq, portMAX_DELAY);
+ 
+ 		switch (rtos_cmdq.cmd_id) {
++			case LK_PROBE_CMD: {
++				uintptr_t addr = (uintptr_t)rtos_cmdq.param_ptr;
++				if (addr >= 0x80000000u &&
++				    addr + LK_PROBE_BUFFER_BYTES <= 0x90000000u) {
++					inv_dcache_range(addr, LK_PROBE_PYR_PREV_OFF);
++					lk_probe_run((void *)addr, lk_probe_clock);
++					clean_dcache_range(addr, LK_PROBE_CONTROL_BYTES);
++				}
++				goto send_label;
++			}
+ #if ( configUSE_TRACE_FACILITY == 1 )
+ 			case SYS_CMD_INFO_TRACE_SNAPSHOT_START:
+ 				debug_printf("SYS_CMD_INFO_TRACE_SNAPSHOT_START\n");
