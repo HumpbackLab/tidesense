@@ -106,7 +106,15 @@ int main(int argc, char **argv) {
  /* Override generic ISP defaults after initialization for mono OV9281. */
  for (int p = 0; p < 2; ++p) {
   CHECK(ov9281_isp_profile(p, 0, 0));
-  fprintf(stderr, "camera: pipe %d OV9281 mono ISP, manual exposure 2000 us, analog gain 4x, digital/ISP gain 1x, sharpening/TNR off\n", p);
+  ISP_EXPOSURE_ATTR_S ae;
+  CHECK(CVI_ISP_GetExposureAttr(p, &ae));
+  if (ae.enOpType != OP_TYPE_AUTO ||
+      ae.stAuto.stExpTimeRange.u32Max != OV9281_EXPOSURE_MAX_US) {
+   fprintf(stderr, "camera: pipe %d AE mode/exposure limit did not apply\n", p);
+   goto out;
+  }
+  fprintf(stderr, "camera: pipe %d OV9281 mono ISP, auto exposure capped at %u us, auto gain, sharpening/TNR off\n",
+   p, OV9281_EXPOSURE_MAX_US);
  }
  if (prepared) CHECK(fsin("start"));
  int warmup = 4, unmatched = 0;

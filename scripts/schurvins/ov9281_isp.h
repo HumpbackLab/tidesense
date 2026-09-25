@@ -5,6 +5,8 @@
 #include "cvi_ae.h"
 #include "cvi_awb.h"
 
+#define OV9281_EXPOSURE_MAX_US 2000U
+
 /* Covered-lens RAW12 medians, this board at 2 ms / 640x400.
  * Use sensor analog gain (Q10), not total ISO which includes ISP gain. */
 static inline CVI_U16 ov9281_black_level(VI_PIPE pipe, CVI_U32 gain)
@@ -52,18 +54,13 @@ static int ov9281_isp_profile(VI_PIPE pipe, int sharp, int tnr)
  ISP_EXPOSURE_ATTR_S ae;
  ISP_TRY(CVI_ISP_GetExposureAttr(pipe, &ae));
  ae.bByPass = CVI_FALSE;
- /* Fixed exposure and 4x analog gain: no AE adaptation or exposure-centre drift.
-  * The sensor quantizes 2000 us to a whole number of exposure lines. */
- ae.enOpType = OP_TYPE_MANUAL;
- ae.stManual.enGainType = AE_TYPE_GAIN;
- ae.stManual.enExpTimeOpType = OP_TYPE_MANUAL;
- ae.stManual.enAGainOpType = OP_TYPE_MANUAL;
- ae.stManual.enDGainOpType = OP_TYPE_MANUAL;
- ae.stManual.enISPDGainOpType = OP_TYPE_MANUAL;
- ae.stManual.u32ExpTime = 2000;
- ae.stManual.u32AGain = 4096;
- ae.stManual.u32DGain = 1024;
- ae.stManual.u32ISPDGain = 1024;
+ /* AE adjusts exposure and gain; cap exposure at 2 ms.
+  * The sensor quantizes the requested time to whole exposure lines. */
+ ae.enOpType = OP_TYPE_AUTO;
+ ae.stAuto.u8Compensation = 48;
+ ae.stAuto.stExpTimeRange.u32Max = OV9281_EXPOSURE_MAX_US;
+ if (ae.stAuto.stExpTimeRange.u32Min > OV9281_EXPOSURE_MAX_US)
+  ae.stAuto.stExpTimeRange.u32Min = OV9281_EXPOSURE_MAX_US;
  ISP_TRY(CVI_ISP_SetExposureAttr(pipe, &ae));
  ISP_WB_ATTR_S wb;
  ISP_TRY(CVI_ISP_GetWBAttr(pipe, &wb));
@@ -86,7 +83,7 @@ static int ov9281_isp_profile(VI_PIPE pipe, int sharp, int tnr)
  ISP_TRY(CVI_ISP_GetColorToneAttr(pipe, &tone));
  tone.u16RedCastGain = tone.u16GreenCastGain = tone.u16BlueCastGain = 1024;
  ISP_TRY(CVI_ISP_SetColorToneAttr(pipe, &tone));
- /* Initialize at 4x; the capture loop verifies the applied analog gain. */
+ /* Start from 4x; the capture loop updates the level as AE changes analog gain. */
  ISP_BLACK_LEVEL_ATTR_S blc;
  ISP_TRY(CVI_ISP_GetBlackLevelAttr(pipe, &blc));
  blc.Enable = CVI_TRUE;
