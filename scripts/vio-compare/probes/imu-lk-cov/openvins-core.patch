@@ -1,0 +1,248 @@
+diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
+index d2fe388..382735e 100644
+--- a/ov_core/src/track/TrackKLT.cpp
++++ b/ov_core/src/track/TrackKLT.cpp
+@@ -28,6 +28,8 @@
+ #include "feat/FeatureDatabase.h"
+ #include "utils/opencv_lambda_body.h"
+ #include "utils/print.h"
++#include <cmath>
++#include <cstdlib>
+ 
+ using namespace ov_core;
+ 
+@@ -256,6 +258,22 @@ void TrackKLT::feed_stereo(const CameraData &message, size_t msg_id_left, size_t
+   std::vector<cv::KeyPoint> pts_left_new = pts_left_old;
+   std::vector<cv::KeyPoint> pts_right_new = pts_right_old;
+ 
++  auto predict = [&](size_t cam_id, std::vector<cv::KeyPoint> &pts) {
++    auto rot = message.R_prev_to_curr.find(cam_id);
++    if (rot == message.R_prev_to_curr.end()) return;
++    const Eigen::Matrix3d &R = rot->second;
++    for (auto &pt : pts) {
++      cv::Point2f uv = camera_calib.at(cam_id)->undistort_cv(pt.pt);
++      Eigen::Vector3d ray = R * Eigen::Vector3d(uv.x, uv.y, 1.0);
++      if (ray.z() <= 0.01) continue;
++      cv::Point2f guess = camera_calib.at(cam_id)->distort_cv(
++          cv::Point2f(ray.x() / ray.z(), ray.y() / ray.z()));
++      if (std::isfinite(guess.x) && std::isfinite(guess.y)) pt.pt = guess;
++    }
++  };
++  predict(cam_id_left, pts_left_new);
++  predict(cam_id_right, pts_right_new);
++
+   // Lets track temporally
+   parallel_for_(cv::Range(0, 2), LambdaBody([&](const cv::Range &range) {
+                   for (int i = range.start; i < range.end; i++) {
+@@ -267,6 +285,11 @@ void TrackKLT::feed_stereo(const CameraData &message, size_t msg_id_left, size_t
+                   }
+                 }));
+   rT4 = boost::posix_time::microsec_clock::local_time();
++  if (std::getenv("OPENVINS_LK_PROBE")) {
++    std::fprintf(stderr, "LK_PROBE %.9f %zu %zu %.3f\n", message.timestamp,
++                 pts_left_old.size(), pts_right_old.size(),
++                 (rT4-rT3).total_microseconds() * 1e-3);
++  }
+ 
+   //===================================================================================
+   //===================================================================================
+@@ -380,6 +403,10 @@ void TrackKLT::feed_stereo(const CameraData &message, size_t msg_id_left, size_t
+     ids_last[cam_id_right] = good_ids_right;
+   }
+   rT6 = boost::posix_time::microsec_clock::local_time();
++  if (std::getenv("OPENVINS_LK_PROBE")) {
++    std::fprintf(stderr, "LK_RESULT %.9f %zu %zu\n", message.timestamp,
++                 good_left.size(), good_right.size());
++  }
+ 
+   //  // Timing information
+   PRINT_ALL("[TIME-KLT]: %.4f seconds for pyramid\n", (rT2 - rT1).total_microseconds() * 1e-6);
+diff --git a/ov_core/src/utils/sensor_data.h b/ov_core/src/utils/sensor_data.h
+index 98811f6..198f6b6 100644
+--- a/ov_core/src/utils/sensor_data.h
++++ b/ov_core/src/utils/sensor_data.h
+@@ -24,6 +24,7 @@
+ 
+ #include <Eigen/Eigen>
+ #include <opencv2/opencv.hpp>
++#include <map>
+ #include <vector>
+ 
+ namespace ov_core {
+@@ -66,6 +67,9 @@ struct CameraData {
+   /// Tracking masks for each camera we have
+   std::vector<cv::Mat> masks;
+ 
++  /// Optional rotation mapping rays in the previous camera frame to this one.
++  std::map<size_t, Eigen::Matrix3d> R_prev_to_curr;
++
+   /// Sort function to allow for using of STL containers
+   bool operator<(const CameraData &other) const {
+     if (timestamp == other.timestamp) {
+@@ -80,4 +84,4 @@ struct CameraData {
+ 
+ } // namespace ov_core
+ 
+-#endif // OV_CORE_SENSOR_DATA_H
+\ No newline at end of file
++#endif // OV_CORE_SENSOR_DATA_H
+diff --git a/ov_msckf/src/state/StateHelper.cpp b/ov_msckf/src/state/StateHelper.cpp
+index 0c89c56..e8c718c 100644
+--- a/ov_msckf/src/state/StateHelper.cpp
++++ b/ov_msckf/src/state/StateHelper.cpp
+@@ -28,6 +28,13 @@
+ #include "utils/print.h"
+ 
+ #include <boost/math/distributions/chi_squared.hpp>
++#include <chrono>
++#include <cstdio>
++#include <cstdlib>
++
++static double probe_ms(std::chrono::steady_clock::time_point a, std::chrono::steady_clock::time_point b) {
++  return std::chrono::duration<double, std::milli>(b - a).count();
++}
+ 
+ using namespace ov_core;
+ using namespace ov_type;
+@@ -115,6 +122,8 @@ void StateHelper::EKFPropagation(std::shared_ptr<State> state, const std::vector
+ 
+ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std::shared_ptr<Type>> &H_order, const Eigen::MatrixXd &H,
+                             const Eigen::VectorXd &res, const Eigen::MatrixXd &R) {
++  const auto p0 = std::chrono::steady_clock::now();
++  const int cov_dim = state->_Cov.rows();
+ 
+   //==========================================================
+   //==========================================================
+@@ -144,11 +153,13 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
+     }
+     M_a.block(var->id(), 0, var->size(), res.rows()) = M_i;
+   }
++  const auto p1 = std::chrono::steady_clock::now();
+ 
+   //==========================================================
+   //==========================================================
+   // Get covariance of the involved terms
+   Eigen::MatrixXd P_small = StateHelper::get_marginal_covariance(state, H_order);
++  const auto p2 = std::chrono::steady_clock::now();
+ 
+   // Residual covariance S = H*Cov*H' + R
+   Eigen::MatrixXd S(R.rows(), R.rows());
+@@ -160,11 +171,13 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
+   Eigen::MatrixXd Sinv = Eigen::MatrixXd::Identity(R.rows(), R.rows());
+   S.selfadjointView<Eigen::Upper>().llt().solveInPlace(Sinv);
+   Eigen::MatrixXd K = M_a * Sinv.selfadjointView<Eigen::Upper>();
++  const auto p3 = std::chrono::steady_clock::now();
+   // Eigen::MatrixXd K = M_a * S.inverse();
+ 
+   // Update Covariance
+   state->_Cov.triangularView<Eigen::Upper>() -= K * M_a.transpose();
+   state->_Cov = state->_Cov.selfadjointView<Eigen::Upper>();
++  const auto p4 = std::chrono::steady_clock::now();
+   // Cov -= K * M_a.transpose();
+   // Cov = 0.5*(Cov+Cov.transpose());
+ 
+@@ -194,6 +207,10 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
+       state->_cam_intrinsics_cameras.at(calib.first)->set_value(calib.second->value());
+     }
+   }
++  const auto p5 = std::chrono::steady_clock::now();
++  if (std::getenv("OPENVINS_COV_PROBE"))
++    std::fprintf(stderr, "COV_EKF %d %ld %.4f %.4f %.4f %.4f %.4f\n", cov_dim, (long)res.rows(),
++                 probe_ms(p0,p1), probe_ms(p1,p2), probe_ms(p2,p3), probe_ms(p3,p4), probe_ms(p4,p5));
+ }
+ 
+ void StateHelper::set_initial_covariance(std::shared_ptr<State> state, const Eigen::MatrixXd &covariance,
+@@ -393,6 +410,7 @@ std::shared_ptr<Type> StateHelper::clone(std::shared_ptr<State> state, std::shar
+ bool StateHelper::initialize(std::shared_ptr<State> state, std::shared_ptr<Type> new_variable,
+                              const std::vector<std::shared_ptr<Type>> &H_order, Eigen::MatrixXd &H_R, Eigen::MatrixXd &H_L,
+                              Eigen::MatrixXd &R, Eigen::VectorXd &res, double chi_2_mult) {
++  const auto p0 = std::chrono::steady_clock::now();
+ 
+   // Check that this new variable is not already initialized
+   if (std::find(state->_variables.begin(), state->_variables.end(), new_variable) != state->_variables.end()) {
+@@ -466,24 +484,36 @@ bool StateHelper::initialize(std::shared_ptr<State> state, std::shared_ptr<Type>
+   boost::math::chi_squared chi_squared_dist(res.rows());
+   double chi2_check = boost::math::quantile(chi_squared_dist, 0.95);
+   if (chi2 > chi_2_mult * chi2_check) {
++    if (std::getenv("OPENVINS_COV_PROBE"))
++      std::fprintf(stderr, "COV_INIT_REJECT %d %.4f\n", (int)state->_Cov.rows(),
++                   probe_ms(p0, std::chrono::steady_clock::now()));
+     return false;
+   }
+ 
++  const auto p1 = std::chrono::steady_clock::now();
++
+   //==========================================================
+   //==========================================================
+   // Finally, initialize it in our state
+   StateHelper::initialize_invertible(state, new_variable, H_order, Hxinit, H_finit, Rinit, resinit);
++  const auto p2 = std::chrono::steady_clock::now();
+ 
+   // Update with updating portion
+   if (Hup.rows() > 0) {
+     StateHelper::EKFUpdate(state, H_order, Hup, resup, Rup);
+   }
++  const auto p3 = std::chrono::steady_clock::now();
++  if (std::getenv("OPENVINS_COV_PROBE"))
++    std::fprintf(stderr, "COV_INIT_TOTAL %d %ld %.4f %.4f %.4f\n", (int)state->_Cov.rows(), (long)res.rows(),
++                 probe_ms(p0,p1), probe_ms(p1,p2), probe_ms(p2,p3));
+   return true;
+ }
+ 
+ void StateHelper::initialize_invertible(std::shared_ptr<State> state, std::shared_ptr<Type> new_variable,
+                                         const std::vector<std::shared_ptr<Type>> &H_order, const Eigen::MatrixXd &H_R,
+                                         const Eigen::MatrixXd &H_L, const Eigen::MatrixXd &R, const Eigen::VectorXd &res) {
++  const auto p0 = std::chrono::steady_clock::now();
++  const int cov_dim = state->_Cov.rows();
+ 
+   // Check that this new variable is not already initialized
+   if (std::find(state->_variables.begin(), state->_variables.end(), new_variable) != state->_variables.end()) {
+@@ -539,6 +569,7 @@ void StateHelper::initialize_invertible(std::shared_ptr<State> state, std::share
+     }
+     M_a.block(var->id(), 0, var->size(), res.rows()) = M_i;
+   }
++  const auto p1 = std::chrono::steady_clock::now();
+ 
+   //==========================================================
+   //==========================================================
+@@ -549,12 +580,14 @@ void StateHelper::initialize_invertible(std::shared_ptr<State> state, std::share
+   Eigen::MatrixXd M(H_R.rows(), H_R.rows());
+   M.triangularView<Eigen::Upper>() = H_R * P_small * H_R.transpose();
+   M.triangularView<Eigen::Upper>() += R;
++  const auto p2 = std::chrono::steady_clock::now();
+ 
+   // Covariance of the variable/landmark that will be initialized
+   assert(H_L.rows() == H_L.cols());
+   assert(H_L.rows() == new_variable->size());
+   Eigen::MatrixXd H_Linv = H_L.inverse();
+   Eigen::MatrixXd P_LL = H_Linv * M.selfadjointView<Eigen::Upper>() * H_Linv.transpose();
++  const auto p3 = std::chrono::steady_clock::now();
+ 
+   // Augment the covariance matrix
+   size_t oldSize = state->_Cov.rows();
+@@ -562,6 +595,7 @@ void StateHelper::initialize_invertible(std::shared_ptr<State> state, std::share
+   state->_Cov.block(0, oldSize, oldSize, new_variable->size()).noalias() = -M_a * H_Linv.transpose();
+   state->_Cov.block(oldSize, 0, new_variable->size(), oldSize) = state->_Cov.block(0, oldSize, oldSize, new_variable->size()).transpose();
+   state->_Cov.block(oldSize, oldSize, new_variable->size(), new_variable->size()) = P_LL;
++  const auto p4 = std::chrono::steady_clock::now();
+ 
+   // Update the variable that will be initialized (invertible systems can only update the new variable).
+   // However this update should be almost zero if we already used a conditional Gauss-Newton to solve for the initial estimate
+@@ -570,6 +604,10 @@ void StateHelper::initialize_invertible(std::shared_ptr<State> state, std::share
+   // Now collect results, and add it to the state variables
+   new_variable->set_local_id(oldSize);
+   state->_variables.push_back(new_variable);
++  const auto p5 = std::chrono::steady_clock::now();
++  if (std::getenv("OPENVINS_COV_PROBE"))
++    std::fprintf(stderr, "COV_AUGMENT %d %ld %.4f %.4f %.4f %.4f %.4f\n", cov_dim, (long)res.rows(),
++                 probe_ms(p0,p1), probe_ms(p1,p2), probe_ms(p2,p3), probe_ms(p3,p4), probe_ms(p4,p5));
+ 
+   // std::stringstream ss;
+   // ss << new_variable->id() <<  " init dx = " << (H_Linv * res).transpose() << std::endl;
+@@ -642,4 +680,4 @@ void StateHelper::marginalize_slam(std::shared_ptr<State> state) {
+       it0++;
+     }
+   }
+-}
+\ No newline at end of file
++}
