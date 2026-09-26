@@ -33,13 +33,15 @@ apply_once() {
 fetch_source "$VINS_MONO_URL" "$VINS_MONO_REV" "$work/vins-mono/upstream"
 fetch_source "$VINS_FUSION_URL" "$VINS_FUSION_REV" "$work/vins-fusion/VINS-Fusion"
 fetch_source "$OPENVINS_URL" "$OPENVINS_REV" "$work/openvins/open_vins"
+fetch_source "$OV_SCHURVINS_URL" "$OV_SCHURVINS_REV" "$work/ov-schurvins/open_vins"
 apply_once "$work/vins-fusion/VINS-Fusion" "$here/patches/vins-fusion-offline.patch"
 if ! rg -q '^add_executable\(run_record ' "$work/openvins/open_vins/ov_msckf/CMakeLists.txt"; then
   apply_once "$work/openvins/open_vins" "$here/patches/openvins-offline.patch"
 fi
 apply_once "$work/openvins/open_vins" "$here/patches/openvins-headless.patch"
+apply_once "$work/ov-schurvins/open_vins" "$here/patches/ov-schurvins-host.patch"
 
-mkdir -p "$work/vins-mono/standalone" "$work/vins-fusion/shim" "$work/openvins"
+mkdir -p "$work/vins-mono/standalone" "$work/vins-fusion/shim" "$work/openvins" "$work/ov-schurvins"
 cp -a "$here/vins-mono/standalone/." "$work/vins-mono/standalone/"
 cp -a "$here/vins-fusion/shim/." "$work/vins-fusion/shim/"
 for file in export_tum.py run-board.sh; do
@@ -50,5 +52,10 @@ for file in CMakeLists.txt offline.cpp generate_config.py run-board.sh run-board
 done
 for file in run_record.cpp make_config.py toolchain.cmake run-board.sh; do
   cp "$here/openvins/$file" "$work/openvins/$file"
+done
+for file in run_record.cpp run_record_tidesense.cpp; do
+  if ! cmp -s "$here/ov-schurvins/$file" "$work/ov-schurvins/$file"; then
+    cp "$here/ov-schurvins/$file" "$work/ov-schurvins/$file"
+  fi
 done
 echo "Synchronized maintained sources into $work"

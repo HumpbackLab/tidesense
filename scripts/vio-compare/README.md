@@ -2,6 +2,8 @@
 
 This directory contains the **version-controlled TideSense code** used to
 cross compile and replay VINS-Mono, VINS-Fusion, and OpenVINS on the SG2002 A53.
+It also contains a [host-only ov_SchurVINS comparison](ov-schurvins/README.md)
+on UZH-FPV, TUM-VI, and a TideSense recording.
 The upstream projects are pinned in [sources.lock](sources.lock). Their full
 checkouts, CMake build trees, static libraries, recordings, logs, and
 trajectories live under `install/vio-compare-20260924-121320/`, which this SDK
@@ -13,6 +15,7 @@ ignores in Git. The detailed board results are in that directory's
 | VINS-Mono | `vins-mono/standalone/` ROS-free left-camera/IMU adapter and CMake build, plus `export_tum.py` and board script | `vins-mono/upstream/` |
 | VINS-Fusion | `vins-fusion/offline.cpp`, CMake build, ROS header shim, Kalibr converter, board scripts, trajectory tools, and [ROS removal patch](patches/vins-fusion-offline.patch) | `vins-fusion/VINS-Fusion/` |
 | OpenVINS | `openvins/run_record.cpp`, Kalibr converter, A53 toolchain, board script, [static offline build patch](patches/openvins-offline.patch), and [headless replay patch](patches/openvins-headless.patch) | `openvins/open_vins/` |
+| ov_SchurVINS | `ov-schurvins/` host replay adapters, evaluator, and [host build patch](patches/ov-schurvins-host.patch) | `ov-schurvins/open_vins/` |
 
 Upstream license notices remain in their respective checkouts. These adapters
 are experiment code; they do not replace the SDK's SchurVINS production build.
@@ -26,9 +29,10 @@ scripts/vio-compare/sync.sh
 scripts/vio-compare/build.sh mono
 scripts/vio-compare/build.sh fusion
 scripts/vio-compare/build.sh openvins
+scripts/vio-compare/build.sh ov-schurvins-host
 ```
 
-`sync.sh` verifies the three pinned upstream revisions, applies the maintained patches
+`sync.sh` verifies the four pinned upstream revisions, applies the maintained patches
 once, and copies the maintained adapter files to the ignored build workspace.
 It downloads a checkout if it is absent and refuses to change a checkout at a
 different revision. `build.sh` uses the SDK's GCC 11.3 AArch64 toolchain,

@@ -10,9 +10,12 @@ jobs=${JOBS:-2}
 target=${1:-all}
 
 case "$target" in
-  mono|fusion|openvins|all) ;;
-  *) echo 'Usage: build.sh [mono|fusion|openvins|all]' >&2; exit 2 ;;
+  mono|fusion|openvins|ov-schurvins-host|all) ;;
+  *) echo 'Usage: build.sh [mono|fusion|openvins|ov-schurvins-host|all]' >&2; exit 2 ;;
 esac
+if [[ "$target" == ov-schurvins-host ]]; then
+  exec "$here/ov-schurvins/build-host.sh"
+fi
 for required in "$cross" "$stage/lib/libopencv_core.a" "$work/deps/ceres/lib/libceres.a"; do
   [[ -f "$required" ]] || { echo "Missing build dependency: $required" >&2; exit 1; }
 done
