@@ -1,0 +1,136 @@
+diff --git a/ov_core/src/track/TrackDescriptor.cpp b/ov_core/src/track/TrackDescriptor.cpp
+index 915873d..d93d190 100644
+--- a/ov_core/src/track/TrackDescriptor.cpp
++++ b/ov_core/src/track/TrackDescriptor.cpp
+@@ -20,6 +20,8 @@
+  */
+ 
+ #include "TrackDescriptor.h"
++#include "XFeatTPU.h"
++#include <cstdlib>
+ 
+ #include <opencv2/features2d.hpp>
+ 
+@@ -30,6 +32,14 @@
+ 
+ using namespace ov_core;
+ 
++static XFeatTPU *xfeat_tpu() {
++  static XFeatTPU *instance = []() -> XFeatTPU* {
++    const char *path = std::getenv("OPENVINS_XFEAT_MODEL");
++    return path && *path ? new XFeatTPU(path) : nullptr;
++  }();
++  return instance;
++}
++
+ void TrackDescriptor::feed_new_camera(const CameraData &message) {
+ 
+   // Error check that we have all the data
+@@ -286,13 +296,16 @@ void TrackDescriptor::feed_stereo(const CameraData &message, size_t msg_id_left,
+     // If we found a good stereo track from left to left, and right to right
+     // Then lets replace the current ID with the old ID
+     // We also check that we are linked to the same past ID value
+-    if (idll != -1 && idrr != -1 && ids_last[cam_id_left][idll] == ids_last[cam_id_right][idrr]) {
++    bool same_old = idll != -1 && idrr != -1 && ids_last[cam_id_left][idll] == ids_last[cam_id_right][idrr];
++    bool xfeat_one_side = xfeat_tpu() && ((idll != -1 && idrr == -1) || (idll == -1 && idrr != -1));
++    if (same_old || xfeat_one_side) {
+       good_left.push_back(pts_left_new[i]);
+       good_right.push_back(pts_right_new[i]);
+       good_desc_left.push_back(desc_left_new.row((int)i));
+       good_desc_right.push_back(desc_right_new.row((int)i));
+-      good_ids_left.push_back(ids_last[cam_id_left][idll]);
+-      good_ids_right.push_back(ids_last[cam_id_right][idrr]);
++      size_t old_id = idll != -1 ? ids_last[cam_id_left][idll] : ids_last[cam_id_right][idrr];
++      good_ids_left.push_back(old_id);
++      good_ids_right.push_back(old_id);
+       num_tracklast++;
+     } else {
+       // Else just append the current feature and its unique ID
+@@ -304,6 +317,8 @@ void TrackDescriptor::feed_stereo(const CameraData &message, size_t msg_id_left,
+       good_ids_right.push_back(ids_left_new[i]);
+     }
+   }
++  static int xfeat_track_frames=0;
++  if (xfeat_tpu() && ++xfeat_track_frames % 25 == 0) fprintf(stderr,"XFEAT_TRACK frame=%d stereo=%zu continued=%d\n",xfeat_track_frames,pts_left_new.size(),num_tracklast);
+   rT4 = boost::posix_time::microsec_clock::local_time();
+ 
+   //===================================================================================
+@@ -360,11 +375,12 @@ void TrackDescriptor::perform_detection_monocular(const cv::Mat &img0, const cv:
+ 
+   // Extract our features (use FAST with griding)
+   std::vector<cv::KeyPoint> pts0_ext;
+-  Grider_FAST::perform_griding(img0, mask0, pts0_ext, num_features, grid_x, grid_y, threshold, true);
++  cv::Mat desc0_ext;
++  if (xfeat_tpu()) xfeat_tpu()->detect(img0, mask0, num_features, pts0_ext, desc0_ext);
++  else Grider_FAST::perform_griding(img0, mask0, pts0_ext, num_features, grid_x, grid_y, threshold, true);
+ 
+   // For all new points, extract their descriptors
+-  cv::Mat desc0_ext;
+-  this->orb0->compute(img0, pts0_ext, desc0_ext);
++  if (!xfeat_tpu()) this->orb0->compute(img0, pts0_ext, desc0_ext);
+ 
+   // Create a 2D occupancy grid for this current image
+   // Note that we scale this down, so that each grid point is equal to a set of pixels
+@@ -412,7 +428,10 @@ void TrackDescriptor::perform_detection_stereo(const cv::Mat &img0, const cv::Ma
+   // Extract our features (use FAST with griding), and their descriptors
+   std::vector<cv::KeyPoint> pts0_ext, pts1_ext;
+   cv::Mat desc0_ext, desc1_ext;
+-  parallel_for_(cv::Range(0, 2), LambdaBody([&](const cv::Range &range) {
++  if (xfeat_tpu()) {
++    xfeat_tpu()->detect(img0, mask0, num_features, pts0_ext, desc0_ext);
++    xfeat_tpu()->detect(img1, mask1, num_features, pts1_ext, desc1_ext);
++  } else parallel_for_(cv::Range(0, 2), LambdaBody([&](const cv::Range &range) {
+                   for (int i = range.start; i < range.end; i++) {
+                     bool is_left = (i == 0);
+                     Grider_FAST::perform_griding(is_left ? img0 : img1, is_left ? mask0 : mask1, is_left ? pts0_ext : pts1_ext,
+@@ -484,16 +503,38 @@ void TrackDescriptor::robust_match(const std::vector<cv::KeyPoint> &pts0, const
+   std::vector<std::vector<cv::DMatch>> matches0to1, matches1to0;
+ 
+   // Match descriptors (return 2 nearest neighbours)
+-  matcher->knnMatch(desc0, desc1, matches0to1, 2);
+-  matcher->knnMatch(desc1, desc0, matches1to0, 2);
++  if (desc0.empty() || desc1.empty()) return;
++  if (xfeat_tpu()) {
++    cv::BFMatcher l2(cv::NORM_L2);
++    l2.knnMatch(desc0, desc1, matches0to1, 1);
++    l2.knnMatch(desc1, desc0, matches1to0, 1);
++    std::vector<cv::DMatch> good;
++    for (auto &m : matches0to1) if (!m.empty()) {
++      const auto &v=m[0];
++      if (v.distance >= std::sqrt(2.0f-2.0f*0.70f)) continue;
++      if (v.trainIdx < (int)matches1to0.size() && !matches1to0[v.trainIdx].empty() &&
++          matches1to0[v.trainIdx][0].trainIdx == v.queryIdx) good.push_back(v);
++    }
++    // Reuse the geometric RANSAC below.
++    matches0to1.clear(); matches1to0.clear();
++    matches0to1.reserve(good.size()); matches1to0.reserve(good.size());
++    for (auto &m:good) {
++      matches0to1.push_back({m,m});
++      matches1to0.push_back({cv::DMatch(m.trainIdx,m.queryIdx,m.distance),cv::DMatch(m.trainIdx,m.queryIdx,m.distance)});
++    }
++  } else {
++    matcher->knnMatch(desc0, desc1, matches0to1, 2);
++    matcher->knnMatch(desc1, desc0, matches1to0, 2);
++  }
+ 
+   // Do a ratio test for both matches
+-  robust_ratio_test(matches0to1);
+-  robust_ratio_test(matches1to0);
++  if (!xfeat_tpu()) { robust_ratio_test(matches0to1); robust_ratio_test(matches1to0); }
+ 
+   // Finally do a symmetry test
+   std::vector<cv::DMatch> matches_good;
+   robust_symmetry_test(matches0to1, matches1to0, matches_good);
++  static int debug_match=0;
++  if (xfeat_tpu() && debug_match++ < 8) fprintf(stderr,"XFEAT_MATCH a=%zu b=%zu mutual=%zu\n",pts0.size(),pts1.size(),matches_good.size());
+ 
+   // Convert points into points for RANSAC
+   std::vector<cv::Point2f> pts0_rsc, pts1_rsc;
+@@ -533,6 +574,7 @@ void TrackDescriptor::robust_match(const std::vector<cv::KeyPoint> &pts0, const
+     // Else, lets append this match to the return array!
+     matches.push_back(matches_good.at(i));
+   }
++  if (xfeat_tpu() && debug_match < 20) fprintf(stderr,"XFEAT_INLIER mutual=%zu inliers=%zu\n",matches_good.size(),matches.size());
+ }
+ 
+ void TrackDescriptor::robust_ratio_test(std::vector<std::vector<cv::DMatch>> &matches) {

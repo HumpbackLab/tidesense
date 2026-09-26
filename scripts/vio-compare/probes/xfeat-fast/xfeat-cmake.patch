@@ -1,0 +1,15 @@
+diff --git a/ov_msckf/CMakeLists.txt b/ov_msckf/CMakeLists.txt
+--- a/ov_msckf/CMakeLists.txt
++++ b/ov_msckf/CMakeLists.txt
+@@ -54,3 +54,11 @@
+ 
+ 
+ 
++# The XFeat tracker is linked into ov_msckf_lib in non-ROS replay builds.
++find_path(CVI_RUNTIME_INCLUDE_DIR cviruntime.h)
++find_library(CVI_RUNTIME_LIBRARY cviruntime)
++if (NOT CVI_RUNTIME_INCLUDE_DIR OR NOT CVI_RUNTIME_LIBRARY)
++    message(FATAL_ERROR "XFeat requires cviruntime.h and libcviruntime.so")
++endif ()
++target_include_directories(ov_msckf_lib PRIVATE ${CVI_RUNTIME_INCLUDE_DIR})
++target_link_libraries(ov_msckf_lib PUBLIC ${CVI_RUNTIME_LIBRARY})

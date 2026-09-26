@@ -1,0 +1,22 @@
+diff --git a/ov_msckf/src/core/VioManagerHelper.cpp b/ov_msckf/src/core/VioManagerHelper.cpp
+index 48198bc..5feba79 100644
+--- a/ov_msckf/src/core/VioManagerHelper.cpp
++++ b/ov_msckf/src/core/VioManagerHelper.cpp
+@@ -23,6 +23,7 @@
+ 
+ #include "feat/Feature.h"
+ #include "feat/FeatureDatabase.h"
++#include <cstdlib>
+ #include "feat/FeatureInitializer.h"
+ #include "types/LandmarkRepresentation.h"
+ #include "utils/print.h"
+@@ -104,6 +105,9 @@ bool VioManager::try_to_initialize(const ov_core::CameraData &message) {
+     // We will wait for a jerk if we do not have the zero velocity update enabled
+     // Otherwise we can initialize right away as the zero velocity will handle the stationary case
+     bool wait_for_jerk = (updaterZUPT == nullptr);
++    // The descriptor-only experiment can start from an IMU stationary window
++    // without requiring a long visual track spanning the jerk decision window.
++    if (std::getenv("OPENVINS_XFEAT_IMU_INIT")) wait_for_jerk = false;
+     bool success = initializer->initialize(timestamp, covariance, order, state->_imu, wait_for_jerk);
+ 
+     // If we have initialized successfully we will set the covariance and state elements as needed
