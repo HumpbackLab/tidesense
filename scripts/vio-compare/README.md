@@ -176,3 +176,13 @@ mean camera processing time from 51.15 to 47.30 ms/frame; the same recording
 produced matching initialization counts and a 0.012 mm final position
 difference against the original arithmetic. Build with
 `OPENVINS_EKF_MA_EXPERIMENT=1` to enable it.
+
+## FP32 backend experiment
+
+The separate [`backend-f32` probe](probes/backend-f32/README.md) ports the
+FP32 backend conversion from `~/fpga_vio`, retaining the original outlier
+gates. On the ordinary A53 replay, FP32 plus packed `P Hᵀ` reduced backend
+time from 34.11 to 21.70 ms and camera time from 51.25 to 44.31 ms. However,
+both full FP32 variants exited on negative covariance diagonals during the
+strong-motion recording. Keep this option disabled by default; see the
+probe documentation for isolated builds, UZH-FPV results, and numerical limits.
