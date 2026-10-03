@@ -40,6 +40,12 @@ Git HEAD 导出干净源码，然后应用维护的 offline/headless 补丁。
 依赖本 SDK 已下载的 Boost/OpenCV/Ceres 和
 `install/fisheye-benchmark/openvins/run_fisheye.cpp`，不是独立安装包。
 
+新构建默认启用 `OPENVINS_LK_WINDOW_16X15=ON`，LK 窗口为 16×15。
+下文原有后端精度实验使用的是 15×15；复现这些历史结果时需设置
+`OPENVINS_LK_WINDOW_16X15=OFF` 后重建。完整 FP32 协方差与 16×15 的
+组合在 UZH-FPV 触发过负对角检查；窗口对比和当前默认窗口验证使用局部
+FP32、FP64 协方差版本。详见[窗口实验](../lk-window/README.md)。
+
 已有维护源码的常规构建入口也支持：
 
 ```bash

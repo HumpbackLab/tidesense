@@ -56,6 +56,7 @@ if [[ "$target" == openvins || "$target" == all ]]; then
     -DCMAKE_TOOLCHAIN_FILE="$work/openvins/toolchain.cmake" \
     -DCMAKE_BUILD_TYPE=Release -DENABLE_ROS=OFF -DENABLE_ARUCO_TAGS=OFF \
     -DOPENVINS_SKIP_ACTIVE_VIZ="${OPENVINS_SKIP_ACTIVE_VIZ:-OFF}" \
+    -DOPENVINS_LK_WINDOW_16X15="${OPENVINS_LK_WINDOW_16X15:-ON}" \
     -DOPENVINS_EKF_MA_EXPERIMENT="${OPENVINS_EKF_MA_EXPERIMENT:-OFF}" \
     -DBOOST_ROOT="$work/openvins/deps" \
     -DOpenCV_DIR="$stage/share/OpenCV" \

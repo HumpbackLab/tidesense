@@ -38,7 +38,14 @@ apply_once "$work/vins-fusion/VINS-Fusion" "$here/patches/vins-fusion-offline.pa
 if ! rg -q '^add_executable\(run_record ' "$work/openvins/open_vins/ov_msckf/CMakeLists.txt"; then
   apply_once "$work/openvins/open_vins" "$here/patches/openvins-offline.patch"
 fi
-apply_once "$work/openvins/open_vins" "$here/patches/openvins-headless.patch"
+# Local CMake experiments can change the patch's unchanged context. Check all
+# headless additions before attempting to reapply an already installed patch.
+if ! rg -q '^option\(OPENVINS_SKIP_ACTIVE_VIZ ' "$work/openvins/open_vins/ov_msckf/CMakeLists.txt" ||
+   ! rg -q 'target_compile_definitions\(ov_msckf_lib PRIVATE OPENVINS_SKIP_ACTIVE_VIZ=1\)' "$work/openvins/open_vins/ov_msckf/CMakeLists.txt" ||
+   ! rg -Uq '#ifndef OPENVINS_SKIP_ACTIVE_VIZ\n[ \t]*retriangulate_active_tracks\(message\);\n#endif' "$work/openvins/open_vins/ov_msckf/src/core/VioManager.cpp"; then
+  apply_once "$work/openvins/open_vins" "$here/patches/openvins-headless.patch"
+fi
+apply_once "$work/openvins/open_vins" "$here/patches/openvins-lk-window.patch"
 if [[ ${OPENVINS_EKF_MA_EXPERIMENT:-0} == 1 ]]; then
   apply_once "$work/openvins/open_vins" "$here/probes/ekf-f32/openvins-core.patch"
   apply_once "$work/openvins/open_vins" "$here/probes/ekf-f32/openvins-cmake.patch"

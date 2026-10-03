@@ -76,6 +76,27 @@ committed to the SDK.
 
 ## OpenVINS headless replay optimization
 
+### Default LK window
+
+OpenVINS now defaults to a **16×15** grayscale LK window. The maintained
+[patch](patches/openvins-lk-window.patch) is applied by `sync.sh`, and both the
+standard and precision-variant builds expose `OPENVINS_LK_WINDOW_16X15`, default
+`ON`. To restore the upstream 15×15 window, rebuild with:
+
+```sh
+OPENVINS_LK_WINDOW_16X15=OFF scripts/vio-compare/build.sh openvins
+```
+
+The compile definition is public because `TrackKLT` has an inline constructor;
+the library and its consumers must use the same window setting. The 16-pixel
+width removes the per-row scalar tail in OpenCV's NEON LK main loop. On A53
+UZH-FPV, 16×15 reduced full camera-call time by 8.8% with a small ATE increase;
+see the [window comparison](probes/lk-window/README.md). That complete comparison
+used FP64 covariance with local FP32 matrix multiplication. Full FP32 covariance
+with 16×15 failed a covariance-diagonal check in this dataset.
+
+### Skip visualization work
+
 The upstream VIO manager re-triangulates active tracks and draws an image on
 every camera update for ROS visualization. The standalone `run_record` adapter
 does not read these outputs. To omit that work, build with:

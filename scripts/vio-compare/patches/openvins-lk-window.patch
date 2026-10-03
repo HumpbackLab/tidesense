@@ -1,0 +1,39 @@
+diff --git a/ov_core/src/track/TrackKLT.h b/ov_core/src/track/TrackKLT.h
+--- a/ov_core/src/track/TrackKLT.h
++++ b/ov_core/src/track/TrackKLT.h
+@@ -24,6 +24,11 @@
+ 
+ #include "TrackBase.h"
+ 
++// Keep the default consistent for consumers of this inline constructor.
++#ifndef OPENVINS_LK_WINDOW_16X15
++#define OPENVINS_LK_WINDOW_16X15 1
++#endif
++
+ namespace ov_core {
+ 
+ /**
+@@ -141,7 +146,7 @@
+ 
+   // How many pyramid levels to track
+   int pyr_levels = 5;
+-  cv::Size win_size = cv::Size(15, 15);
++  cv::Size win_size = cv::Size(OPENVINS_LK_WINDOW_16X15 ? 16 : 15, 15);
+ 
+   // Last set of image pyramids
+   std::map<size_t, std::vector<cv::Mat>> img_pyramid_last;
+diff --git a/ov_msckf/CMakeLists.txt b/ov_msckf/CMakeLists.txt
+--- a/ov_msckf/CMakeLists.txt
++++ b/ov_msckf/CMakeLists.txt
+@@ -54,6 +54,11 @@
+     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ROS1.cmake)
+ endif ()
+ 
++option(OPENVINS_LK_WINDOW_16X15 "Use a 16x15 LK window instead of 15x15" ON)
++# PUBLIC keeps the inline TrackKLT constructor consistent in library consumers.
++target_compile_definitions(ov_msckf_lib PUBLIC
++    OPENVINS_LK_WINDOW_16X15=$<BOOL:${OPENVINS_LK_WINDOW_16X15}>)
++
+ 
+ add_executable(run_record ${CMAKE_CURRENT_SOURCE_DIR}/../../run_record.cpp)
+ target_link_libraries(run_record ov_msckf_lib ${thirdparty_libraries})
