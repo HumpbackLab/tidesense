@@ -1,0 +1,11 @@
+diff --git a/ov_msckf/CMakeLists.txt b/ov_msckf/CMakeLists.txt
+--- a/ov_msckf/CMakeLists.txt
++++ b/ov_msckf/CMakeLists.txt
+@@ -62,2 +62,7 @@ if (OPENVINS_SKIP_ACTIVE_VIZ)
+     target_compile_definitions(ov_msckf_lib PRIVATE OPENVINS_SKIP_ACTIVE_VIZ=1)
+ endif ()
++
++option(OPENVINS_EKF_MA_EXPERIMENT "Enable EKF M_a packed/float experiment" OFF)
++if (OPENVINS_EKF_MA_EXPERIMENT)
++    target_compile_definitions(ov_msckf_lib PRIVATE OPENVINS_EKF_MA_EXPERIMENT=1)
++endif ()

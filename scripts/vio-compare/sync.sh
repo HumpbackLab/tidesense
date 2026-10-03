@@ -39,6 +39,10 @@ if ! rg -q '^add_executable\(run_record ' "$work/openvins/open_vins/ov_msckf/CMa
   apply_once "$work/openvins/open_vins" "$here/patches/openvins-offline.patch"
 fi
 apply_once "$work/openvins/open_vins" "$here/patches/openvins-headless.patch"
+if [[ ${OPENVINS_EKF_MA_EXPERIMENT:-0} == 1 ]]; then
+  apply_once "$work/openvins/open_vins" "$here/probes/ekf-f32/openvins-core.patch"
+  apply_once "$work/openvins/open_vins" "$here/probes/ekf-f32/openvins-cmake.patch"
+fi
 apply_once "$work/ov-schurvins/open_vins" "$here/patches/ov-schurvins-host.patch"
 
 mkdir -p "$work/vins-mono/standalone" "$work/vins-fusion/shim" "$work/openvins" "$work/ov-schurvins"

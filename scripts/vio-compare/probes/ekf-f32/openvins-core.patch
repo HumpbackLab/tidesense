@@ -1,0 +1,81 @@
+diff --git a/ov_msckf/src/state/StateHelper.cpp b/ov_msckf/src/state/StateHelper.cpp
+index 0c89c56..a1e5366 100644
+--- a/ov_msckf/src/state/StateHelper.cpp
++++ b/ov_msckf/src/state/StateHelper.cpp
+@@ -28,6 +28,12 @@
+ #include "utils/print.h"
+ 
+ #include <boost/math/distributions/chi_squared.hpp>
++#ifdef OPENVINS_EKF_MA_EXPERIMENT
++#include <chrono>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#endif
+ 
+ using namespace ov_core;
+ using namespace ov_type;
+@@ -115,6 +121,11 @@ void StateHelper::EKFPropagation(std::shared_ptr<State> state, const std::vector
+ 
+ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std::shared_ptr<Type>> &H_order, const Eigen::MatrixXd &H,
+                             const Eigen::VectorXd &res, const Eigen::MatrixXd &R) {
++#ifdef OPENVINS_EKF_MA_EXPERIMENT
++  const auto ma_start = std::chrono::steady_clock::now();
++  const char *ma_mode = std::getenv("OPENVINS_EKF_MA_MODE");
++  if (!ma_mode) ma_mode = "packed_float";
++#endif
+ 
+   //==========================================================
+   //==========================================================
+@@ -134,6 +145,29 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
+   //==========================================================
+   //==========================================================
+   // For each active variable find its M = P*H^T
++#ifdef OPENVINS_EKF_MA_EXPERIMENT
++  if (ma_mode && (std::strcmp(ma_mode, "packed_double") == 0 || std::strcmp(ma_mode, "packed_float") == 0)) {
++    // Pack exactly the measured covariance columns in H_order. The state
++    // covariance, residual solve, covariance writeback and state remain double.
++    if (std::strcmp(ma_mode, "packed_float") == 0) {
++      Eigen::MatrixXf P_meas(state->_Cov.rows(), H.cols());
++      for (size_t i = 0; i < H_order.size(); ++i) {
++        P_meas.middleCols(H_id[i], H_order[i]->size()) =
++            state->_Cov.middleCols(H_order[i]->id(), H_order[i]->size()).cast<float>();
++      }
++      const Eigen::MatrixXf H_float = H.cast<float>();
++      const Eigen::MatrixXf M_float = P_meas * H_float.transpose();
++      M_a = M_float.cast<double>();
++    } else {
++      Eigen::MatrixXd P_meas(state->_Cov.rows(), H.cols());
++      for (size_t i = 0; i < H_order.size(); ++i) {
++        P_meas.middleCols(H_id[i], H_order[i]->size()) =
++            state->_Cov.middleCols(H_order[i]->id(), H_order[i]->size());
++      }
++      M_a.noalias() = P_meas * H.transpose();
++    }
++  } else
++#endif
+   for (const auto &var : state->_variables) {
+     // Sum up effect of each subjacobian = K_i= \sum_m (P_im Hm^T)
+     Eigen::MatrixXd M_i = Eigen::MatrixXd::Zero(var->size(), res.rows());
+@@ -144,6 +178,14 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
+     }
+     M_a.block(var->id(), 0, var->size(), res.rows()) = M_i;
+   }
++#ifdef OPENVINS_EKF_MA_EXPERIMENT
++  if (std::getenv("OPENVINS_EKF_MA_PROBE")) {
++    const auto ma_end = std::chrono::steady_clock::now();
++    std::fprintf(stderr, "EKF_MA %s %d %d %d %.6f\n", ma_mode ? ma_mode : "original",
++                 static_cast<int>(state->_Cov.rows()), static_cast<int>(H.cols()), static_cast<int>(H.rows()),
++                 std::chrono::duration<double, std::milli>(ma_end - ma_start).count());
++  }
++#endif
+ 
+   //==========================================================
+   //==========================================================
+@@ -642,4 +684,4 @@ void StateHelper::marginalize_slam(std::shared_ptr<State> state) {
+       it0++;
+     }
+   }
+-}
+\ No newline at end of file
++}

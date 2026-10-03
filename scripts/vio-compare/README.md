@@ -166,3 +166,13 @@ iterative subpixel sampling in a model would still execute crucial work on
 the A53. A TPU model for Scharr alone does not offload KLT's feature-wise
 Gauss-Newton loop. Replacing the tracker with a learned TPU frontend is a
 different algorithm and needs separate accuracy and latency validation.
+
+## EKF mixed-precision probe
+
+The opt-in [`ekf-f32` probe](probes/ekf-f32/README.md) packs the measured
+covariance columns and computes `P·Hᵀ` in FP32/NEON while retaining the EKF
+state and covariance in FP64. On TideSense A53, its 744-frame replay reduced
+mean camera processing time from 51.15 to 47.30 ms/frame; the same recording
+produced matching initialization counts and a 0.012 mm final position
+difference against the original arithmetic. Build with
+`OPENVINS_EKF_MA_EXPERIMENT=1` to enable it.
