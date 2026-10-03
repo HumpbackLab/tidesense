@@ -207,3 +207,12 @@ time from 34.11 to 21.70 ms and camera time from 51.25 to 44.31 ms. However,
 both full FP32 variants exited on negative covariance diagonals during the
 strong-motion recording. Keep this option disabled by default; see the
 probe documentation for isolated builds, UZH-FPV results, and numerical limits.
+
+## LK failed-track filtering
+
+The [LK filter](probes/lk-filter/README.md) excludes failed LK tracks before
+normalization and RANSAC, then maps the rejection mask back to the original
+feature indices. It is enabled by default in both standard and precision
+builds through `OPENVINS_LK_FILTER_VALID=ON`; rebuild with `OFF` to disable.
+IMU initial flow and shallow tracking with retries were removed after the
+FPV experiments. Historical measurements are retained in the filter directory.

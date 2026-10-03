@@ -46,6 +46,7 @@ if ! rg -q '^option\(OPENVINS_SKIP_ACTIVE_VIZ ' "$work/openvins/open_vins/ov_msc
   apply_once "$work/openvins/open_vins" "$here/patches/openvins-headless.patch"
 fi
 apply_once "$work/openvins/open_vins" "$here/patches/openvins-lk-window.patch"
+apply_once "$work/openvins/open_vins" "$here/patches/openvins-lk-filter.patch"
 if [[ ${OPENVINS_EKF_MA_EXPERIMENT:-0} == 1 ]]; then
   apply_once "$work/openvins/open_vins" "$here/probes/ekf-f32/openvins-core.patch"
   apply_once "$work/openvins/open_vins" "$here/probes/ekf-f32/openvins-cmake.patch"

@@ -346,3 +346,7 @@ Scharr 7.55%，RANSAC/基础矩阵相关函数 8.84%（其中 FP64 SVD 7.21%）�
 原始日志、逐帧轨迹、stage CSV、退出码及 `comparison.json` 保存于
 `install/openvins-backend-f32/board-results/results-{mild,strong}/` 和
 `install/openvins-backend-f32/host-uzh/results-uzh/`。
+
+## 默认 LK 失败点过滤
+
+新构建默认使用 `OPENVINS_LK_FILTER_VALID=ON`，在归一化/RANSAC 前去除 LK 失败点。用同名环境变量 `OFF` 重建可恢复原路径。IMU 初值和浅层重试实验已撤销；[验证与历史结果](../lk-filter/README.md)。本文件更早的性能结果没有开启这项过滤，不能直接当作新构建的基线。

@@ -1,0 +1,2055 @@
+{
+  "dataset": "UZH-FPV indoor_forward_6",
+  "frames": 1970,
+  "gt_frames": 816,
+  "window": "16x15",
+  "backend": "full FP32, packed P H^T",
+  "cpu_hz": 1000000000,
+  "timing": "camera pipeline including gyro prediction, excluding decode/I/O/IMU ingress/numeric diagnostics",
+  "local_packed": {
+    "dataset": "UZH-FPV indoor_forward_6",
+    "expected_frames": 1970,
+    "cam0_shift_ns": -16684572,
+    "ate_alignment": "SE(3), no scale; only GT-covered timestamps",
+    "variants": {
+      "baseline-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 5.220749104568529,
+          "p95": 9.868976699999997,
+          "max": 26.073078
+        },
+        "camera_initialized_ms": {
+          "mean": 5.5298084769921445,
+          "p95": 10.4680441,
+          "max": 26.073078
+        },
+        "covariance_min_diagonal": 7.49037887270987e-10,
+        "covariance_max_asymmetry": 1.45519152283669e-11,
+        "covariance_min_sampled_eigenvalue": -7.1058019732376e-08,
+        "stages_ms": {
+          "tracking": {
+            "mean": 4.13040404040404,
+            "p95": 9.188999999999997,
+            "max": 24.99
+          },
+          "propagation": {
+            "mean": 0.19207070707070706,
+            "p95": 0.27999999999999997,
+            "max": 0.5599999999999999
+          },
+          "msckf update": {
+            "mean": 0.2991470258136925,
+            "p95": 1.02,
+            "max": 6.05
+          },
+          "slam update": {
+            "mean": 0.41560044893378223,
+            "p95": 0.94,
+            "max": 1.57
+          },
+          "slam delayed": {
+            "mean": 0.34421997755331096,
+            "p95": 1.2694999999999983,
+            "max": 3.9699999999999998
+          },
+          "re-tri & marg": {
+            "mean": 0.0793490460157127,
+            "p95": 0.19,
+            "max": 0.41
+          },
+          "total": {
+            "mean": 5.462755331088664,
+            "p95": 10.388499999999995,
+            "max": 25.99
+          }
+        },
+        "backend_ms": {
+          "mean": 1.3303872053872055,
+          "p95": 2.67,
+          "max": 8.05
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.2293598037300873,
+        "ate_max_m": 0.3287799341266389,
+        "vs_baseline_position_m": {
+          "mean": 0.0,
+          "p95": 0.0,
+          "max": 0.0,
+          "final": 0.0
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 2.2309126341133031e-07,
+          "p95": 1.7075472925031877e-06,
+          "max": 2.9575586669421963e-06,
+          "final": 1.7075472925031877e-06
+        },
+        "camera_common_ms": {
+          "mean": 5.5298084769921445,
+          "p95": 10.4680441,
+          "max": 26.073078
+        },
+        "path_length_m": 261.13413635545396,
+        "first_to_last_displacement_m": 1.06525463707564,
+        "max_frame_displacement_m": 0.9952579101871504,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 253082,
+          "valid_ratio": 0.9786195778443351,
+          "accepted_ratio": 0.9002102085490078,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 1.112212783138649,
+          "norm_pair_ms": 0.0888573814118842,
+          "ransac_pair_ms": 0.8553684342305738
+        },
+        "local_accuracy_gate": true
+      },
+      "filter-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 4.84260952538071,
+          "p95": 8.015645949999998,
+          "max": 25.68736
+        },
+        "camera_initialized_ms": {
+          "mean": 5.131420726711561,
+          "p95": 8.403020049999999,
+          "max": 25.68736
+        },
+        "covariance_min_diagonal": 7.44872996616408e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "covariance_min_sampled_eigenvalue": -6.95753986328934e-08,
+        "stages_ms": {
+          "tracking": {
+            "mean": 3.733490460157127,
+            "p95": 6.168999999999996,
+            "max": 24.85
+          },
+          "propagation": {
+            "mean": 0.1868406285072952,
+            "p95": 0.27,
+            "max": 0.68
+          },
+          "msckf update": {
+            "mean": 0.29424242424242425,
+            "p95": 0.9894999999999982,
+            "max": 2.61
+          },
+          "slam update": {
+            "mean": 0.4348821548821549,
+            "p95": 0.9700000000000001,
+            "max": 11.36
+          },
+          "slam delayed": {
+            "mean": 0.34267115600448933,
+            "p95": 1.3294999999999983,
+            "max": 11.610000000000001
+          },
+          "re-tri & marg": {
+            "mean": 0.07337822671156004,
+            "p95": 0.19,
+            "max": 0.4
+          },
+          "total": {
+            "mean": 5.067306397306397,
+            "p95": 8.327999999999992,
+            "max": 25.63
+          }
+        },
+        "backend_ms": {
+          "mean": 1.3320145903479235,
+          "p95": 2.7179999999999924,
+          "max": 14.27
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.23761255717661825,
+        "ate_max_m": 0.40398837301256885,
+        "vs_baseline_position_m": {
+          "mean": 0.07984871204916069,
+          "p95": 0.24364796051286386,
+          "max": 0.2998321753013346,
+          "final": 0.2559418951848353
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.14518267008559332,
+          "p95": 0.2612087417261081,
+          "max": 0.5005766108660301,
+          "final": 0.06924975227678912
+        },
+        "camera_common_ms": {
+          "mean": 5.131420726711561,
+          "p95": 8.403020049999999,
+          "max": 25.68736
+        },
+        "path_length_m": 261.2605507708739,
+        "first_to_last_displacement_m": 0.9394455106997542,
+        "max_frame_displacement_m": 0.9997274952393127,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 253041,
+          "valid_ratio": 0.9784106132998209,
+          "accepted_ratio": 0.9006168960761299,
+          "ransac_input_ratio": 0.9784106132998209,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 1.069305343321483,
+          "norm_pair_ms": 0.0839179715591671,
+          "ransac_pair_ms": 0.6021763255459623
+        },
+        "local_accuracy_gate": true
+      },
+      "imu-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 5.208707192385788,
+          "p95": 9.549119849999999,
+          "max": 42.677912
+        },
+        "camera_initialized_ms": {
+          "mean": 5.51629474691358,
+          "p95": 10.304064449999988,
+          "max": 42.677912
+        },
+        "covariance_min_diagonal": 7.51185946779032e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "covariance_min_sampled_eigenvalue": -8.59047902242661e-08,
+        "stages_ms": {
+          "tracking": {
+            "mean": 4.090662177328844,
+            "p95": 8.414999999999981,
+            "max": 41.8
+          },
+          "propagation": {
+            "mean": 0.19029741863075197,
+            "p95": 0.3,
+            "max": 2.16
+          },
+          "msckf update": {
+            "mean": 0.29957351290684625,
+            "p95": 1.0294999999999983,
+            "max": 2.4499999999999997
+          },
+          "slam update": {
+            "mean": 0.4378114478114479,
+            "p95": 1.1199999999999999,
+            "max": 2.4
+          },
+          "slam delayed": {
+            "mean": 0.34631874298540966,
+            "p95": 1.25,
+            "max": 4.890000000000001
+          },
+          "re-tri & marg": {
+            "mean": 0.08030303030303032,
+            "p95": 0.22,
+            "max": 0.82
+          },
+          "total": {
+            "mean": 5.446767676767676,
+            "p95": 10.235499999999984,
+            "max": 42.59
+          }
+        },
+        "backend_ms": {
+          "mean": 1.354304152637486,
+          "p95": 2.73,
+          "max": 8.07
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.22534648512584993,
+        "ate_max_m": 0.3618369117878079,
+        "vs_baseline_position_m": {
+          "mean": 0.08359748373479742,
+          "p95": 0.20399487186151555,
+          "max": 0.2947695352615388,
+          "final": 0.2714272980324666
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.1922978624133385,
+          "p95": 0.3912584795289311,
+          "max": 1.1749920290032778,
+          "final": 0.1762718598695045
+        },
+        "camera_common_ms": {
+          "mean": 5.51629474691358,
+          "p95": 10.304064449999988,
+          "max": 42.677912
+        },
+        "path_length_m": 261.13759017021243,
+        "first_to_last_displacement_m": 0.8310524998588372,
+        "max_frame_displacement_m": 0.9979059651317961,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 250732,
+          "valid_ratio": 0.9779445782748114,
+          "accepted_ratio": 0.8989957404718982,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 1.0719857546978162,
+          "norm_pair_ms": 0.08239053174200102,
+          "ransac_pair_ms": 0.8596698649060437
+        },
+        "local_accuracy_gate": true
+      },
+      "adaptive-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 5.868763065989847,
+          "p95": 13.091837349999992,
+          "max": 67.96926
+        },
+        "camera_initialized_ms": {
+          "mean": 6.272866683501683,
+          "p95": 15.481189899999965,
+          "max": 67.96926
+        },
+        "covariance_min_diagonal": 7.34495964049842e-10,
+        "covariance_max_asymmetry": 2.91038304567337e-11,
+        "covariance_min_sampled_eigenvalue": -2.05862640787467e-07,
+        "stages_ms": {
+          "tracking": {
+            "mean": 4.832121212121212,
+            "p95": 13.508999999999997,
+            "max": 65.80999999999999
+          },
+          "propagation": {
+            "mean": 0.18313131313131312,
+            "p95": 0.27,
+            "max": 0.53
+          },
+          "msckf update": {
+            "mean": 0.29038159371492706,
+            "p95": 1.0294999999999983,
+            "max": 8.86
+          },
+          "slam update": {
+            "mean": 0.4696801346801347,
+            "p95": 1.09,
+            "max": 2.67
+          },
+          "slam delayed": {
+            "mean": 0.34702581369248037,
+            "p95": 1.28,
+            "max": 9.56
+          },
+          "re-tri & marg": {
+            "mean": 0.0820314253647587,
+            "p95": 0.21000000000000002,
+            "max": 0.5
+          },
+          "total": {
+            "mean": 6.205909090909091,
+            "p95": 15.40899999999996,
+            "max": 67.86
+          }
+        },
+        "backend_ms": {
+          "mean": 1.372250280583614,
+          "p95": 2.7,
+          "max": 10.99
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.22570761139249332,
+        "ate_max_m": 0.36718044193472815,
+        "vs_baseline_position_m": {
+          "mean": 0.18233523442746474,
+          "p95": 0.2829928891071801,
+          "max": 0.3098429083531023,
+          "final": 0.2033508235058815
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.6100240536418317,
+          "p95": 0.9306449155434291,
+          "max": 5.034124674159694,
+          "final": 0.40511547537349896
+        },
+        "camera_common_ms": {
+          "mean": 6.272866683501683,
+          "p95": 15.481189899999965,
+          "max": 67.96926
+        },
+        "path_length_m": 261.87750965781817,
+        "first_to_last_displacement_m": 0.9046586330236767,
+        "max_frame_displacement_m": 0.9982577753785215,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 248587,
+          "valid_ratio": 0.9784662914794418,
+          "accepted_ratio": 0.8975328557004187,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 3938,
+          "retry_point_ratio": 0.31314187789385606,
+          "full_retry_camera_calls": 161,
+          "lk_pair_ms": 1.1936477089893347,
+          "norm_pair_ms": 0.07938552666328086,
+          "ransac_pair_ms": 1.3426861655662772
+        },
+        "local_accuracy_gate": true
+      },
+      "combo-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 5.053360195939087,
+          "p95": 9.977627699999998,
+          "max": 56.34774
+        },
+        "camera_initialized_ms": {
+          "mean": 5.3885310864197535,
+          "p95": 10.680512949999985,
+          "max": 56.34774
+        },
+        "covariance_min_diagonal": 7.40445371683052e-10,
+        "covariance_max_asymmetry": 5.82076609134674e-11,
+        "covariance_min_sampled_eigenvalue": -8.49344759881882e-08,
+        "stages_ms": {
+          "tracking": {
+            "mean": 4.08537037037037,
+            "p95": 9.17899999999996,
+            "max": 55.489999999999995
+          },
+          "propagation": {
+            "mean": 0.1677048260381594,
+            "p95": 0.25,
+            "max": 0.58
+          },
+          "msckf update": {
+            "mean": 0.27441638608305274,
+            "p95": 0.94,
+            "max": 8.17
+          },
+          "slam update": {
+            "mean": 0.4041694725028058,
+            "p95": 0.91,
+            "max": 1.32
+          },
+          "slam delayed": {
+            "mean": 0.3266778900112233,
+            "p95": 1.23,
+            "max": 3.63
+          },
+          "re-tri & marg": {
+            "mean": 0.06887205387205388,
+            "p95": 0.17,
+            "max": 0.48000000000000004
+          },
+          "total": {
+            "mean": 5.328939393939395,
+            "p95": 10.538999999999998,
+            "max": 56.279999999999994
+          }
+        },
+        "backend_ms": {
+          "mean": 1.2418406285072952,
+          "p95": 2.56,
+          "max": 10.52
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.21352449440001206,
+        "ate_max_m": 0.3625857625940689,
+        "vs_baseline_position_m": {
+          "mean": 0.0580775928505979,
+          "p95": 0.1424337485365954,
+          "max": 0.19689604802529026,
+          "final": 0.1464203668657426
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.21685842364143526,
+          "p95": 0.4766895254156359,
+          "max": 0.5356063011234469,
+          "final": 0.3542184956961673
+        },
+        "camera_common_ms": {
+          "mean": 5.3885310864197535,
+          "p95": 10.680512949999985,
+          "max": 56.34774
+        },
+        "path_length_m": 261.09561672302,
+        "first_to_last_displacement_m": 0.9362269994209476,
+        "max_frame_displacement_m": 1.0044757375623004,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 249053,
+          "valid_ratio": 0.9788077236572136,
+          "accepted_ratio": 0.9003224213320057,
+          "ransac_input_ratio": 0.9788077236572136,
+          "shallow_camera_calls": 3938,
+          "retry_point_ratio": 0.31014683621558464,
+          "full_retry_camera_calls": 176,
+          "lk_pair_ms": 1.132596499238192,
+          "norm_pair_ms": 0.07463333367191467,
+          "ransac_pair_ms": 0.8476233869984764
+        },
+        "local_accuracy_gate": true
+      },
+      "filterimu-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 4.626044850253808,
+          "p95": 7.694106699999999,
+          "max": 24.289857
+        },
+        "camera_initialized_ms": {
+          "mean": 4.892643005050505,
+          "p95": 8.077203149999992,
+          "max": 24.289857
+        },
+        "covariance_min_diagonal": 7.30238369772707e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "covariance_min_sampled_eigenvalue": -8.28529897260418e-07,
+        "stages_ms": {
+          "tracking": {
+            "mean": 3.56658810325477,
+            "p95": 6.118999999999995,
+            "max": 22.66
+          },
+          "propagation": {
+            "mean": 0.17038159371492706,
+            "p95": 0.25,
+            "max": 9.27
+          },
+          "msckf update": {
+            "mean": 0.2633838383838384,
+            "p95": 0.9394999999999981,
+            "max": 2.8600000000000003
+          },
+          "slam update": {
+            "mean": 0.43391133557800227,
+            "p95": 1.1,
+            "max": 2.7
+          },
+          "slam delayed": {
+            "mean": 0.3266835016835017,
+            "p95": 1.23,
+            "max": 8.78
+          },
+          "re-tri & marg": {
+            "mean": 0.07126823793490461,
+            "p95": 0.2,
+            "max": 0.41
+          },
+          "total": {
+            "mean": 4.833939393939394,
+            "p95": 7.977999999999993,
+            "max": 24.209999999999997
+          }
+        },
+        "backend_ms": {
+          "mean": 1.265628507295174,
+          "p95": 2.5700000000000003,
+          "max": 10.48
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.23676148565463345,
+        "ate_max_m": 0.39996807167863974,
+        "vs_baseline_position_m": {
+          "mean": 0.09117801557325743,
+          "p95": 0.24582486012710028,
+          "max": 0.2803798922369429,
+          "final": 0.2682552205017486
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.21005378491901353,
+          "p95": 0.2967462734007419,
+          "max": 0.37260253913423536,
+          "final": 0.18003051364485773
+        },
+        "camera_common_ms": {
+          "mean": 4.892643005050505,
+          "p95": 8.077203149999992,
+          "max": 24.289857
+        },
+        "path_length_m": 261.0830815058016,
+        "first_to_last_displacement_m": 0.9842049030521072,
+        "max_frame_displacement_m": 0.9989152112430738,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 249798,
+          "valid_ratio": 0.9781663584176015,
+          "accepted_ratio": 0.8998430732031482,
+          "ransac_input_ratio": 0.9781663584176015,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 1.012587467750127,
+          "norm_pair_ms": 0.07510592940578975,
+          "ransac_pair_ms": 0.5584375977653631
+        },
+        "local_accuracy_gate": true
+      }
+    }
+  },
+  "local_unpacked": {
+    "dataset": "UZH-FPV indoor_forward_6",
+    "expected_frames": 1970,
+    "cam0_shift_ns": -16684572,
+    "ate_alignment": "SE(3), no scale; only GT-covered timestamps",
+    "variants": {
+      "baseline-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 5.293590225380711,
+          "p95": 10.162684649999997,
+          "max": 24.995173
+        },
+        "camera_initialized_ms": {
+          "mean": 5.634009463524131,
+          "p95": 11.171629099999938,
+          "max": 24.995173
+        },
+        "covariance_min_diagonal": 7.53607065639983e-10,
+        "covariance_max_asymmetry": 2.91038304567337e-11,
+        "covariance_min_sampled_eigenvalue": -1.84403143403468e-07,
+        "stages_ms": {
+          "tracking": {
+            "mean": 3.8794725028058363,
+            "p95": 8.486499999999985,
+            "max": 22.919999999999998
+          },
+          "propagation": {
+            "mean": 0.1696408529741863,
+            "p95": 0.25,
+            "max": 0.44
+          },
+          "msckf update": {
+            "mean": 0.31030864197530866,
+            "p95": 1.0399999999999998,
+            "max": 2.94
+          },
+          "slam update": {
+            "mean": 0.7299382716049383,
+            "p95": 1.8294999999999983,
+            "max": 10.83
+          },
+          "slam delayed": {
+            "mean": 0.4117059483726151,
+            "p95": 1.6484999999999945,
+            "max": 6.4799999999999995
+          },
+          "re-tri & marg": {
+            "mean": 0.0755050505050505,
+            "p95": 0.2,
+            "max": 0.46
+          },
+          "total": {
+            "mean": 5.578170594837261,
+            "p95": 11.09399999999994,
+            "max": 24.88
+          }
+        },
+        "backend_ms": {
+          "mean": 1.6970987654320988,
+          "p95": 3.4089999999999963,
+          "max": 11.980000000000002
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.2290279677894964,
+        "ate_max_m": 0.3437076032765049,
+        "vs_baseline_position_m": {
+          "mean": 0.0,
+          "p95": 0.0,
+          "max": 0.0,
+          "final": 0.0
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 2.1189788481844083e-07,
+          "p95": 1.7075472925031877e-06,
+          "max": 3.4150945850063755e-06,
+          "final": 0.0
+        },
+        "camera_common_ms": {
+          "mean": 5.634009463524131,
+          "p95": 11.171629099999938,
+          "max": 24.995173
+        },
+        "path_length_m": 261.01075173864933,
+        "first_to_last_displacement_m": 0.9700884477130833,
+        "max_frame_displacement_m": 0.9999315238865908,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 251973,
+          "valid_ratio": 0.9784738841066305,
+          "accepted_ratio": 0.9003623404094884,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 1.0400056871508379,
+          "norm_pair_ms": 0.07983978974098527,
+          "ransac_pair_ms": 0.8225841782630777
+        },
+        "local_accuracy_gate": true
+      },
+      "filter-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 4.966187470558376,
+          "p95": 8.420989199999998,
+          "max": 23.72129
+        },
+        "camera_initialized_ms": {
+          "mean": 5.2850293529741865,
+          "p95": 8.893923649999994,
+          "max": 23.72129
+        },
+        "covariance_min_diagonal": 7.6243050761704e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "covariance_min_sampled_eigenvalue": -4.70847556089199e-07,
+        "stages_ms": {
+          "tracking": {
+            "mean": 3.5623176206509535,
+            "p95": 6.328999999999996,
+            "max": 22.169999999999998
+          },
+          "propagation": {
+            "mean": 0.16668911335578,
+            "p95": 0.25,
+            "max": 0.6
+          },
+          "msckf update": {
+            "mean": 0.31026936026936025,
+            "p95": 1.09,
+            "max": 9.07
+          },
+          "slam update": {
+            "mean": 0.7094051627384961,
+            "p95": 1.85,
+            "max": 5.53
+          },
+          "slam delayed": {
+            "mean": 0.4096801346801347,
+            "p95": 1.58,
+            "max": 7.7
+          },
+          "re-tri & marg": {
+            "mean": 0.07181257014590349,
+            "p95": 0.18000000000000002,
+            "max": 0.44
+          },
+          "total": {
+            "mean": 5.23179012345679,
+            "p95": 8.817499999999992,
+            "max": 23.650000000000002
+          }
+        },
+        "backend_ms": {
+          "mean": 1.6678563411896745,
+          "p95": 3.3000000000000003,
+          "max": 13.15
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.23656076714583066,
+        "ate_max_m": 0.36385722689316763,
+        "vs_baseline_position_m": {
+          "mean": 0.13187741965462838,
+          "p95": 0.3296420208164139,
+          "max": 0.3545119688232493,
+          "final": 0.320985348473051
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.26889287232044373,
+          "p95": 0.49272718887246814,
+          "max": 0.9060370397073101,
+          "final": 0.155569563355214
+        },
+        "camera_common_ms": {
+          "mean": 5.2850293529741865,
+          "p95": 8.893923649999994,
+          "max": 23.72129
+        },
+        "path_length_m": 261.1852923727215,
+        "first_to_last_displacement_m": 0.9770477205212952,
+        "max_frame_displacement_m": 0.9909780550021157,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 250155,
+          "valid_ratio": 0.9783054506206152,
+          "accepted_ratio": 0.8972996742019947,
+          "ransac_input_ratio": 0.9783054506206152,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 1.0248725693245302,
+          "norm_pair_ms": 0.07713295124428644,
+          "ransac_pair_ms": 0.5685521609954292
+        },
+        "local_accuracy_gate": true
+      },
+      "imu-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 5.281959427918782,
+          "p95": 9.590764349999997,
+          "max": 25.655501
+        },
+        "camera_initialized_ms": {
+          "mean": 5.604022453984288,
+          "p95": 10.458172999999999,
+          "max": 25.655501
+        },
+        "covariance_min_diagonal": 7.38529959409817e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "covariance_min_sampled_eigenvalue": -1.90036858697926e-07,
+        "stages_ms": {
+          "tracking": {
+            "mean": 3.891638608305275,
+            "p95": 8.638499999999958,
+            "max": 23.2
+          },
+          "propagation": {
+            "mean": 0.1665600448933782,
+            "p95": 0.25,
+            "max": 0.5599999999999999
+          },
+          "msckf update": {
+            "mean": 0.31699214365881034,
+            "p95": 1.06,
+            "max": 10.0
+          },
+          "slam update": {
+            "mean": 0.6921099887766555,
+            "p95": 1.91,
+            "max": 4.25
+          },
+          "slam delayed": {
+            "mean": 0.40387766554433224,
+            "p95": 1.6494999999999982,
+            "max": 4.720000000000001
+          },
+          "re-tri & marg": {
+            "mean": 0.07180695847362514,
+            "p95": 0.18000000000000002,
+            "max": 0.42000000000000004
+          },
+          "total": {
+            "mean": 5.544124579124579,
+            "p95": 10.389499999999998,
+            "max": 25.56
+          }
+        },
+        "backend_ms": {
+          "mean": 1.6513468013468013,
+          "p95": 3.459499999999998,
+          "max": 10.73
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.23179636212665572,
+        "ate_max_m": 0.4140058909549705,
+        "vs_baseline_position_m": {
+          "mean": 0.05496359363111477,
+          "p95": 0.15757068431554455,
+          "max": 0.21483286144587374,
+          "final": 0.12239595951131695
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.29179480124195845,
+          "p95": 0.48328204489360127,
+          "max": 1.1761792081997955,
+          "final": 0.4305123195611088
+        },
+        "camera_common_ms": {
+          "mean": 5.604022453984288,
+          "p95": 10.458172999999999,
+          "max": 25.655501
+        },
+        "path_length_m": 261.25485468716386,
+        "first_to_last_displacement_m": 0.9038731821909766,
+        "max_frame_displacement_m": 1.0009409733851007,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 251542,
+          "valid_ratio": 0.9783217116823433,
+          "accepted_ratio": 0.8997543153827194,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 1.0351527719654647,
+          "norm_pair_ms": 0.07370097714575928,
+          "ransac_pair_ms": 0.8066451945149823
+        },
+        "local_accuracy_gate": true
+      },
+      "adaptive-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 5.74589140964467,
+          "p95": 12.374381149999993,
+          "max": 52.123071
+        },
+        "camera_initialized_ms": {
+          "mean": 6.156140565095398,
+          "p95": 14.224390049999895,
+          "max": 52.123071
+        },
+        "covariance_min_diagonal": 7.48951400897369e-10,
+        "covariance_max_asymmetry": 2.91038304567337e-11,
+        "covariance_min_sampled_eigenvalue": -1.24818878731911e-07,
+        "stages_ms": {
+          "tracking": {
+            "mean": 4.520067340067341,
+            "p95": 12.75899999999996,
+            "max": 50.73
+          },
+          "propagation": {
+            "mean": 0.16959034792368125,
+            "p95": 0.25,
+            "max": 0.5
+          },
+          "msckf update": {
+            "mean": 0.3055555555555556,
+            "p95": 1.09,
+            "max": 3.47
+          },
+          "slam update": {
+            "mean": 0.6241077441077441,
+            "p95": 1.42,
+            "max": 3.4499999999999997
+          },
+          "slam delayed": {
+            "mean": 0.4120145903479237,
+            "p95": 1.56,
+            "max": 5.989999999999999
+          },
+          "re-tri & marg": {
+            "mean": 0.06303591470258138,
+            "p95": 0.15,
+            "max": 0.36000000000000004
+          },
+          "total": {
+            "mean": 6.0960044893378225,
+            "p95": 14.103999999999907,
+            "max": 52.040000000000006
+          }
+        },
+        "backend_ms": {
+          "mean": 1.574304152637486,
+          "p95": 3.318999999999997,
+          "max": 9.12
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.2355163881713335,
+        "ate_max_m": 0.3905730373206077,
+        "vs_baseline_position_m": {
+          "mean": 0.13089248378322105,
+          "p95": 0.1892086775356427,
+          "max": 0.24003328162299747,
+          "final": 0.09187049443079713
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.4581395446125706,
+          "p95": 1.1358211006229992,
+          "max": 5.034655140680123,
+          "final": 0.06577182257492853
+        },
+        "camera_common_ms": {
+          "mean": 6.156140565095398,
+          "p95": 14.224390049999895,
+          "max": 52.123071
+        },
+        "path_length_m": 261.7838726067879,
+        "first_to_last_displacement_m": 0.9955643302693388,
+        "max_frame_displacement_m": 1.0085565709410775,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 248414,
+          "valid_ratio": 0.9785398568518683,
+          "accepted_ratio": 0.8976708237055883,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 3938,
+          "retry_point_ratio": 0.3118705064931928,
+          "full_retry_camera_calls": 172,
+          "lk_pair_ms": 1.084234151345861,
+          "norm_pair_ms": 0.07521314271203657,
+          "ransac_pair_ms": 1.3091755149822246
+        },
+        "local_accuracy_gate": true
+      },
+      "combo-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 5.4926861416243655,
+          "p95": 10.1964612,
+          "max": 44.789849
+        },
+        "camera_initialized_ms": {
+          "mean": 5.8797318905723905,
+          "p95": 10.917584349999967,
+          "max": 44.789849
+        },
+        "covariance_min_diagonal": 7.3873024364346e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "covariance_min_sampled_eigenvalue": -9.97092589102105e-08,
+        "stages_ms": {
+          "tracking": {
+            "mean": 4.189534231200898,
+            "p95": 9.189499999999997,
+            "max": 42.93
+          },
+          "propagation": {
+            "mean": 0.1661672278338945,
+            "p95": 0.25,
+            "max": 0.92
+          },
+          "msckf update": {
+            "mean": 0.3067564534231201,
+            "p95": 1.0594999999999983,
+            "max": 2.57
+          },
+          "slam update": {
+            "mean": 0.6693378226711562,
+            "p95": 1.63,
+            "max": 3.0
+          },
+          "slam delayed": {
+            "mean": 0.4120931537598204,
+            "p95": 1.6689999999999965,
+            "max": 6.98
+          },
+          "re-tri & marg": {
+            "mean": 0.07052188552188553,
+            "p95": 0.17,
+            "max": 0.7699999999999999
+          },
+          "total": {
+            "mean": 5.815931537598204,
+            "p95": 10.84899999999996,
+            "max": 44.71
+          }
+        },
+        "backend_ms": {
+          "mean": 1.6248765432098764,
+          "p95": 3.449499999999998,
+          "max": 8.46
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.224337119962802,
+        "ate_max_m": 0.3280014769983815,
+        "vs_baseline_position_m": {
+          "mean": 0.07774606245610485,
+          "p95": 0.19671897528121576,
+          "max": 0.25551547390201934,
+          "final": 0.15703701055004296
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.29126361265927664,
+          "p95": 0.47560342247983295,
+          "max": 0.9328949767867485,
+          "final": 0.3321201570898428
+        },
+        "camera_common_ms": {
+          "mean": 5.8797318905723905,
+          "p95": 10.917584349999967,
+          "max": 44.789849
+        },
+        "path_length_m": 261.4736657003843,
+        "first_to_last_displacement_m": 0.9703562163737679,
+        "max_frame_displacement_m": 0.9954207897572308,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 251822,
+          "valid_ratio": 0.9794021173686175,
+          "accepted_ratio": 0.9008823692925956,
+          "ransac_input_ratio": 0.9794021173686175,
+          "shallow_camera_calls": 3938,
+          "retry_point_ratio": 0.3059105241003566,
+          "full_retry_camera_calls": 176,
+          "lk_pair_ms": 1.155463470289487,
+          "norm_pair_ms": 0.07593823869984764,
+          "ransac_pair_ms": 0.9058546485525647
+        },
+        "local_accuracy_gate": true
+      }
+    }
+  },
+  "a53_packed": {
+    "dataset": "UZH-FPV indoor_forward_6",
+    "reference_variant": "filter-r1",
+    "expected_frames": 1970,
+    "cam0_shift_ns": -16684572,
+    "ate_alignment": "SE(3), no scale; only GT-covered timestamps",
+    "variants": {
+      "filter-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 67.4599049035533,
+          "p95": 118.9091,
+          "max": 346.27632
+        },
+        "camera_initialized_ms": {
+          "mean": 71.69302197530864,
+          "p95": 120.96409799999996,
+          "max": 346.27632
+        },
+        "covariance_min_diagonal": 7.3415640233776e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "stages_ms": {
+          "tracking": {
+            "mean": 48.45212682379349,
+            "p95": 80.04899999999999,
+            "max": 335.72
+          },
+          "propagation": {
+            "mean": 2.5377497194163863,
+            "p95": 3.46,
+            "max": 10.07
+          },
+          "msckf update": {
+            "mean": 4.401762065095398,
+            "p95": 16.618999999999996,
+            "max": 52.089999999999996
+          },
+          "slam update": {
+            "mean": 7.387020202020201,
+            "p95": 17.94,
+            "max": 31.33
+          },
+          "slam delayed": {
+            "mean": 5.98070707070707,
+            "p95": 24.57099999999997,
+            "max": 78.93
+          },
+          "re-tri & marg": {
+            "mean": 2.2260157126823796,
+            "p95": 7.139499999999998,
+            "max": 15.100000000000001
+          },
+          "total": {
+            "mean": 70.9876487093154,
+            "p95": 120.26599999999995,
+            "max": 345.96
+          }
+        },
+        "backend_ms": {
+          "mean": 22.533254769921438,
+          "p95": 47.57799999999999,
+          "max": 119.24
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.21080242041483976,
+        "ate_max_m": 0.3639133259299489,
+        "vs_baseline_position_m": {
+          "mean": 0.0,
+          "p95": 0.0,
+          "max": 0.0,
+          "final": 0.0
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 2.2750574862787134e-07,
+          "p95": 2.4148365394514667e-06,
+          "max": 2.9575586669421963e-06,
+          "final": 0.0
+        },
+        "camera_common_ms": {
+          "mean": 71.69302197530864,
+          "p95": 120.96409799999996,
+          "max": 346.27632
+        },
+        "path_length_m": 261.1943564749168,
+        "first_to_last_displacement_m": 0.9049167745149842,
+        "max_frame_displacement_m": 1.0008261634573705,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 249636,
+          "valid_ratio": 0.9784526270249483,
+          "accepted_ratio": 0.8995016744379817,
+          "ransac_input_ratio": 0.9784526270249483,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 13.020848349415948,
+          "norm_pair_ms": 0.9256164144235651,
+          "ransac_pair_ms": 7.48274874555612
+        },
+        "local_accuracy_gate": true
+      },
+      "filter-r2": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 67.16181128934011,
+          "p95": 119.01953199999998,
+          "max": 331.64144
+        },
+        "camera_initialized_ms": {
+          "mean": 71.3575946352413,
+          "p95": 122.55978999999991,
+          "max": 331.64144
+        },
+        "covariance_min_diagonal": 7.3415640233776e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "stages_ms": {
+          "tracking": {
+            "mean": 48.25853535353536,
+            "p95": 80.64349999999993,
+            "max": 299.98999999999995
+          },
+          "propagation": {
+            "mean": 2.5247418630751963,
+            "p95": 3.4499999999999997,
+            "max": 6.8
+          },
+          "msckf update": {
+            "mean": 4.382918069584736,
+            "p95": 16.469499999999996,
+            "max": 52.33
+          },
+          "slam update": {
+            "mean": 7.337469135802468,
+            "p95": 17.899499999999996,
+            "max": 25.26
+          },
+          "slam delayed": {
+            "mean": 5.958855218855218,
+            "p95": 24.414999999999985,
+            "max": 79.39
+          },
+          "re-tri & marg": {
+            "mean": 2.2168630751964087,
+            "p95": 7.037499999999991,
+            "max": 14.840000000000002
+          },
+          "total": {
+            "mean": 70.6813748597082,
+            "p95": 120.46149999999997,
+            "max": 331.02
+          }
+        },
+        "backend_ms": {
+          "mean": 22.420847362514028,
+          "p95": 47.517999999999994,
+          "max": 118.91999999999999
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.21080242041483976,
+        "ate_max_m": 0.3639133259299489,
+        "vs_baseline_position_m": {
+          "mean": 0.0,
+          "p95": 0.0,
+          "max": 0.0,
+          "final": 0.0
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 2.2750574862787134e-07,
+          "p95": 2.4148365394514667e-06,
+          "max": 2.9575586669421963e-06,
+          "final": 0.0
+        },
+        "camera_common_ms": {
+          "mean": 71.3575946352413,
+          "p95": 122.55978999999991,
+          "max": 331.64144
+        },
+        "path_length_m": 261.1943564749168,
+        "first_to_last_displacement_m": 0.9049167745149842,
+        "max_frame_displacement_m": 1.0008261634573705,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 249636,
+          "valid_ratio": 0.9784526270249483,
+          "accepted_ratio": 0.8995016744379817,
+          "ransac_input_ratio": 0.9784526270249483,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 13.001094707973591,
+          "norm_pair_ms": 0.916627465718639,
+          "ransac_pair_ms": 7.395277237176231
+        },
+        "local_accuracy_gate": true
+      },
+      "filterimu-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 66.87348872081218,
+          "p95": 113.411456,
+          "max": 375.29692
+        },
+        "camera_initialized_ms": {
+          "mean": 71.01196716049382,
+          "p95": 116.9495939999999,
+          "max": 375.29692
+        },
+        "covariance_min_diagonal": 7.59180718290509e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "stages_ms": {
+          "tracking": {
+            "mean": 48.63618967452301,
+            "p95": 78.6595,
+            "max": 364.47
+          },
+          "propagation": {
+            "mean": 2.489292929292929,
+            "p95": 3.44,
+            "max": 7.1000000000000005
+          },
+          "msckf update": {
+            "mean": 4.36364758698092,
+            "p95": 17.068499999999993,
+            "max": 45.199999999999996
+          },
+          "slam update": {
+            "mean": 6.829057239057239,
+            "p95": 15.988999999999997,
+            "max": 32.27
+          },
+          "slam delayed": {
+            "mean": 6.0299158249158245,
+            "p95": 23.969999999999963,
+            "max": 110.03999999999999
+          },
+          "re-tri & marg": {
+            "mean": 1.961526374859708,
+            "p95": 5.799499999999998,
+            "max": 14.93
+          },
+          "total": {
+            "mean": 70.31211560044893,
+            "p95": 116.26999999999988,
+            "max": 374.78000000000003
+          }
+        },
+        "backend_ms": {
+          "mean": 21.673439955106627,
+          "p95": 46.109999999999964,
+          "max": 139.17999999999998
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.21610745680514476,
+        "ate_max_m": 0.33941066568988276,
+        "vs_baseline_position_m": {
+          "mean": 0.05132215079768617,
+          "p95": 0.17804551267403737,
+          "max": 0.2156975102734183,
+          "final": 0.21438077890336046
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.13090665612685523,
+          "p95": 0.3506437083501187,
+          "max": 0.4987768573395162,
+          "final": 0.136933997406896
+        },
+        "camera_common_ms": {
+          "mean": 71.01196716049382,
+          "p95": 116.9495939999999,
+          "max": 375.29692
+        },
+        "path_length_m": 260.9528502675647,
+        "first_to_last_displacement_m": 1.003450516497,
+        "max_frame_displacement_m": 0.9985126861038431,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 253610,
+          "valid_ratio": 0.978455108237057,
+          "accepted_ratio": 0.9012736090848152,
+          "ransac_input_ratio": 0.978455108237057,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 13.029523453529709,
+          "norm_pair_ms": 0.9214676282376841,
+          "ransac_pair_ms": 7.096881401726765
+        },
+        "local_accuracy_gate": true
+      },
+      "filterimu-r2": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 66.73251616243655,
+          "p95": 112.897792,
+          "max": 311.56268
+        },
+        "camera_initialized_ms": {
+          "mean": 70.85159676767677,
+          "p95": 115.11858999999995,
+          "max": 311.56268
+        },
+        "covariance_min_diagonal": 7.59180718290509e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "stages_ms": {
+          "tracking": {
+            "mean": 48.45736812570146,
+            "p95": 77.72999999999975,
+            "max": 294.06
+          },
+          "propagation": {
+            "mean": 2.476206509539843,
+            "p95": 3.4294999999999978,
+            "max": 4.95
+          },
+          "msckf update": {
+            "mean": 4.355314253647587,
+            "p95": 17.056999999999988,
+            "max": 45.400000000000006
+          },
+          "slam update": {
+            "mean": 6.8286195286195275,
+            "p95": 16.037999999999993,
+            "max": 23.59
+          },
+          "slam delayed": {
+            "mean": 6.035190796857463,
+            "p95": 24.038499999999996,
+            "max": 109.97
+          },
+          "re-tri & marg": {
+            "mean": 1.9448260381593714,
+            "p95": 5.739499999999999,
+            "max": 15.02
+          },
+          "total": {
+            "mean": 70.09917508417509,
+            "p95": 114.39799999999995,
+            "max": 310.94
+          }
+        },
+        "backend_ms": {
+          "mean": 21.640157126823794,
+          "p95": 45.66199999999998,
+          "max": 139.59
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.21610745680514476,
+        "ate_max_m": 0.33941066568988276,
+        "vs_baseline_position_m": {
+          "mean": 0.05132215079768617,
+          "p95": 0.17804551267403737,
+          "max": 0.2156975102734183,
+          "final": 0.21438077890336046
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.13090665612685523,
+          "p95": 0.3506437083501187,
+          "max": 0.4987768573395162,
+          "final": 0.136933997406896
+        },
+        "camera_common_ms": {
+          "mean": 70.85159676767677,
+          "p95": 115.11858999999995,
+          "max": 311.56268
+        },
+        "path_length_m": 260.9528502675647,
+        "first_to_last_displacement_m": 1.003450516497,
+        "max_frame_displacement_m": 0.9985126861038431,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 253610,
+          "valid_ratio": 0.978455108237057,
+          "accepted_ratio": 0.9012736090848152,
+          "ransac_input_ratio": 0.978455108237057,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 12.973254565769427,
+          "norm_pair_ms": 0.9201273946165566,
+          "ransac_pair_ms": 7.056949903504318
+        },
+        "local_accuracy_gate": true
+      },
+      "imu-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 70.65737260913706,
+          "p95": 132.482852,
+          "max": 338.9414
+        },
+        "camera_initialized_ms": {
+          "mean": 75.1875946352413,
+          "p95": 142.10987999999992,
+          "max": 338.9414
+        },
+        "covariance_min_diagonal": 7.66993690781703e-10,
+        "covariance_max_asymmetry": 2.91038304567337e-11,
+        "stages_ms": {
+          "tracking": {
+            "mean": 52.25526374859709,
+            "p95": 108.22799999999981,
+            "max": 295.59000000000003
+          },
+          "propagation": {
+            "mean": 2.536071829405163,
+            "p95": 3.4299999999999997,
+            "max": 9.25
+          },
+          "msckf update": {
+            "mean": 4.407042648709315,
+            "p95": 16.255499999999984,
+            "max": 44.720000000000006
+          },
+          "slam update": {
+            "mean": 6.945448933782267,
+            "p95": 17.118999999999996,
+            "max": 24.02
+          },
+          "slam delayed": {
+            "mean": 6.038922558922559,
+            "p95": 24.474499999999978,
+            "max": 85.56
+          },
+          "re-tri & marg": {
+            "mean": 2.228709315375982,
+            "p95": 7.037499999999991,
+            "max": 17.04
+          },
+          "total": {
+            "mean": 74.41332210998878,
+            "p95": 141.08349999999965,
+            "max": 337.68
+          }
+        },
+        "backend_ms": {
+          "mean": 22.156195286195285,
+          "p95": 46.981999999999935,
+          "max": 139.95
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.20699542385248856,
+        "ate_max_m": 0.31856783477556666,
+        "vs_baseline_position_m": {
+          "mean": 0.20712911201196374,
+          "p95": 0.3645077203884551,
+          "max": 0.39988667230159614,
+          "final": 0.39988667230159614
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.339234639474523,
+          "p95": 0.9492641184442769,
+          "max": 5.028264881237126,
+          "final": 0.2451098746402613
+        },
+        "camera_common_ms": {
+          "mean": 75.1875946352413,
+          "p95": 142.10987999999992,
+          "max": 338.9414
+        },
+        "path_length_m": 261.61238032429475,
+        "first_to_last_displacement_m": 0.8400737868909998,
+        "max_frame_displacement_m": 0.9984106731795711,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 251877,
+          "valid_ratio": 0.9780051374281892,
+          "accepted_ratio": 0.8984821956748731,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 12.946365850685629,
+          "norm_pair_ms": 0.9336009141696292,
+          "ransac_pair_ms": 10.41271660741493
+        },
+        "local_accuracy_gate": true
+      },
+      "adaptive-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 79.33398934010152,
+          "p95": 163.59399999999977,
+          "max": 601.34608
+        },
+        "camera_initialized_ms": {
+          "mean": 84.994201010101,
+          "p95": 197.05347999999967,
+          "max": 601.34608
+        },
+        "covariance_min_diagonal": 7.66338215107965e-10,
+        "covariance_max_asymmetry": 1.45519152283669e-11,
+        "stages_ms": {
+          "tracking": {
+            "mean": 61.902362514029186,
+            "p95": 180.8349999999986,
+            "max": 574.53
+          },
+          "propagation": {
+            "mean": 2.5262682379349046,
+            "p95": 3.4499999999999997,
+            "max": 6.36
+          },
+          "msckf update": {
+            "mean": 4.509371492704826,
+            "p95": 15.614999999999982,
+            "max": 75.05000000000001
+          },
+          "slam update": {
+            "mean": 7.054208754208754,
+            "p95": 18.638999999999996,
+            "max": 26.56
+          },
+          "slam delayed": {
+            "mean": 5.9706116722783396,
+            "p95": 25.117499999999993,
+            "max": 75.73
+          },
+          "re-tri & marg": {
+            "mean": 2.2237822671156002,
+            "p95": 9.249499999999998,
+            "max": 18.8
+          },
+          "total": {
+            "mean": 84.18856902356902,
+            "p95": 196.57249999999965,
+            "max": 600.4399999999999
+          }
+        },
+        "backend_ms": {
+          "mean": 22.284242424242425,
+          "p95": 46.813499999999976,
+          "max": 146.3
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.22223542530585438,
+        "ate_max_m": 0.3499546417907929,
+        "vs_baseline_position_m": {
+          "mean": 0.1620889410642892,
+          "p95": 0.2593339367500093,
+          "max": 0.29371070174640773,
+          "final": 0.273222061757667
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.40993234092528136,
+          "p95": 0.9128916168373606,
+          "max": 5.016963687003184,
+          "final": 0.10871821295188314
+        },
+        "camera_common_ms": {
+          "mean": 84.994201010101,
+          "p95": 197.05347999999967,
+          "max": 601.34608
+        },
+        "path_length_m": 261.72822164376043,
+        "first_to_last_displacement_m": 0.9539221261360317,
+        "max_frame_displacement_m": 1.0059525877034379,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 252752,
+          "valid_ratio": 0.9790703931126163,
+          "accepted_ratio": 0.8992332404887003,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 3938,
+          "retry_point_ratio": 0.3062962904348927,
+          "full_retry_camera_calls": 176,
+          "lk_pair_ms": 14.589402823768408,
+          "norm_pair_ms": 0.9664688268156425,
+          "ransac_pair_ms": 17.176509355002537
+        },
+        "local_accuracy_gate": true
+      },
+      "combo-r1": {
+        "exit_code": 0,
+        "completed_run": true,
+        "timing_scope": "full replay",
+        "frames": 1970,
+        "discarded_truncated_rows": 0,
+        "initialized": 1782,
+        "camera_all_ms": {
+          "mean": 71.98700092385788,
+          "p95": 136.803616,
+          "max": 582.36032
+        },
+        "camera_initialized_ms": {
+          "mean": 76.88160680134679,
+          "p95": 147.3172179999994,
+          "max": 582.36032
+        },
+        "covariance_min_diagonal": 7.77306774502051e-10,
+        "covariance_max_asymmetry": 1.16415321826935e-10,
+        "stages_ms": {
+          "tracking": {
+            "mean": 55.13021324354657,
+            "p95": 115.74449999999997,
+            "max": 564.59
+          },
+          "propagation": {
+            "mean": 2.460089786756453,
+            "p95": 3.4299999999999997,
+            "max": 6.38
+          },
+          "msckf update": {
+            "mean": 4.249180695847363,
+            "p95": 16.095999999999986,
+            "max": 88.15
+          },
+          "slam update": {
+            "mean": 6.471268237934904,
+            "p95": 13.949499999999999,
+            "max": 26.19
+          },
+          "slam delayed": {
+            "mean": 6.022542087542087,
+            "p95": 23.4595,
+            "max": 65.55
+          },
+          "re-tri & marg": {
+            "mean": 1.8407744107744108,
+            "p95": 5.8579999999999925,
+            "max": 11.94
+          },
+          "total": {
+            "mean": 76.17609988776655,
+            "p95": 143.77899999999985,
+            "max": 581.7900000000001
+          }
+        },
+        "backend_ms": {
+          "mean": 21.043855218855217,
+          "p95": 46.34649999999999,
+          "max": 142.57999999999998
+        },
+        "stage_frames": 1782,
+        "gt_frames": 816,
+        "ate_rmse_m": 0.22243785552516843,
+        "ate_max_m": 0.38091680047951415,
+        "vs_baseline_position_m": {
+          "mean": 0.07389391328272235,
+          "p95": 0.15018618400993483,
+          "max": 0.19794129506986932,
+          "final": 0.14690955484276477
+        },
+        "common_initialized_frames": 1782,
+        "vs_baseline_attitude_deg": {
+          "mean": 0.2320151410924121,
+          "p95": 0.8245264822211845,
+          "max": 1.1336473680237367,
+          "final": 0.3148816987174334
+        },
+        "camera_common_ms": {
+          "mean": 76.88160680134679,
+          "p95": 147.3172179999994,
+          "max": 582.36032
+        },
+        "path_length_m": 261.5871405526889,
+        "first_to_last_displacement_m": 0.9045968266258138,
+        "max_frame_displacement_m": 1.0035391911058906,
+        "lk": {
+          "camera_calls": 3938,
+          "points": 247774,
+          "valid_ratio": 0.979061564167346,
+          "accepted_ratio": 0.8999572190786765,
+          "ransac_input_ratio": 0.979061564167346,
+          "shallow_camera_calls": 3938,
+          "retry_point_ratio": 0.3099921702842106,
+          "full_retry_camera_calls": 172,
+          "lk_pair_ms": 14.394465942102588,
+          "norm_pair_ms": 0.9369070391061453,
+          "ransac_pair_ms": 11.506173570340275
+        },
+        "local_accuracy_gate": true
+      },
+      "baseline-r1": {
+        "exit_code": 1,
+        "completed_run": false,
+        "timing_scope": "completed CSV rows only",
+        "frames": 165,
+        "discarded_truncated_rows": 1,
+        "initialized": 0,
+        "camera_all_ms": {
+          "mean": 27.209669696969694,
+          "p95": 28.21258,
+          "max": 48.5055
+        },
+        "camera_initialized_ms": null,
+        "stages_ms": {
+          "tracking": {
+            "mean": 35.074666666666666,
+            "p95": 39.077,
+            "max": 40.160000000000004
+          },
+          "propagation": {
+            "mean": 1.9290000000000005,
+            "p95": 2.0255,
+            "max": 2.17
+          },
+          "msckf update": {
+            "mean": 4.8853333333333335,
+            "p95": 32.528,
+            "max": 33.27
+          },
+          "slam update": {
+            "mean": 0.0,
+            "p95": 0.0,
+            "max": 0.0
+          },
+          "slam delayed": {
+            "mean": 0.0,
+            "p95": 0.0,
+            "max": 0.0
+          },
+          "re-tri & marg": {
+            "mean": 0.3646666666666667,
+            "p95": 0.5355,
+            "max": 0.55
+          },
+          "total": {
+            "mean": 42.26,
+            "p95": 71.19799999999998,
+            "max": 73.82
+          }
+        },
+        "backend_ms": {
+          "mean": 7.179,
+          "p95": 34.9935,
+          "max": 35.68000000000001
+        },
+        "stage_frames": 30,
+        "gt_frames": 0,
+        "lk": {
+          "camera_calls": 436,
+          "points": 14497,
+          "valid_ratio": 0.9997930606332345,
+          "accepted_ratio": 0.9953093743533145,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 5.790850825688074,
+          "norm_pair_ms": 0.5150719266055046,
+          "ransac_pair_ms": 0.5383568807339449
+        },
+        "local_accuracy_gate": false
+      }
+    }
+  },
+  "a53_unpacked_baseline": {
+    "dataset": "UZH-FPV indoor_forward_6",
+    "reference_variant": "baseline-r1",
+    "expected_frames": 1970,
+    "cam0_shift_ns": -16684572,
+    "ate_alignment": "SE(3), no scale; only GT-covered timestamps",
+    "variants": {
+      "baseline-r1": {
+        "exit_code": 1,
+        "completed_run": false,
+        "timing_scope": "completed CSV rows only",
+        "frames": 165,
+        "discarded_truncated_rows": 1,
+        "initialized": 0,
+        "camera_all_ms": {
+          "mean": 26.976078181818185,
+          "p95": 28.217499999999998,
+          "max": 39.9947
+        },
+        "camera_initialized_ms": null,
+        "stages_ms": {
+          "tracking": {
+            "mean": 35.22666666666667,
+            "p95": 39.8395,
+            "max": 41.980000000000004
+          },
+          "propagation": {
+            "mean": 1.9433333333333336,
+            "p95": 2.072,
+            "max": 2.34
+          },
+          "msckf update": {
+            "mean": 5.120333333333334,
+            "p95": 34.3885,
+            "max": 34.69
+          },
+          "slam update": {
+            "mean": 0.0,
+            "p95": 0.0,
+            "max": 0.0
+          },
+          "slam delayed": {
+            "mean": 0.0,
+            "p95": 0.0,
+            "max": 0.0
+          },
+          "re-tri & marg": {
+            "mean": 0.3576666666666668,
+            "p95": 0.5265,
+            "max": 0.55
+          },
+          "total": {
+            "mean": 42.65300000000001,
+            "p95": 73.23749999999998,
+            "max": 75.39
+          }
+        },
+        "backend_ms": {
+          "mean": 7.421333333333332,
+          "p95": 36.786,
+          "max": 37.199999999999996
+        },
+        "stage_frames": 30,
+        "gt_frames": 0,
+        "lk": {
+          "camera_calls": 436,
+          "points": 14497,
+          "valid_ratio": 0.9997930606332345,
+          "accepted_ratio": 0.9953093743533145,
+          "ransac_input_ratio": 1.0,
+          "shallow_camera_calls": 0,
+          "retry_point_ratio": 0.0,
+          "full_retry_camera_calls": 0,
+          "lk_pair_ms": 5.7884546788990825,
+          "norm_pair_ms": 0.5154629357798166,
+          "ransac_pair_ms": 0.537605504587156
+        },
+        "local_accuracy_gate": false
+      }
+    }
+  },
+  "manifest": {
+    "upstream_commit": "69488123ed9362dd44b6f28e7f4680abbff1442b",
+    "normalized_calibration_sha256": {
+      "kalibr_imu_chain.yaml": "c2628ea491e0fad2804e37952d3a808c161d98a67bfab698cc82359ed377b0ac",
+      "estimator_config.yaml": "bfe4993e7b8c42d1fd677e3c0cc2eee6f24ca8157a7c63126549542916d83639",
+      "kalibr_imucam_chain.yaml": "d94c73ba11927dadcc76e691f9a560c2f4efc60070aefb6a12e6c95f38399826"
+    },
+    "sha256": {
+      "install/openvins-lk-strategy/host-fp32/build/run_fisheye": "3ae92dd3140843115f5208763c9c07292e928e4c32256d994348137262649f81",
+      "install/openvins-lk-strategy/a53-fp32/run_fisheye": "2dcb89d064a95462763675eabc7565ba6b0f41abb847eb50cb06d07cfa1a8e01"
+    }
+  },
+  "repeats": {
+    "filter": {
+      "non_timing_trajectory_and_covariance_exact": true,
+      "camera_all_ms": [
+        67.4599049035533,
+        67.16181128934011
+      ],
+      "camera_all_mean_ms": 67.31085809644671,
+      "camera_initialized_mean_ms": 71.52530830527496,
+      "ate_m": 0.21080242041483976
+    },
+    "filterimu": {
+      "non_timing_trajectory_and_covariance_exact": true,
+      "camera_all_ms": [
+        66.87348872081218,
+        66.73251616243655
+      ],
+      "camera_all_mean_ms": 66.80300244162436,
+      "camera_initialized_mean_ms": 70.9317819640853,
+      "ate_m": 0.21610745680514476
+    }
+  },
+  "controlled_effects": {
+    "filter_reduction_pct_imu_enabled_r1": 5.3552569938548285,
+    "imu_reduction_pct_filter_enabled_two_trial_mean": 0.7544929141962031,
+    "adaptive_increase_pct_filter_imu_enabled_r1": 7.6465461887205155
+  }
+}

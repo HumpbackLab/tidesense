@@ -1,0 +1,64 @@
+diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
+--- a/ov_core/src/track/TrackKLT.cpp
++++ b/ov_core/src/track/TrackKLT.cpp
+@@ -20,6 +20,11 @@
+  */
+ 
+ #include "TrackKLT.h"
++#include <cmath>
++
++#ifndef OPENVINS_LK_FILTER_VALID
++#define OPENVINS_LK_FILTER_VALID 1
++#endif
+ 
+ #include "Grider_FAST.h"
+ #include "Grider_GRID.h"
+@@ -860,7 +865,16 @@
+   // Normalize these points, so we can then do ransac
+   // We don't want to do ransac on distorted image uvs since the mapping is nonlinear
+   std::vector<cv::Point2f> pts0_n, pts1_n;
++#if OPENVINS_LK_FILTER_VALID
++  std::vector<size_t> ransac_indices;
++#endif
+   for (size_t i = 0; i < pts0.size(); i++) {
++#if OPENVINS_LK_FILTER_VALID
++    // Failed LK tracks must not affect the geometric model for valid tracks.
++    if (!mask_klt[i] || !std::isfinite(pts1[i].x) || !std::isfinite(pts1[i].y))
++      continue;
++    ransac_indices.push_back(i);
++#endif
+     pts0_n.push_back(camera_calib.at(id0)->undistort_cv(pts0.at(i)));
+     pts1_n.push_back(camera_calib.at(id1)->undistort_cv(pts1.at(i)));
+   }
+@@ -870,7 +884,19 @@
+   double max_focallength_img0 = std::max(camera_calib.at(id0)->get_K()(0, 0), camera_calib.at(id0)->get_K()(1, 1));
+   double max_focallength_img1 = std::max(camera_calib.at(id1)->get_K()(0, 0), camera_calib.at(id1)->get_K()(1, 1));
+   double max_focallength = std::max(max_focallength_img0, max_focallength_img1);
++#if OPENVINS_LK_FILTER_VALID
++  // Keep the existing minimum of ten correspondences.
++  if (ransac_indices.size() >= 10)
++#endif
+   cv::findFundamentalMat(pts0_n, pts1_n, cv::FM_RANSAC, 2.0 / max_focallength, 0.999, mask_rsc);
++
++#if OPENVINS_LK_FILTER_VALID
++  // Restore the original feature indices; IDs and output vector sizes are unchanged.
++  std::vector<uchar> mask_rsc_full(pts0.size(), 0);
++  for (size_t i = 0; i < mask_rsc.size() && i < ransac_indices.size(); ++i)
++    mask_rsc_full[ransac_indices[i]] = mask_rsc[i];
++  mask_rsc.swap(mask_rsc_full);
++#endif
+ 
+   // Loop through and record only ones that are valid
+   for (size_t i = 0; i < mask_klt.size(); i++) {
+diff --git a/ov_msckf/CMakeLists.txt b/ov_msckf/CMakeLists.txt
+--- a/ov_msckf/CMakeLists.txt
++++ b/ov_msckf/CMakeLists.txt
+@@ -70,3 +70,8 @@
++option(OPENVINS_LK_FILTER_VALID "Exclude failed LK tracks before RANSAC" ON)
++target_compile_definitions(ov_msckf_lib PRIVATE
++    OPENVINS_LK_FILTER_VALID=$<BOOL:${OPENVINS_LK_FILTER_VALID}>)
++
++
+ if (OPENVINS_SKIP_ACTIVE_VIZ)
+     target_compile_definitions(ov_msckf_lib PRIVATE OPENVINS_SKIP_ACTIVE_VIZ=1)
+ endif ()
