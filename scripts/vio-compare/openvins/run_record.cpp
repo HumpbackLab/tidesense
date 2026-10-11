@@ -30,7 +30,7 @@ static cv::Mat read_pgm(const std::string &path) {
   int width = 0, height = 0, max_value = 0;
   in >> magic >> width >> height >> max_value;
   in.get();
-  if (!in || magic != "P5" || width != 640 || height != 400 || max_value != 255)
+  if (!in || magic != "P5" || width != 640 || (height != 400 && height != 480) || max_value != 255)
     throw std::runtime_error("invalid PGM: " + path);
   cv::Mat image(height, width, CV_8UC1);
   in.read(reinterpret_cast<char *>(image.data), width * height);
@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
     if (imu.empty()) throw std::runtime_error("empty IMU CSV");
     std::ifstream frames(record + "/stereo.csv");
     std::ofstream poses(argv[3]);
-    poses << "timestamp_ns,initialized,px,py,pz,qx,qy,qz,qw,compute_ms\n";
+    poses << "timestamp_ns,initialized,px,py,pz,qx,qy,qz,qw,compute_ms,cam_imu_timeoffset_s\n";
     size_t imu_cursor = 0;
     int frame_count = 0;
     int initialized_count = 0;
@@ -91,8 +91,10 @@ int main(int argc, char **argv) {
       image.timestamp = camera_time;
       image.sensor_ids = {0, 1};
       image.images = {read_pgm(record + "/" + f[1]), read_pgm(record + "/" + f[2])};
+      if (image.images[0].size() != image.images[1].size())
+        throw std::runtime_error("stereo image sizes differ");
       cv::flip(image.images[1], image.images[1], -1);
-      image.masks = {cv::Mat::zeros(400, 640, CV_8UC1), cv::Mat::zeros(400, 640, CV_8UC1)};
+      image.masks = {cv::Mat::zeros(image.images[0].size(), CV_8UC1), cv::Mat::zeros(image.images[1].size(), CV_8UC1)};
       const auto start = std::chrono::steady_clock::now();
       system.feed_measurement_camera(image);
       const auto end = std::chrono::steady_clock::now();
@@ -101,14 +103,16 @@ int main(int argc, char **argv) {
       bool initialized = system.initialized();
       initialized_count += initialized;
       poses << time_ns << ',' << initialized;
+      double cam_imu_timeoffset = 0.0;
       if (initialized) {
         auto state = system.get_state();
         auto p = state->_imu->pos();
         auto q = state->_imu->quat();
+        cam_imu_timeoffset = state->_calib_dt_CAMtoIMU->value()(0);
         poses << std::setprecision(15) << ',' << p[0] << ',' << p[1] << ',' << p[2]
               << ',' << q[0] << ',' << q[1] << ',' << q[2] << ',' << q[3];
       } else poses << ",,,,,,,";
-      poses << ',' << elapsed_ms << '\n';
+      poses << ',' << elapsed_ms << ',' << cam_imu_timeoffset << '\n';
       if (++frame_count % 50 == 0) std::cerr << "frames=" << frame_count << " initialized=" << initialized_count
                                              << " imu=" << imu_cursor << " avg_ms=" << total_ms / frame_count << '\n';
     }
