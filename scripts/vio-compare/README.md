@@ -10,6 +10,9 @@ trajectories live under `install/vio-compare-20260924-121320/`, which this SDK
 ignores in Git. The detailed board results are in that directory's
 [REPORT.md](../../install/vio-compare-20260924-121320/REPORT.md).
 
+For live TideSense cameras/IMU with an FP64 backend and optional micro-ROS pose output,
+see [OpenVINS live startup and ROS 2 subscription](openvins/README-live.md).
+
 | Project | Maintained code here | Pinned upstream checkout in `install/` |
 | --- | --- | --- |
 | VINS-Mono | `vins-mono/standalone/` ROS-free left-camera/IMU adapter and CMake build, plus `export_tum.py` and board script | `vins-mono/upstream/` |
