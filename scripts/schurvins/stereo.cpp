@@ -217,6 +217,11 @@ int main(int argc, char** argv) {
     std::ofstream prediction_csv;
     uint64_t predicted_count = 0;
     std::unique_ptr<ImuPrediction> prediction;
+    const char* health_option = std::getenv("SCHUR_HEALTH_GATE");
+    if (health_option && std::string(health_option) != "0" &&
+        std::string(health_option) != "1")
+      throw std::runtime_error("SCHUR_HEALTH_GATE must be 0 or 1");
+    const bool health_gate = health_option && std::string(health_option) == "1";
     const char* prediction_option = std::getenv("SCHUR_PREDICTION");
     if (prediction_option && std::string(prediction_option) != "0" && std::string(prediction_option) != "1")
       throw std::runtime_error("SCHUR_PREDICTION must be 0 or 1");
@@ -399,16 +404,19 @@ int main(int argc, char** argv) {
       const auto vio_end = std::chrono::steady_clock::now();
       const uint64_t mono_end = profile.is_open() ? clockNs(CLOCK_MONOTONIC) : 0;
       const uint64_t cpu_end = profile.is_open() ? clockNs(CLOCK_PROCESS_CPUTIME_ID) : 0;
+      const bool tracking_healthy = vio.stage() == svo::Stage::kTracking &&
+        (!health_gate ||
+         vio.trackingQuality() != svo::TrackingQuality::kInsufficient);
       if (profile.is_open()) profile << frames << ',' << t << ',' << mono_begin << ',' << mono_end
-        << ',' << cpu_end-cpu_begin << ',' << (vio.stage() == svo::Stage::kTracking) << '\n';
+        << ',' << cpu_end-cpu_begin << ',' << tracking_healthy << '\n';
       if (timings.is_open()) timings << frames << ',' << t << ',' << std::setprecision(12)
         << std::chrono::duration<double,std::milli>(vio_end-vio_begin).count() << ','
-        << (vio.stage() == svo::Stage::kTracking) << '\n';
+        << tracking_healthy << '\n';
       ++frames;
       auto f = vio.getLastFrames();
       if (f && f->imu_ready_) ++fused;
       const uint64_t ros_stamp = uint64_t(int64_t(t) + ros_clock_offset);
-      if (!f || vio.stage() != svo::Stage::kTracking) {
+      if (!f || !tracking_healthy) {
         if (prediction) prediction->invalidate();
         else micro_ros.submit(ros_stamp, false);
         continue;

@@ -208,6 +208,25 @@ OFF/ON 均正常结束，但末尾估计位移分别为 147.828/147.832 m，均�
 单次实验未显示持续跟踪收益，因此保持默认关闭。日志和统计位于
 `install/schurvins-gcc11-static/recording-results/vio-record-20260923-191959/outlier-sync-20260924/`。
 
+### FPV 高速运动实验开关
+
+以下运行时选项默认关闭，可独立使用。它们目前只在本机 UZH-FPV
+`indoor_forward_6` 回放上验证，不能直接作为 TideSense 板端默认参数：
+
+| 变量 | 作用 |
+|---|---|
+| `SCHUR_VISUAL_PREGATE_PX=40` | 在本次状态更新前，跳过当前帧重投影误差超过阈值的地图点；原有更新后 4 px 清理仍保留。 |
+| `SCHUR_STEREO_EPIPOLAR_PX=10` | 用已标定双目外参检查同一地图点的左右观测，剔除超过阈值的观测对。 |
+| `SCHUR_HEALTH_GATE=1` | 有效观测少于原有 20 点门槛时，报告 tracking 为 false，停止输出该帧位姿；后续帧仍尝试恢复。 |
+| `SCHUR_VISUAL_TIME_UNCERTAINTY_MS=3` | 按相机角速度增加视觉观测标准差，最高 6 px；可设 `SCHUR_VISUAL_RATE_START_RAD_S=2` 只在较高角速度时生效。 |
+
+本机正式构建上，默认配置 ATE 为 10.01 m；只开第一项为 12.50 m，
+前两项同开为 3.51 m。第三项会把 1970 帧中的 1255 帧发布为有效，
+但不会修正内部轨迹，也不会自动重新初始化。第四项在已测试的
+1 ms、3 ms 和高角速度起效配置下均未改善全程 ATE，暂不建议启用。
+各项对照、有效帧覆盖率及复现数据见
+[FPV 分阶段实验](../vio-compare/probes/fpv-diagnosis/README.md)。
+
 ### CSV 输入
 
 ```sh
