@@ -158,8 +158,23 @@ ros2 bag record --storage sqlite3 -o tidesense-stereo-calib \
 ```
 
 一键标定双目：
-```scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-stereo-calib```
 
+```bash
+scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-stereo-calib
+```
+
+鱼眼镜头使用 `pinhole-equi`，两个模型参数分别对应左、右摄像头：
+
+```bash
+scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-stereo-calib \
+  --models pinhole-equi pinhole-equi
+```
+
+结果中为 `camera_model: pinhole`、`distortion_model: equidistant`。
+后续相机–IMU 联合标定的 `--cam` 应引用这次生成的 `stereo-camchain.yaml`，
+不再传 `--models`。模型切换需要重新估计参数，不能直接改旧 YAML 的模型名称。
+当前 SchurVINS 自动导出和 OpenVINS 实时配置转换仍只接受 radtan；
+鱼眼结果应用到这些入口前需要适配转换脚本。
 
 ## 相机–IMU 联合标定
 
