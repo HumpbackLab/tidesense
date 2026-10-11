@@ -85,6 +85,9 @@ Agent 断开不会阻塞 VIO，通信线程会重连。
 
 ## 3. 电脑订阅位姿
 
+图形显示轨迹可直接在电脑执行 `scripts/visualization/run.sh`，使用同一个
+`/tidesense/pose` 话题，无需图像。见[RViz2 轨迹显示](../../visualization/README.md)。
+
 每个新终端先加载环境：
 
 ```bash

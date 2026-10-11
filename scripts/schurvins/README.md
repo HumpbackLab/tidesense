@@ -168,6 +168,19 @@ ros2 topic echo /tidesense/tracking \
 旧版视觉帧率发布的历史验证（2026-09-22）：20 秒接收 401 条位姿，约 20 Hz。
 这验证了发布/订阅链路，不代表完成运动定位精度验证。
 
+### 4. 电脑端显示轨迹
+
+电脑端 Agent 和板端位姿发布已运行时，在电脑新终端执行：
+
+```bash
+cd /home/ncer/sophpi
+scripts/visualization/run.sh
+```
+
+启动电脑端位姿转 Path 节点和预配置 RViz2，显示绿色运动轨迹及当前姿态。
+只订阅 `/tidesense/pose`，无需图像或 RTAB-Map。默认保留最近约 5 分钟的轨迹，
+支持清空及其他 Odometry 输入，详见[轨迹显示说明](../visualization/README.md)。
+
 ## 录制现场输入并离线 replay
 
 为复现初始化后转动/移动发散，可在 `--vio` 命令末尾增加 `--record NEW_DIR`：
