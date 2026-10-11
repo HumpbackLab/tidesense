@@ -3,7 +3,8 @@ set -euo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 sdk=$(cd -- "$here/../../../.." && pwd)
 arch=${1:-a53}
-precision=${2:-fp32}
+# Routine tests use the original FP64 backend; FP32 experiments require opt-in.
+precision=${2:-fp64}
 case "$arch" in a53|host) ;; *) exit 2 ;; esac
 case "$precision" in fp64|mixed|fp32) ;; *) exit 2 ;; esac
 work=${OPENVINS_FP32_WORK:-"$sdk/install/openvins-backend-f32"}

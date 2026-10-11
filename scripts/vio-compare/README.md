@@ -76,6 +76,13 @@ committed to the SDK.
 
 ## OpenVINS headless replay optimization
 
+### Default test precision
+
+Routine OpenVINS tests use the **original FP64 backend**. The isolated
+`probes/backend-f32/build_variant.sh` defaults to `fp64`; the live build excludes
+both mixed and full FP32 experiments. Those experiments require explicit opt-in.
+Always state the precision used when reporting timings.
+
 ### Default LK window
 
 OpenVINS now defaults to a **16×15** grayscale LK window. The maintained
