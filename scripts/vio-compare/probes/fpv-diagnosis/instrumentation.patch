@@ -1,0 +1,122 @@
+diff --git a/svo/src/frame_handler_base.cpp b/svo/src/frame_handler_base.cpp
+index cc5575d..2e83d32 100644
+--- a/svo/src/frame_handler_base.cpp
++++ b/svo/src/frame_handler_base.cpp
+@@ -15,6 +15,9 @@
+ 
+ #include <functional>
+ #include <future>
++#include <fstream>
++#include <iomanip>
++#include <cstdlib>
+ #include <memory>
+ #include <opencv2/imgproc/imgproc.hpp>
+ 
+@@ -149,6 +152,8 @@ FrameHandlerBase::FrameHandlerBase(const BaseOptions& base_options, const Reproj
+   if (user_schur_vins) {
+     const int WINDOW_SIZE = options_.window_size_;
+     double OBS_DEV = options_.obs_dev_;
++    if (const char* value = std::getenv("SCHUR_FPV_OBS_DEV"))
++      OBS_DEV = std::atof(value);
+ 
+     schur_vins_.reset(new schur_vins::SchurVINS());                                          // init Schur VINS
+     schur_vins_->InitMaxState(WINDOW_SIZE);                                                  // init window size
+@@ -809,6 +814,15 @@ size_t FrameHandlerBase::projectMapInFrame()
+   }
+   VLOG(40) << "Reprojection:" << "\t nPoints = " << cumul_stats_.n_trials << "\t\t nMatches = "
+       << cumul_stats_.n_matches;
++  if (const char* path = std::getenv("SCHUR_FPV_FRONTEND_CSV"))
++  {
++    static std::ofstream out(path);
++    static bool header = (out << "time_s,trials,matches,global_trials,global_matches\n", true);
++    (void)header;
++    out << std::setprecision(17) << new_frames_->getMinTimestampSeconds() << ',' << cumul_stats_.n_trials
++        << ',' << cumul_stats_.n_matches << ',' << cumul_stats_global_map.n_trials
++        << ',' << cumul_stats_global_map.n_matches << '\n';
++  }
+ 
+   size_t n_total_ftrs = cumul_stats_.n_matches +
+       (cumul_stats_global_map.n_matches <= 10? 0 : cumul_stats_global_map.n_matches);
+diff --git a/svo/src/schur_vins.cpp b/svo/src/schur_vins.cpp
+index d4b621b..cc6e75b 100644
+--- a/svo/src/schur_vins.cpp
++++ b/svo/src/schur_vins.cpp
+@@ -19,10 +19,19 @@ with this program. If not, see <https://www.gnu.org/licenses/>.
+ 
+ #include <boost/math/distributions/chi_squared.hpp>
+ #include <sstream>
++#include <fstream>
++#include <iomanip>
++#include <cstdlib>
+ #include <unordered_map>
+ #include <unordered_set>
+ 
+ namespace schur_vins {
++namespace {
++int fpv_solve_obs = 0;
++int fpv_solve_gt4 = 0;
++double fpv_solve_mean = 0;
++double fpv_solve_max = 0;
++}
+ 
+ SchurVINS::SchurVINS() : curr_state(new ImuState()) {
+     // LOG(INFO) << "init begins";
+@@ -246,6 +255,8 @@ void SchurVINS::Solve3() {
+     // compute local points jacobian
+     int num_obs = 0;
+     double total_error = 0.0;
++    int count_gt4 = 0;
++    double max_error = 0.0;
+     schur_pts_.clear();
+     for (svo::LocalPointMap::iterator pit = local_pts.begin(); pit != local_pts.end(); ++pit) {
+         const svo::PointPtr& curr_pt = pit->second;
+@@ -299,6 +310,8 @@ void SchurVINS::Solve3() {
+                 r = (feature->xyz.head<2>() - Pc.head<2>() / Pc.z()) * (focal_length / level_scale);
+             }
+             total_error += r.norm();
++            if (r.norm() > 4.0) ++count_gt4;
++            max_error = std::max(max_error, r.norm());
+             // LOG(INFO) << "kf residual: " << r.transpose();
+ 
+             // huber
+@@ -427,6 +440,10 @@ void SchurVINS::Solve3() {
+ 
+     // LOG(INFO) << "Amtx:\n" << Amtx;
+     // LOG(INFO) << "Bvct:\n" << Bvct;
++    fpv_solve_obs = num_obs;
++    fpv_solve_gt4 = count_gt4;
++    fpv_solve_mean = num_obs ? total_error / num_obs : 0;
++    fpv_solve_max = max_error;
+     StateUpdate(Amtx, Bvct);
+ 
+     // LOG(ERROR) << "total local pts: " << local_pts.size() << " schur pts: " << schur_pts_.size();
+@@ -751,6 +768,13 @@ void SchurVINS::Forward(const svo::FrameBundle::Ptr frame_bundle) {
+ int SchurVINS::Backward(const svo::FrameBundle::Ptr frame_bundle) {
+     AugmentState(frame_bundle);
+     RegisterPoints(frame_bundle);
++    const size_t pre_features = states_map.rbegin()->second->features.size();
++    const Eigen::Vector3d pred_pos = curr_state->pos;
++    const Eigen::Quaterniond pred_quat = curr_state->quat;
++    fpv_solve_obs = 0;
++    fpv_solve_gt4 = 0;
++    fpv_solve_mean = 0;
++    fpv_solve_max = 0;
+ 
+     int idx = 0;
+     std::for_each(states_map.begin(), states_map.end(),
+@@ -790,6 +814,15 @@ int SchurVINS::Backward(const svo::FrameBundle::Ptr frame_bundle) {
+         // LOG(INFO) << "gravity: " << gravity[0] << ", " << gravity[1] << ", " << gravity[2];
+     }
+ 
++    if (const char* path = std::getenv("SCHUR_FPV_BACKEND_CSV")) {
++        static std::ofstream out(path);
++        static bool header = (out << "time_s,pre_features,solve_obs,solve_gt4,solve_mean_px,solve_max_px,valid_after,delta_pos_m,delta_rot_deg\n", true);
++        (void)header;
++        out << std::setprecision(17) << curr_state->ts << ',' << pre_features << ',' << fpv_solve_obs << ','
++            << fpv_solve_gt4 << ',' << fpv_solve_mean << ',' << fpv_solve_max
++            << ',' << num_valid_feature << ',' << (curr_state->pos - pred_pos).norm()
++            << ',' << pred_quat.angularDistance(curr_state->quat) * 180.0 / M_PI << '\n';
++    }
+     return num_valid_feature;
+ }
+ 
