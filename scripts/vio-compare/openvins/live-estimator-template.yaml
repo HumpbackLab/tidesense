@@ -26,9 +26,10 @@ feat_rep_slam: "ANCHORED_MSCKF_INVERSE_DEPTH"
 feat_rep_aruco: "ANCHORED_MSCKF_INVERSE_DEPTH"
 
 # zero velocity update parameters we can use
-# we support either IMU-based or disparity detection.
+# Retain IMU chi-square acceptance even when a few visual tracks jump at rest.
+# OpenVINS accepts disparity OR (IMU chi-square AND velocity); not both required.
 try_zupt: true
-zupt_chi2_multipler: 0 # set to 0 for only disp-based
+zupt_chi2_multipler: 1 # 0 disables IMU acceptance; retain disparity-only detection
 zupt_max_velocity: 0.1
 zupt_noise_multiplier: 10
 zupt_max_disparity: 0.5 # set to 0 for only imu-based
