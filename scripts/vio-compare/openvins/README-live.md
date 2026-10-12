@@ -14,7 +14,7 @@
 
 - OV9281 双目 640×400、20 Hz；SC7U22 IIO 200 Hz，沿用 INT1 中断时间戳与
   每 10 次中断触发一次 FSIN 的内核实现。
-- 复用 SchurVINS 的相机辅助进程和 IIO 读取层；自动曝光上限仍为 2 ms。
+- 复用 SchurVINS 的相机辅助进程和 IIO 读取层；自动曝光上限为 0.5 ms，单帧空间降噪 YNR 默认 192。锐化和跨帧 TNR 关闭，启动日志报告实际 YNR 设置；调参静止结果不代表运动精度已验证。
 - 六面加速度校准从 `/mnt/data/penguin-flight-console/accelerometer-calibration.json`
   加载，在 IMU 输入端应用一次。日志应显示 `six-face accelerometer calibration applied`。
 - SchurVINS 的 `T_B_C` 取逆得到 `T_cam_imu`。右图旋转 180°，其内参、切向畸变

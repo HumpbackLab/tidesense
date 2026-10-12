@@ -3,7 +3,9 @@
 `tidesense_record` 不链接 SchurVINS、OpenVINS、ROS 或 DDS，不运行特征提取和 VIO。
 复用经过板端验证的 CVITEK 双 OV9281 helper 和 SC7U22 IIO 读取代码。
 双目 640×400 mono8 / 20 Hz；IMU 200 Hz，INT1 内核时间戳，10 次中断触发一次 FSIN。
-两颗相机使用现有自动曝光/增益 ISP 配置，曝光上限 2 ms；不旋转或去畸变图像。
+两颗相机使用现有自动曝光/增益 ISP 配置，曝光上限 0.5 ms（500 µs）；不旋转或去畸变图像。
+单帧空间降噪 YNR 强度默认 192，锐化和跨帧 TNR 关闭；启动日志报告 YNR 强度。
+可用 `OV9281_YNR_STRENGTH=64 scripts/dataset/build.sh` 构建原来的强度，对照时保留实际运行日志。
 存储采用可逐字节还原的无损压缩。
 
 ## 编译与部署

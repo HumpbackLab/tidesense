@@ -5,7 +5,13 @@
 #include "cvi_ae.h"
 #include "cvi_awb.h"
 
-#define OV9281_EXPOSURE_MAX_US 2000U
+#define OV9281_EXPOSURE_MAX_US 500U
+#ifndef OV9281_YNR_STRENGTH
+#define OV9281_YNR_STRENGTH 192U
+#endif
+#if OV9281_YNR_STRENGTH < 0 || OV9281_YNR_STRENGTH > 255
+#error "OV9281_YNR_STRENGTH must be in 0..255"
+#endif
 
 /* Covered-lens RAW12 medians, this board at 2 ms / 640x400.
  * Use sensor analog gain (Q10), not total ISO which includes ISP gain. */
@@ -54,7 +60,7 @@ static int ov9281_isp_profile(VI_PIPE pipe, int sharp, int tnr)
  ISP_EXPOSURE_ATTR_S ae;
  ISP_TRY(CVI_ISP_GetExposureAttr(pipe, &ae));
  ae.bByPass = CVI_FALSE;
- /* AE adjusts exposure and gain; cap exposure at 2 ms.
+ /* AE adjusts exposure and gain; cap exposure at 0.5 ms.
   * The sensor quantizes the requested time to whole exposure lines. */
  ae.enOpType = OP_TYPE_AUTO;
  ae.stAuto.u8Compensation = 48;
@@ -91,16 +97,18 @@ static int ov9281_isp_profile(VI_PIPE pipe, int sharp, int tnr)
  blc.stManual.OffsetR = blc.stManual.OffsetGr = ov9281_black_level(pipe, 4096);
  blc.stManual.OffsetGb = blc.stManual.OffsetB = ov9281_black_level(pipe, 4096);
  ISP_TRY(CVI_ISP_SetBlackLevelAttr(pipe, &blc));
- /* SDK defaults enable YNR but set every ISO strength to zero.
-  * 64 reduced wall temporal noise in the board comparison; 128 added little.
-  * Retain the existing edge/coring/filter parameters and avoid temporal NR. */
+ /* At 0.5 ms, the board static comparison found 192 reduced flat-region
+  * temporal noise by about 40-49% while retaining strong edges/corners.
+  * 255 reduced more noise but retained fewer total KLT features.
+  * Keep existing ISO-dependent coring/filter tables; temporal NR stays off.
+  * Build with OV9281_YNR_STRENGTH=64 to restore the previous profile. */
  ISP_YNR_ATTR_S ynr;
  ISP_TRY(CVI_ISP_GetYNRAttr(pipe, &ynr));
  ynr.Enable = CVI_TRUE;
  ynr.enOpType = OP_TYPE_AUTO;
  ynr.TuningMode = YNR_RESULT;
  for (int i = 0; i < ISP_AUTO_ISO_STRENGTH_NUM; ++i)
-  ynr.stAuto.NoiseSuppressStr[i] = 64;
+  ynr.stAuto.NoiseSuppressStr[i] = OV9281_YNR_STRENGTH;
  ISP_TRY(CVI_ISP_SetYNRAttr(pipe, &ynr));
  /* CV181x keeps RGB gamma enabled with its sRGB curve. GammaAttr.Enable
   * controls the additional Y gamma stage, whose SDK SDR curve otherwise

@@ -108,13 +108,20 @@ int main(int argc, char **argv) {
   CHECK(ov9281_isp_profile(p, 0, 0));
   ISP_EXPOSURE_ATTR_S ae;
   CHECK(CVI_ISP_GetExposureAttr(p, &ae));
+  ISP_YNR_ATTR_S ynr;
+  CHECK(CVI_ISP_GetYNRAttr(p, &ynr));
   if (ae.enOpType != OP_TYPE_AUTO ||
       ae.stAuto.stExpTimeRange.u32Max != OV9281_EXPOSURE_MAX_US) {
    fprintf(stderr, "camera: pipe %d AE mode/exposure limit did not apply\n", p);
    goto out;
   }
-  fprintf(stderr, "camera: pipe %d OV9281 mono ISP, auto exposure capped at %u us, auto gain, sharpening/TNR off\n",
-   p, OV9281_EXPOSURE_MAX_US);
+  if (!ynr.Enable || ynr.enOpType != OP_TYPE_AUTO ||
+      ynr.stAuto.NoiseSuppressStr[0] != OV9281_YNR_STRENGTH) {
+   fprintf(stderr, "camera: pipe %d YNR profile did not apply\n", p);
+   goto out;
+  }
+  fprintf(stderr, "camera: pipe %d OV9281 mono ISP, auto exposure capped at %u us, auto gain, spatial YNR %u, sharpening/TNR off\n",
+   p, OV9281_EXPOSURE_MAX_US, ynr.stAuto.NoiseSuppressStr[0]);
  }
  if (prepared) CHECK(fsin("start"));
  int warmup = 4, unmatched = 0;
