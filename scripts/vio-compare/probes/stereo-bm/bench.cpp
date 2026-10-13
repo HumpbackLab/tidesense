@@ -3,6 +3,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <chrono>
+#include <cstdlib>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -55,6 +56,13 @@ int main(int argc, char **argv) try {
   std::ofstream timings(argv[5]);
   if (!timings) throw std::runtime_error("Cannot open timing output");
   timings << "frame,timestamp_ns,read_ms,rectify_ms,bm_ms,depth_ms,process_ms,with_read_ms,valid_fraction\n";
+  // Optional perf time windows; all serialization happens outside frame timers.
+  std::ofstream intervals;
+  if (const char *path = std::getenv("STEREO_BM_INTERVALS")) {
+    intervals.open(path);
+    if (!intervals) throw std::runtime_error("Cannot open perf interval output");
+    intervals << "frame,read_begin_ns,rectify_begin_ns,bm_begin_ns,depth_begin_ns,end_ns\n";
+  }
   cv::Mat rect[2], disparity, depth(h, w, CV_16UC1);
   std::cout << "OpenCV " << CV_VERSION << " threads=" << cv::getNumThreads()
             << " optimized=" << cv::useOptimized() << " size=" << w << "x" << h
@@ -92,6 +100,12 @@ int main(int argc, char **argv) try {
       }
     }
     auto t4 = Clock::now();
+    if (intervals.is_open()) {
+      intervals << n;
+      for (auto time : {t0, t1, t2, t3, t4})
+        intervals << ',' << std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count();
+      intervals << '\n';
+    }
     timings << n << ',' << s.substr(0,c1) << ',' << ms(t0,t1) << ',' << ms(t1,t2)
             << ',' << ms(t2,t3) << ',' << ms(t3,t4) << ',' << ms(t1,t4)
             << ',' << ms(t0,t4) << ',' << double(count)/(w*h) << '\n';

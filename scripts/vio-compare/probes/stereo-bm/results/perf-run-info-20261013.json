@@ -1,0 +1,154 @@
+{
+  "board": "TideSense SG2002 A53",
+  "clock_hz": 1000000000,
+  "dataset": "dataset-20261012-084638",
+  "frames_per_run": 885,
+  "warmup_excluded": 20,
+  "events": [
+    "cycles:u",
+    "L1-dcache-load-misses:u"
+  ],
+  "sampling_hz_per_event": 499,
+  "clock": "CLOCK_MONOTONIC",
+  "callgraph": false,
+  "method": "Period-weighted self samples; compute excludes PGM reads and output; code-region percentages use BM phase denominator. Instruction samples can skid.",
+  "runtime": "OpenCV 3.4.20 NEON, GCC 11.3 static -O3 -mcpu=cortex-a53, no VIO/ROS/IVE/TPU",
+  "regions": {
+    "difference_vector_loop": [
+      [
+        "0x408b30",
+        "0x408b90"
+      ]
+    ],
+    "difference_update_and_texture": [
+      [
+        "0x408b30",
+        "0x408ed4"
+      ]
+    ],
+    "SAD_and_minimum_vector_loop": [
+      [
+        "0x4093c0",
+        "0x409424"
+      ]
+    ],
+    "uniqueness_setup_and_vector_loop": [
+      [
+        "0x4095cc",
+        "0x409680"
+      ],
+      [
+        "0x409714",
+        "0x40978c"
+      ]
+    ]
+  },
+  "hashes": {
+    "install/stereo-bm-a53/perf-20261013/stereo_bm": "0febe02e5da6baa55f9528f3beedab22012145a98583fd5c7434cd50b00c92fc",
+    "install/stereo-bm-a53/perf-20261013/stereo_bm.sym": "9b2ea24abf9845bab843334be6e6b5710861bed7b0a59f717f47daf0b619f751",
+    "scripts/vio-compare/probes/stereo-bm/bench.cpp": "9023c7d5831d224a7a71090a58c40d2a1c15e12a8709a5a6d2b2bbf62188db35",
+    "scripts/vio-compare/probes/stereo-bm/profile-board.sh": "c43f01dbb8649071b02ac98f82324fd4225b085f414b933579b3278bad927c1c"
+  },
+  "runs": {
+    "320x200-32-15": {
+      "stage_mean_ms": {
+        "read_ms": 54.96832289017341,
+        "rectify_ms": 8.379619676300578,
+        "bm_ms": 27.163313641618497,
+        "depth_ms": 0.9506189132947976,
+        "process_ms": 36.493550751445085
+      },
+      "regions": {
+        "L1-dcache-load-misses": {
+          "difference_vector_loop": {
+            "period": 158877005,
+            "percent_of_BM": 61.75089074171397
+          },
+          "difference_update_and_texture": {
+            "period": 167395207,
+            "percent_of_BM": 65.06166917071224
+          },
+          "SAD_and_minimum_vector_loop": {
+            "period": 57795422,
+            "percent_of_BM": 22.463406767349696
+          },
+          "uniqueness_setup_and_vector_loop": {
+            "period": 2264268,
+            "percent_of_BM": 0.880055398060652
+          }
+        },
+        "cycles": {
+          "difference_vector_loop": {
+            "period": 6804684222,
+            "percent_of_BM": 30.485729623307314
+          },
+          "difference_update_and_texture": {
+            "period": 7772487615,
+            "percent_of_BM": 34.82159468404421
+          },
+          "SAD_and_minimum_vector_loop": {
+            "period": 4321592235,
+            "percent_of_BM": 19.361205916425604
+          },
+          "uniqueness_setup_and_vector_loop": {
+            "period": 3618376165,
+            "percent_of_BM": 16.21072100377175
+          }
+        }
+      },
+      "output_check": "All 885 timestamps/valid_fraction values identical to the no-perf baseline; frames 150/400/600 depth PNG files byte-identical",
+      "lost_events": 0,
+      "decode_warnings": ""
+    },
+    "640x400-64-15": {
+      "stage_mean_ms": {
+        "read_ms": 55.30421341040462,
+        "rectify_ms": 28.51892,
+        "bm_ms": 231.0431768786127,
+        "depth_ms": 2.819779329479769,
+        "process_ms": 262.38188554913296
+      },
+      "regions": {
+        "L1-dcache-load-misses": {
+          "difference_vector_loop": {
+            "period": 882091565,
+            "percent_of_BM": 67.89211745629353
+          },
+          "difference_update_and_texture": {
+            "period": 964110405,
+            "percent_of_BM": 74.20487787692963
+          },
+          "SAD_and_minimum_vector_loop": {
+            "period": 242644148,
+            "percent_of_BM": 18.6756405454328
+          },
+          "uniqueness_setup_and_vector_loop": {
+            "period": 12124482,
+            "percent_of_BM": 0.9331874248686606
+          }
+        },
+        "cycles": {
+          "difference_vector_loop": {
+            "period": 101192494212,
+            "percent_of_BM": 52.50653338821942
+          },
+          "difference_update_and_texture": {
+            "period": 111791454013,
+            "percent_of_BM": 58.006097768021085
+          },
+          "SAD_and_minimum_vector_loop": {
+            "period": 34819777931,
+            "percent_of_BM": 18.067207916371633
+          },
+          "uniqueness_setup_and_vector_loop": {
+            "period": 19979009776,
+            "percent_of_BM": 10.366663575555055
+          }
+        }
+      },
+      "output_check": "All 885 timestamps/valid_fraction values identical to the no-perf baseline; frames 150/400/600 depth PNG files byte-identical",
+      "lost_events": 0,
+      "decode_warnings": ""
+    }
+  }
+}

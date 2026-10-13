@@ -12,4 +12,5 @@ mkdir -p "$out"
   -lopencv_calib3d -lopencv_features2d -lopencv_flann -lopencv_imgcodecs \
   -lopencv_imgproc -lopencv_core -llibjpeg-turbo -llibpng -lzlib -ltegra_hal \
   -Wl,--end-group -ldl -lm -lpthread -lrt
+cp "$out/stereo_bm" "$out/stereo_bm.sym"
 "${cross%g++}strip" "$out/stereo_bm"

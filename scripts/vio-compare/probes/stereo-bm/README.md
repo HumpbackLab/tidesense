@@ -92,6 +92,55 @@ PY
 The analysis excludes the first 20 warmup frames and writes `results.json`.
 The experiment report and all board artifacts are in `install/stereo-bm-a53`.
 
+## Hardware perf sampling
+
+`build.sh` also retains `stereo_bm.sym`, the exact unstripped ELF from the same
+link. Keep it with the stripped executable: these static binaries have no GNU
+build ID. Building to a separate directory preserves the original benchmark.
+
+```sh
+bash scripts/vio-compare/probes/stereo-bm/build.sh \
+  install/stereo-bm-a53/perf-20261013
+```
+
+Copy that executable and `profile-board.sh` into
+`/mnt/data/stereo-bm-bench-20261012/perf-20261013/`, then run on the board:
+
+```sh
+sh /mnt/data/stereo-bm-bench-20261012/perf-20261013/profile-board.sh \
+  > /mnt/data/stereo-bm-bench-20261012/perf-20261013/board-profile.log 2>&1
+```
+
+This records user-only `cycles` and `L1-dcache-load-misses` at 499 Hz per event,
+with the monotonic clock. It runs 885 frames at 320x200/D32 and 640x400/D64.
+`STEREO_BM_INTERVALS` enables a separate CSV with the read/rectify/BM/depth stage
+boundaries; the serialization is outside frame timers. The algorithm and all
+matcher settings remain identical. Traces and diagnostic outputs go to tmpfs
+during sampling and are copied to SD afterward.
+
+On the host, create a symfs entry for the exact board executable path pointing
+to the unstripped ELF. Use a working host perf, e.g.
+`/usr/lib/linux-tools/5.15.0-198-generic/perf`, to decode:
+
+```sh
+perf script --ns -F time,period,event,ip,sym,dso \
+  -i 320x200-32-15-perf.data --symfs SYMFS > samples.txt
+python3 scripts/vio-compare/probes/stereo-bm/analyze-perf.py \
+  samples.txt 320x200-32-15-intervals.csv summary.json
+```
+
+`analyze-perf.py` excludes the first 20 frames, separates stage intervals and
+weights samples by their periods. It reports self costs, not inclusive costs.
+Check decoder warnings, unresolved symbols and LOST events before interpreting
+the report. For assembly annotation, use `perf annotate --stdio --no-source`
+with `--objdump` pointing to the AArch64 cross objdump.
+
+The 2026-10-13 findings, raw traces, interval CSVs and instruction annotations
+are in `install/stereo-bm-a53/perf-20261013/README.md`. Hardware sampling is not
+precise instruction tracing: an event can be attributed to a nearby instruction.
+Cache-refill event percentages do not measure the percentage of stall time.
+
 ## Recorded results
 
 - [Baseline measurements](results/baseline-20261012.md), with [statistics](results/baseline-20261012.json).
+- [Hardware perf findings](results/perf-20261013.md), with [320x200 rankings](results/perf-320x200-20261013.json), [640x400 rankings](results/perf-640x400-20261013.json) and [sampling provenance](results/perf-run-info-20261013.json).

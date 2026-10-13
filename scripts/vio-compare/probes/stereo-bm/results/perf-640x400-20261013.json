@@ -1,0 +1,1534 @@
+{
+  "method": "user-only PMU samples, 499 Hz/event, CLOCK_MONOTONIC stage windows, first 20 frames excluded; percentages use sample periods, self costs only",
+  "measured_frames": 865,
+  "events": {
+    "L1-dcache-load-misses": {
+      "total_samples": 113556,
+      "compute_period": 1391415565,
+      "compute_functions": [
+        {
+          "symbol": "cv::findStereoCorrespondenceBM_SIMD<short>",
+          "period": 1268880549,
+          "percent": 91.19349969324226
+        },
+        {
+          "symbol": "cv::remapBilinear<cv::FixedPtCast<int, unsigned char, 15>, cv::RemapVec_8u, short>",
+          "period": 73549872,
+          "percent": 5.285974503239081
+        },
+        {
+          "symbol": "cv::filterSpecklesImpl<short>",
+          "period": 16517795,
+          "percent": 1.187121620275967
+        },
+        {
+          "symbol": "cv::RemapInvoker::operator()",
+          "period": 12762248,
+          "percent": 0.9172132554087103
+        },
+        {
+          "symbol": "cv::prefilterXSobel",
+          "period": 7094984,
+          "percent": 0.5099112140520003
+        },
+        {
+          "symbol": "cv::validateDisparity",
+          "period": 4994888,
+          "percent": 0.35897887918193583
+        },
+        {
+          "symbol": "main",
+          "period": 3874070,
+          "percent": 0.27842652457319605
+        },
+        {
+          "symbol": "cv::Mat::Mat",
+          "period": 910834,
+          "percent": 0.06546096097466036
+        },
+        {
+          "symbol": "cv::NAryMatIterator::operator++",
+          "period": 690197,
+          "percent": 0.04960394416746373
+        },
+        {
+          "symbol": "__aarch64_ldadd4_acq_rel",
+          "period": 554386,
+          "percent": 0.03984330878172978
+        },
+        {
+          "symbol": "__memcpy_generic",
+          "period": 399365,
+          "percent": 0.028702065008163108
+        },
+        {
+          "symbol": "cv::Mat::operator=",
+          "period": 257250,
+          "percent": 0.01848836583914454
+        },
+        {
+          "symbol": "cv::Mat::~Mat",
+          "period": 202534,
+          "percent": 0.014555967684607582
+        },
+        {
+          "symbol": "cv::borderInterpolate",
+          "period": 102799,
+          "percent": 0.0073880875409065875
+        },
+        {
+          "symbol": "_int_free",
+          "period": 91242,
+          "percent": 0.006557494561303115
+        },
+        {
+          "symbol": "cv::Mat::release",
+          "period": 91223,
+          "percent": 0.006556129045458824
+        },
+        {
+          "symbol": "__memset_generic",
+          "period": 54005,
+          "percent": 0.003881299114258507
+        },
+        {
+          "symbol": "cv::utils::trace::details::Region::Region",
+          "period": 47993,
+          "percent": 0.003449221153422989
+        },
+        {
+          "symbol": "_int_malloc",
+          "period": 45724,
+          "percent": 0.0032861498139127115
+        },
+        {
+          "symbol": "malloc",
+          "period": 40699,
+          "percent": 0.0029250068077253397
+        },
+        {
+          "symbol": "__lrint",
+          "period": 28998,
+          "percent": 0.0020840646554072433
+        },
+        {
+          "symbol": "cv::FindStereoCorrespInvoker::operator()",
+          "period": 28097,
+          "percent": 0.002019310456685886
+        },
+        {
+          "symbol": "cv::updateContinuityFlag",
+          "period": 21505,
+          "percent": 0.0015455483279720246
+        },
+        {
+          "symbol": "cv::fastFree",
+          "period": 20689,
+          "percent": 0.0014869030159224933
+        },
+        {
+          "symbol": "cv::StereoBMImpl::compute",
+          "period": 14396,
+          "percent": 0.0010346297944424676
+        },
+        {
+          "symbol": "cv::PrefilterInvoker::operator()",
+          "period": 14226,
+          "percent": 0.0010224120210988153
+        },
+        {
+          "symbol": "cv::parallel_for_",
+          "period": 13843,
+          "percent": 0.0009948860964481162
+        },
+        {
+          "symbol": "cv::scalarToRawData",
+          "period": 13789,
+          "percent": 0.0009910051566801325
+        },
+        {
+          "symbol": "cv::utils::BufferArea::~BufferArea",
+          "period": 13522,
+          "percent": 0.000971816065605102
+        },
+        {
+          "symbol": "cv::NAryMatIterator::init",
+          "period": 13344,
+          "percent": 0.0009590233382217483
+        },
+        {
+          "symbol": "cv::NAryMatIterator::NAryMatIterator",
+          "period": 13202,
+          "percent": 0.0009488179040170505
+        },
+        {
+          "symbol": "__clock_gettime",
+          "period": 10112,
+          "percent": 0.000726741906182428
+        },
+        {
+          "symbol": "cv::Mat::empty",
+          "period": 9754,
+          "percent": 0.0007010127129057954
+        },
+        {
+          "symbol": "cv::initInterTab2D",
+          "period": 9050,
+          "percent": 0.000650416757412082
+        },
+        {
+          "symbol": "free",
+          "period": 7139,
+          "percent": 0.0005130746111784368
+        },
+        {
+          "symbol": "cv::ParallelLoopBody::~ParallelLoopBody",
+          "period": 7114,
+          "percent": 0.0005112778798043703
+        },
+        {
+          "symbol": "operator delete",
+          "period": 7113,
+          "percent": 0.0005112060105494076
+        },
+        {
+          "symbol": "_init",
+          "period": 7015,
+          "percent": 0.0005041628235630669
+        }
+      ],
+      "stages": {
+        "read": {
+          "samples": 203,
+          "period": 2153478,
+          "percent_of_compute": null,
+          "functions": [
+            {
+              "symbol": "__memcpy_generic",
+              "period": 960872,
+              "percent": 44.61954104012207
+            },
+            {
+              "symbol": "cv::PxMDecoder::readData",
+              "period": 122543,
+              "percent": 5.690469092324138
+            },
+            {
+              "symbol": "_int_malloc",
+              "period": 98553,
+              "percent": 4.576457247299484
+            },
+            {
+              "symbol": "_IO_new_file_seekoff",
+              "period": 73971,
+              "percent": 3.434954989092064
+            },
+            {
+              "symbol": "cv::RLByteStream::getBytes",
+              "period": 72883,
+              "percent": 3.3844320675669777
+            },
+            {
+              "symbol": "cv::Mat::create",
+              "period": 51718,
+              "percent": 2.4016033597742816
+            },
+            {
+              "symbol": "cv::RBaseStream::readBlock",
+              "period": 41294,
+              "percent": 1.9175491925155492
+            },
+            {
+              "symbol": "_int_free",
+              "period": 41160,
+              "percent": 1.9113267003424228
+            },
+            {
+              "symbol": "__aarch64_ldadd4_acq_rel",
+              "period": 40909,
+              "percent": 1.8996711366449994
+            },
+            {
+              "symbol": "_IO_fread",
+              "period": 37478,
+              "percent": 1.7403474751077095
+            },
+            {
+              "symbol": "__aarch64_swp4_rel",
+              "period": 35456,
+              "percent": 1.6464528544057566
+            },
+            {
+              "symbol": "__aarch64_cas4_acq",
+              "period": 35235,
+              "percent": 1.6361903859709734
+            },
+            {
+              "symbol": "__libc_open64",
+              "period": 29199,
+              "percent": 1.3558996191277553
+            },
+            {
+              "symbol": "std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_mutate",
+              "period": 25064,
+              "percent": 1.163884655427174
+            },
+            {
+              "symbol": "cv::imread_",
+              "period": 24371,
+              "percent": 1.1317041548601843
+            },
+            {
+              "symbol": "cv::findDecoder",
+              "period": 23117,
+              "percent": 1.0734727728818219
+            },
+            {
+              "symbol": "free",
+              "period": 22895,
+              "percent": 1.063163867938284
+            },
+            {
+              "symbol": "_IO_file_xsgetn",
+              "period": 22574,
+              "percent": 1.0482577486280333
+            },
+            {
+              "symbol": "malloc",
+              "period": 22515,
+              "percent": 1.0455179946115076
+            },
+            {
+              "symbol": "__libc_read",
+              "period": 21924,
+              "percent": 1.0180740179374945
+            },
+            {
+              "symbol": "memcmp",
+              "period": 21499,
+              "percent": 0.9983385017167578
+            },
+            {
+              "symbol": "_IO_file_open",
+              "period": 19985,
+              "percent": 0.9280336274621798
+            },
+            {
+              "symbol": "_IO_un_link.part.0",
+              "period": 19933,
+              "percent": 0.9256189290069367
+            },
+            {
+              "symbol": "_IO_link_in",
+              "period": 19795,
+              "percent": 0.9192106907987916
+            },
+            {
+              "symbol": "[unknown]",
+              "period": 19595,
+              "percent": 0.9099233890478565
+            },
+            {
+              "symbol": "_IO_seekoff_unlocked",
+              "period": 19506,
+              "percent": 0.9057905397686905
+            },
+            {
+              "symbol": "cv::Mat::Mat",
+              "period": 13383,
+              "percent": 0.6214597966638155
+            },
+            {
+              "symbol": "strstr",
+              "period": 12926,
+              "percent": 0.600238312162929
+            },
+            {
+              "symbol": "cv::updateContinuityFlag",
+              "period": 12772,
+              "percent": 0.593087089814709
+            },
+            {
+              "symbol": "cv::fastMalloc",
+              "period": 12724,
+              "percent": 0.5908581373944847
+            },
+            {
+              "symbol": "cv::PxMDecoder::newDecoder",
+              "period": 12410,
+              "percent": 0.5762770736455167
+            },
+            {
+              "symbol": "_IO_new_file_close_it",
+              "period": 12379,
+              "percent": 0.5748375418741217
+            },
+            {
+              "symbol": "cv::BaseImageDecoder::setScale",
+              "period": 12373,
+              "percent": 0.5745589228215937
+            },
+            {
+              "symbol": "__fopen_internal",
+              "period": 12059,
+              "percent": 0.5599778590726258
+            },
+            {
+              "symbol": "cv::Mat::getDefaultAllocator",
+              "period": 12015,
+              "percent": 0.55793465268742
+            },
+            {
+              "symbol": "strchr",
+              "period": 11838,
+              "percent": 0.5497153906378426
+            },
+            {
+              "symbol": "_IO_no_init",
+              "period": 10508,
+              "percent": 0.48795483399412487
+            },
+            {
+              "symbol": "cv::HdrDecoder::checkSignature",
+              "period": 10190,
+              "percent": 0.4731880242101382
+            },
+            {
+              "symbol": "cv::PxMDecoder::~PxMDecoder",
+              "period": 10073,
+              "percent": 0.4677549526858412
+            },
+            {
+              "symbol": "cv::utils::trace::details::Region::Region",
+              "period": 9780,
+              "percent": 0.45414905562072144
+            },
+            {
+              "symbol": "cv::RBaseStream::RBaseStream",
+              "period": 9277,
+              "percent": 0.43079149171711995
+            },
+            {
+              "symbol": "_IO_new_fclose",
+              "period": 9273,
+              "percent": 0.43060574568210125
+            },
+            {
+              "symbol": "cv::ExifReader::getTag",
+              "period": 9255,
+              "percent": 0.4297698885245171
+            },
+            {
+              "symbol": "cv::imread",
+              "period": 9160,
+              "percent": 0.42535842019282294
+            },
+            {
+              "symbol": "_init",
+              "period": 9127,
+              "percent": 0.4238260154039187
+            },
+            {
+              "symbol": "fseek",
+              "period": 9041,
+              "percent": 0.4198324756510166
+            },
+            {
+              "symbol": "main",
+              "period": 8871,
+              "percent": 0.41193826916272186
+            }
+          ]
+        },
+        "rectify": {
+          "samples": 11742,
+          "period": 88276627,
+          "percent_of_compute": 6.344375413106723,
+          "functions": [
+            {
+              "symbol": "cv::remapBilinear<cv::FixedPtCast<int, unsigned char, 15>, cv::RemapVec_8u, short>",
+              "period": 73549872,
+              "percent": 83.31749240940074
+            },
+            {
+              "symbol": "cv::RemapInvoker::operator()",
+              "period": 12762248,
+              "percent": 14.457108788263964
+            },
+            {
+              "symbol": "cv::Mat::Mat",
+              "period": 889827,
+              "percent": 1.007998413894994
+            },
+            {
+              "symbol": "__aarch64_ldadd4_acq_rel",
+              "period": 492087,
+              "percent": 0.5574374743611352
+            },
+            {
+              "symbol": "cv::Mat::~Mat",
+              "period": 188922,
+              "percent": 0.2140113486665049
+            },
+            {
+              "symbol": "cv::borderInterpolate",
+              "period": 102799,
+              "percent": 0.11645098311243814
+            },
+            {
+              "symbol": "cv::Mat::release",
+              "period": 91223,
+              "percent": 0.1033376592424629
+            },
+            {
+              "symbol": "_int_free",
+              "period": 57773,
+              "percent": 0.06544540946268824
+            },
+            {
+              "symbol": "_int_malloc",
+              "period": 31680,
+              "percent": 0.035887189029096
+            },
+            {
+              "symbol": "__lrint",
+              "period": 28998,
+              "percent": 0.032849012230610035
+            },
+            {
+              "symbol": "cv::updateContinuityFlag",
+              "period": 21505,
+              "percent": 0.02436092171940371
+            },
+            {
+              "symbol": "cv::parallel_for_",
+              "period": 13843,
+              "percent": 0.015681387554601516
+            },
+            {
+              "symbol": "malloc",
+              "period": 12168,
+              "percent": 0.013783943058902784
+            },
+            {
+              "symbol": "cv::Mat::empty",
+              "period": 9754,
+              "percent": 0.011049357379728612
+            },
+            {
+              "symbol": "cv::initInterTab2D",
+              "period": 9050,
+              "percent": 0.010251864290193145
+            },
+            {
+              "symbol": "cv::utils::trace::details::Region::Region",
+              "period": 7739,
+              "percent": 0.008766759971470138
+            },
+            {
+              "symbol": "free",
+              "period": 7139,
+              "percent": 0.008087078361070593
+            }
+          ]
+        },
+        "bm": {
+          "samples": 98763,
+          "period": 1299254756,
+          "percent_of_compute": 93.3764713204139,
+          "functions": [
+            {
+              "symbol": "cv::findStereoCorrespondenceBM_SIMD<short>",
+              "period": 1268880549,
+              "percent": 97.66218235032576
+            },
+            {
+              "symbol": "cv::filterSpecklesImpl<short>",
+              "period": 16517795,
+              "percent": 1.271328422984045
+            },
+            {
+              "symbol": "cv::prefilterXSobel",
+              "period": 7094984,
+              "percent": 0.5460810489424909
+            },
+            {
+              "symbol": "cv::validateDisparity",
+              "period": 4994888,
+              "percent": 0.3844425411516446
+            },
+            {
+              "symbol": "cv::NAryMatIterator::operator++",
+              "period": 690197,
+              "percent": 0.0531225301899145
+            },
+            {
+              "symbol": "__memcpy_generic",
+              "period": 399365,
+              "percent": 0.0307380056263577
+            },
+            {
+              "symbol": "cv::Mat::operator=",
+              "period": 257250,
+              "percent": 0.0197998120701126
+            },
+            {
+              "symbol": "__aarch64_ldadd4_acq_rel",
+              "period": 62299,
+              "percent": 0.004794979561344781
+            },
+            {
+              "symbol": "__memset_generic",
+              "period": 54005,
+              "percent": 0.004156613608732482
+            },
+            {
+              "symbol": "cv::utils::trace::details::Region::Region",
+              "period": 40254,
+              "percent": 0.003098237648475462
+            },
+            {
+              "symbol": "_int_free",
+              "period": 33469,
+              "percent": 0.002576015199901258
+            },
+            {
+              "symbol": "malloc",
+              "period": 28531,
+              "percent": 0.00219595116879449
+            },
+            {
+              "symbol": "cv::FindStereoCorrespInvoker::operator()",
+              "period": 28097,
+              "percent": 0.00216254740421362
+            },
+            {
+              "symbol": "cv::Mat::Mat",
+              "period": 21007,
+              "percent": 0.0016168499597934126
+            },
+            {
+              "symbol": "cv::fastFree",
+              "period": 20689,
+              "percent": 0.001592374390353973
+            },
+            {
+              "symbol": "cv::StereoBMImpl::compute",
+              "period": 14396,
+              "percent": 0.0011080198039313547
+            },
+            {
+              "symbol": "cv::PrefilterInvoker::operator()",
+              "period": 14226,
+              "percent": 0.001094935380017189
+            },
+            {
+              "symbol": "_int_malloc",
+              "period": 14044,
+              "percent": 0.001080927349709082
+            },
+            {
+              "symbol": "cv::scalarToRawData",
+              "period": 13789,
+              "percent": 0.0010613007138378333
+            },
+            {
+              "symbol": "cv::Mat::~Mat",
+              "period": 13612,
+              "percent": 0.001047677519527202
+            },
+            {
+              "symbol": "cv::utils::BufferArea::~BufferArea",
+              "period": 13522,
+              "percent": 0.0010407504715726436
+            },
+            {
+              "symbol": "cv::NAryMatIterator::init",
+              "period": 13344,
+              "percent": 0.0010270503100625172
+            },
+            {
+              "symbol": "cv::NAryMatIterator::NAryMatIterator",
+              "period": 13202,
+              "percent": 0.0010161209677342139
+            },
+            {
+              "symbol": "cv::ParallelLoopBody::~ParallelLoopBody",
+              "period": 7114,
+              "percent": 0.0005475446572080896
+            },
+            {
+              "symbol": "operator delete",
+              "period": 7113,
+              "percent": 0.0005474676900085945
+            },
+            {
+              "symbol": "_init",
+              "period": 7015,
+              "percent": 0.0005399249044580754
+            }
+          ]
+        },
+        "depth": {
+          "samples": 366,
+          "period": 3884182,
+          "percent_of_compute": 0.2791532664793785,
+          "functions": [
+            {
+              "symbol": "main",
+              "period": 3874070,
+              "percent": 99.73966204467247
+            },
+            {
+              "symbol": "__clock_gettime",
+              "period": 10112,
+              "percent": 0.260337955327531
+            }
+          ]
+        }
+      }
+    },
+    "cycles": {
+      "total_samples": 116545,
+      "compute_period": 218814932907,
+      "compute_functions": [
+        {
+          "symbol": "cv::findStereoCorrespondenceBM_SIMD<short>",
+          "period": 182103680405,
+          "percent": 83.22269325302268
+        },
+        {
+          "symbol": "cv::remapBilinear<cv::FixedPtCast<int, unsigned char, 15>, cv::RemapVec_8u, short>",
+          "period": 20507508774,
+          "percent": 9.372079181961514
+        },
+        {
+          "symbol": "cv::filterSpecklesImpl<short>",
+          "period": 4722139168,
+          "percent": 2.158051603364286
+        },
+        {
+          "symbol": "cv::validateDisparity",
+          "period": 3619541701,
+          "percent": 1.6541566212660475
+        },
+        {
+          "symbol": "main",
+          "period": 2375429379,
+          "percent": 1.0855883314003971
+        },
+        {
+          "symbol": "cv::RemapInvoker::operator()",
+          "period": 2242920953,
+          "percent": 1.0250310265402585
+        },
+        {
+          "symbol": "cv::prefilterXSobel",
+          "period": 1889418513,
+          "percent": 0.8634778659293031
+        },
+        {
+          "symbol": "__aarch64_ldadd4_acq_rel",
+          "period": 447195086,
+          "percent": 0.2043713745030671
+        },
+        {
+          "symbol": "__memset_generic",
+          "period": 245707169,
+          "percent": 0.1122899455424414
+        },
+        {
+          "symbol": "cv::Mat::Mat",
+          "period": 226804281,
+          "percent": 0.10365118960889
+        },
+        {
+          "symbol": "cv::updateContinuityFlag",
+          "period": 85514849,
+          "percent": 0.03908090177572352
+        },
+        {
+          "symbol": "cv::Mat::release",
+          "period": 68374697,
+          "percent": 0.031247728887434018
+        },
+        {
+          "symbol": "cv::Mat::~Mat",
+          "period": 63038954,
+          "percent": 0.028809255914354168
+        },
+        {
+          "symbol": "__memcpy_generic",
+          "period": 40649573,
+          "percent": 0.018577147573962307
+        },
+        {
+          "symbol": "cv::NAryMatIterator::operator++",
+          "period": 29040716,
+          "percent": 0.01327181633090041
+        },
+        {
+          "symbol": "cv::borderInterpolate",
+          "period": 28431462,
+          "percent": 0.012993382865731493
+        },
+        {
+          "symbol": "_int_free",
+          "period": 13480832,
+          "percent": 0.006160837297941443
+        },
+        {
+          "symbol": "cv::Mat::operator=",
+          "period": 11484916,
+          "percent": 0.005248689313576821
+        },
+        {
+          "symbol": "cv::StereoBMImpl::compute",
+          "period": 9686141,
+          "percent": 0.004426636185802169
+        },
+        {
+          "symbol": "_int_malloc",
+          "period": 9572700,
+          "percent": 0.004374792831926401
+        },
+        {
+          "symbol": "cv::FindStereoCorrespInvoker::operator()",
+          "period": 7752105,
+          "percent": 0.003542767807028405
+        },
+        {
+          "symbol": "cv::utils::trace::details::Region::Region",
+          "period": 7587003,
+          "percent": 0.0034673150041476387
+        },
+        {
+          "symbol": "cv::remap",
+          "period": 7457366,
+          "percent": 0.0034080699616463126
+        },
+        {
+          "symbol": "malloc",
+          "period": 5825387,
+          "percent": 0.002662243806950729
+        },
+        {
+          "symbol": "__lrint",
+          "period": 3998614,
+          "percent": 0.0018273953915656559
+        },
+        {
+          "symbol": "cv::fastFree",
+          "period": 3940271,
+          "percent": 0.0018007322204443336
+        },
+        {
+          "symbol": "cv::initInterTab2D",
+          "period": 3928477,
+          "percent": 0.001795342277517078
+        },
+        {
+          "symbol": "cv::Mat::create",
+          "period": 3888804,
+          "percent": 0.001777211430836307
+        },
+        {
+          "symbol": "cv::NAryMatIterator::init",
+          "period": 3882016,
+          "percent": 0.0017741092659566895
+        },
+        {
+          "symbol": "cv::Mat::deallocate",
+          "period": 1954375,
+          "percent": 0.0008931634482325948
+        },
+        {
+          "symbol": "cv::PrefilterInvoker::operator()",
+          "period": 1950243,
+          "percent": 0.0008912750944785317
+        },
+        {
+          "symbol": "operator delete",
+          "period": 1950001,
+          "percent": 0.0008911644987359172
+        },
+        {
+          "symbol": "__clock_gettime",
+          "period": 1947901,
+          "percent": 0.0008902047836140555
+        },
+        {
+          "symbol": "cv::_InputArray::empty",
+          "period": 1947473,
+          "percent": 0.000890009184532076
+        },
+        {
+          "symbol": "cv::utils::BufferArea::allocate_",
+          "period": 1946153,
+          "percent": 0.0008894059350269058
+        },
+        {
+          "symbol": "_init",
+          "period": 1945942,
+          "percent": 0.0008893095065075188
+        },
+        {
+          "symbol": "std::chrono::_V2::steady_clock::now",
+          "period": 1945445,
+          "percent": 0.0008890823739286782
+        },
+        {
+          "symbol": "cv::utils::BufferArea::~BufferArea",
+          "period": 1945322,
+          "percent": 0.0008890261620429691
+        },
+        {
+          "symbol": "[unknown]",
+          "period": 1943180,
+          "percent": 0.0008880472526186702
+        },
+        {
+          "symbol": "cv::utils::BufferArea::commit",
+          "period": 1920144,
+          "percent": 0.0008775196347390483
+        },
+        {
+          "symbol": "cv::parallel_for_",
+          "period": 1906137,
+          "percent": 0.0008711183348762308
+        },
+        {
+          "symbol": "cv::Mat::getDefaultAllocator",
+          "period": 1888685,
+          "percent": 0.0008631426452063593
+        },
+        {
+          "symbol": "cv::fastMalloc",
+          "period": 1861594,
+          "percent": 0.0008507618631271425
+        }
+      ],
+      "stages": {
+        "read": {
+          "samples": 296,
+          "period": 574658367,
+          "percent_of_compute": null,
+          "functions": [
+            {
+              "symbol": "__memcpy_generic",
+              "period": 264077955,
+              "percent": 45.95390412195982
+            },
+            {
+              "symbol": "cv::RLByteStream::getBytes",
+              "period": 31100520,
+              "percent": 5.412001597115874
+            },
+            {
+              "symbol": "cv::PxMDecoder::readData",
+              "period": 31099880,
+              "percent": 5.411890226597884
+            },
+            {
+              "symbol": "_int_malloc",
+              "period": 19446311,
+              "percent": 3.383977701659393
+            },
+            {
+              "symbol": "_IO_new_file_seekoff",
+              "period": 13613288,
+              "percent": 2.368935837664398
+            },
+            {
+              "symbol": "_int_free",
+              "period": 11674719,
+              "percent": 2.0315929725251873
+            },
+            {
+              "symbol": "malloc",
+              "period": 11634224,
+              "percent": 2.024546177015813
+            },
+            {
+              "symbol": "cv::findDecoder",
+              "period": 9724204,
+              "percent": 1.6921713070611222
+            },
+            {
+              "symbol": "cv::imread_",
+              "period": 9722825,
+              "percent": 1.691931338398141
+            },
+            {
+              "symbol": "cv::Mat::Mat",
+              "period": 9612601,
+              "percent": 1.6727505509373364
+            },
+            {
+              "symbol": "fseek",
+              "period": 7777417,
+              "percent": 1.3533983748643479
+            },
+            {
+              "symbol": "[unknown]",
+              "period": 7653882,
+              "percent": 1.3319012546457885
+            },
+            {
+              "symbol": "cv::PxMDecoder::readHeader",
+              "period": 5836971,
+              "percent": 1.015728880877845
+            },
+            {
+              "symbol": "cv::String::allocate",
+              "period": 5835498,
+              "percent": 1.015472554670034
+            },
+            {
+              "symbol": "_IO_file_xsgetn",
+              "period": 5834060,
+              "percent": 1.0152223190374257
+            },
+            {
+              "symbol": "_IO_sgetn",
+              "period": 5829267,
+              "percent": 1.014388258267542
+            },
+            {
+              "symbol": "cv::FillGrayPalette",
+              "period": 5827858,
+              "percent": 1.01414306911153
+            },
+            {
+              "symbol": "_IO_doallocbuf",
+              "period": 5826521,
+              "percent": 1.0139104091387918
+            },
+            {
+              "symbol": "_IO_fread",
+              "period": 5779838,
+              "percent": 1.005786799933603
+            },
+            {
+              "symbol": "cv::RBaseStream::readBlock",
+              "period": 5748028,
+              "percent": 1.000251337156638
+            },
+            {
+              "symbol": "strstr",
+              "period": 3894569,
+              "percent": 0.6777190107457358
+            },
+            {
+              "symbol": "_init",
+              "period": 3893897,
+              "percent": 0.6776020717018465
+            },
+            {
+              "symbol": "_IO_new_file_underflow",
+              "period": 3892949,
+              "percent": 0.677437104122074
+            },
+            {
+              "symbol": "free",
+              "period": 3892339,
+              "percent": 0.6773309540971149
+            },
+            {
+              "symbol": "__libc_open64",
+              "period": 3887743,
+              "percent": 0.6765311745648002
+            },
+            {
+              "symbol": "_IO_un_link.part.0",
+              "period": 3884990,
+              "percent": 0.6760521073210094
+            },
+            {
+              "symbol": "cv::BaseImageDecoder::checkSignature",
+              "period": 3884539,
+              "percent": 0.6759736259091134
+            },
+            {
+              "symbol": "__underflow",
+              "period": 3881986,
+              "percent": 0.6755293619521945
+            },
+            {
+              "symbol": "operator new[]",
+              "period": 3880371,
+              "percent": 0.6752483254107045
+            },
+            {
+              "symbol": "cv::BaseImageDecoder::setSource",
+              "period": 1950378,
+              "percent": 0.339397825212558
+            },
+            {
+              "symbol": "__aarch64_cas4_acq",
+              "period": 1947950,
+              "percent": 0.3389753133099339
+            },
+            {
+              "symbol": "__close_nocancel",
+              "period": 1947818,
+              "percent": 0.3389523431405985
+            },
+            {
+              "symbol": "__fstat64",
+              "period": 1946884,
+              "percent": 0.33878981179090706
+            },
+            {
+              "symbol": "_IO_unsave_markers",
+              "period": 1946041,
+              "percent": 0.3386431159367423
+            },
+            {
+              "symbol": "std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_mutate",
+              "period": 1945578,
+              "percent": 0.338562546327634
+            },
+            {
+              "symbol": "cv::Mat::release",
+              "period": 1945372,
+              "percent": 0.33852669894215603
+            },
+            {
+              "symbol": "__aarch64_ldadd4_acq_rel",
+              "period": 1945317,
+              "percent": 0.3385171280382663
+            },
+            {
+              "symbol": "operator delete[]",
+              "period": 1945168,
+              "percent": 0.33849119958954677
+            },
+            {
+              "symbol": "_IO_setb",
+              "period": 1944508,
+              "percent": 0.3383763487428697
+            },
+            {
+              "symbol": "cv::BaseImageDecoder::BaseImageDecoder",
+              "period": 1944016,
+              "percent": 0.33829073265716497
+            },
+            {
+              "symbol": "cv::RBaseStream::open",
+              "period": 1943971,
+              "percent": 0.33828290191761884
+            },
+            {
+              "symbol": "cv::BaseImageDecoder::signatureLength",
+              "period": 1943911,
+              "percent": 0.3382724609315573
+            },
+            {
+              "symbol": "__libc_read",
+              "period": 1943798,
+              "percent": 0.3382527970744747
+            },
+            {
+              "symbol": "cv::String::deallocate",
+              "period": 1943504,
+              "percent": 0.3382016362427731
+            },
+            {
+              "symbol": "cv::fastFree",
+              "period": 1943479,
+              "percent": 0.3381972858319141
+            },
+            {
+              "symbol": "_IO_free_backup_area",
+              "period": 1943460,
+              "percent": 0.3381939795196613
+            },
+            {
+              "symbol": "__aarch64_swp4_rel",
+              "period": 1943271,
+              "percent": 0.3381610904135674
+            },
+            {
+              "symbol": "memcmp",
+              "period": 1943191,
+              "percent": 0.33814716909881865
+            },
+            {
+              "symbol": "main",
+              "period": 1942413,
+              "percent": 0.33801178431288725
+            },
+            {
+              "symbol": "_IO_seekoff_unlocked",
+              "period": 1941564,
+              "percent": 0.3378640443601163
+            },
+            {
+              "symbol": "_IO_no_init",
+              "period": 1941500,
+              "percent": 0.33785290730831735
+            },
+            {
+              "symbol": "cv::RBaseStream::getPos",
+              "period": 1941438,
+              "percent": 0.33784211828938704
+            },
+            {
+              "symbol": "cv::Mat::create",
+              "period": 1941242,
+              "percent": 0.33780801106825264
+            },
+            {
+              "symbol": "cv::setSize",
+              "period": 1941193,
+              "percent": 0.3377994842629691
+            },
+            {
+              "symbol": "cv::detail::PtrOwnerImpl<cv::PxMDecoder, cv::DefaultDeleter<cv::PxMDecoder> >::deleteSelf",
+              "period": 1941184,
+              "percent": 0.3377979181150598
+            },
+            {
+              "symbol": "isspace",
+              "period": 1940905,
+              "percent": 0.3377493675298736
+            },
+            {
+              "symbol": "cv::BaseImageDecoder::setScale",
+              "period": 1940648,
+              "percent": 0.33770464530624333
+            },
+            {
+              "symbol": "cv::finalizeHdr",
+              "period": 1939586,
+              "percent": 0.33751983985295386
+            },
+            {
+              "symbol": "__fopen_internal",
+              "period": 1938286,
+              "percent": 0.337293618488287
+            },
+            {
+              "symbol": "cv::ReadNumber",
+              "period": 1926647,
+              "percent": 0.3352682412087807
+            },
+            {
+              "symbol": "_IO_file_doallocate",
+              "period": 1926424,
+              "percent": 0.33522943554391854
+            },
+            {
+              "symbol": "_IO_new_fclose",
+              "period": 1925890,
+              "percent": 0.3351365107679708
+            },
+            {
+              "symbol": "__libc_cleanup_pop_restore",
+              "period": 1922582,
+              "percent": 0.33456086440311067
+            }
+          ]
+        },
+        "rectify": {
+          "samples": 12742,
+          "period": 23715783116,
+          "percent_of_compute": 10.838283658674978,
+          "functions": [
+            {
+              "symbol": "cv::remapBilinear<cv::FixedPtCast<int, unsigned char, 15>, cv::RemapVec_8u, short>",
+              "period": 20507508774,
+              "percent": 86.47198649815819
+            },
+            {
+              "symbol": "cv::RemapInvoker::operator()",
+              "period": 2242920953,
+              "percent": 9.457503224874744
+            },
+            {
+              "symbol": "__aarch64_ldadd4_acq_rel",
+              "period": 445263102,
+              "percent": 1.8774969387352867
+            },
+            {
+              "symbol": "cv::Mat::Mat",
+              "period": 224869671,
+              "percent": 0.9481857288882453
+            },
+            {
+              "symbol": "cv::updateContinuityFlag",
+              "period": 85514849,
+              "percent": 0.3605820165487467
+            },
+            {
+              "symbol": "cv::Mat::release",
+              "period": 66437158,
+              "percent": 0.2801390014195979
+            },
+            {
+              "symbol": "cv::Mat::~Mat",
+              "period": 61099343,
+              "percent": 0.2576315641830058
+            },
+            {
+              "symbol": "cv::borderInterpolate",
+              "period": 28431462,
+              "percent": 0.11988413733138982
+            },
+            {
+              "symbol": "_int_free",
+              "period": 7654825,
+              "percent": 0.03227734442737261
+            },
+            {
+              "symbol": "cv::remap",
+              "period": 7457366,
+              "percent": 0.03144473856724066
+            },
+            {
+              "symbol": "cv::initInterTab2D",
+              "period": 3928477,
+              "percent": 0.016564820907598993
+            },
+            {
+              "symbol": "malloc",
+              "period": 3908186,
+              "percent": 0.01647926185226124
+            },
+            {
+              "symbol": "_int_malloc",
+              "period": 3814471,
+              "percent": 0.016084103069008687
+            },
+            {
+              "symbol": "cv::utils::trace::details::Region::Region",
+              "period": 3722241,
+              "percent": 0.015695205938566572
+            },
+            {
+              "symbol": "__lrint",
+              "period": 2056577,
+              "percent": 0.008671765085473892
+            },
+            {
+              "symbol": "cv::fastFree",
+              "period": 1999339,
+              "percent": 0.008430415264892238
+            },
+            {
+              "symbol": "cv::Mat::deallocate",
+              "period": 1954375,
+              "percent": 0.00824082000767442
+            },
+            {
+              "symbol": "operator delete",
+              "period": 1950001,
+              "percent": 0.008222376593941863
+            },
+            {
+              "symbol": "__clock_gettime",
+              "period": 1947901,
+              "percent": 0.00821352173138165
+            },
+            {
+              "symbol": "cv::Mat::create",
+              "period": 1947506,
+              "percent": 0.008211856173900085
+            },
+            {
+              "symbol": "cv::_InputArray::empty",
+              "period": 1947473,
+              "percent": 0.008211717026059853
+            },
+            {
+              "symbol": "std::chrono::_V2::steady_clock::now",
+              "period": 1945445,
+              "percent": 0.008203165758787418
+            },
+            {
+              "symbol": "cv::parallel_for_",
+              "period": 1906137,
+              "percent": 0.008037419598065108
+            },
+            {
+              "symbol": "cv::Mat::getDefaultAllocator",
+              "period": 1888685,
+              "percent": 0.007963831473588518
+            },
+            {
+              "symbol": "cv::fastMalloc",
+              "period": 1861594,
+              "percent": 0.007849599529960552
+            },
+            {
+              "symbol": "main",
+              "period": 1847205,
+              "percent": 0.007788926855018217
+            }
+          ]
+        },
+        "bm": {
+          "samples": 99706,
+          "period": 192723624437,
+          "percent_of_compute": 88.07608414865852,
+          "functions": [
+            {
+              "symbol": "cv::findStereoCorrespondenceBM_SIMD<short>",
+              "period": 182103680405,
+              "percent": 94.48954736969904
+            },
+            {
+              "symbol": "cv::filterSpecklesImpl<short>",
+              "period": 4722139168,
+              "percent": 2.450212931494361
+            },
+            {
+              "symbol": "cv::validateDisparity",
+              "period": 3619541701,
+              "percent": 1.8780996422071767
+            },
+            {
+              "symbol": "cv::prefilterXSobel",
+              "period": 1889418513,
+              "percent": 0.9803772207582354
+            },
+            {
+              "symbol": "__memset_generic",
+              "period": 245707169,
+              "percent": 0.1274919822195021
+            },
+            {
+              "symbol": "__memcpy_generic",
+              "period": 40649573,
+              "percent": 0.021092158845989355
+            },
+            {
+              "symbol": "cv::NAryMatIterator::operator++",
+              "period": 29040716,
+              "percent": 0.015068581283086654
+            },
+            {
+              "symbol": "cv::Mat::operator=",
+              "period": 11484916,
+              "percent": 0.005959267336088492
+            },
+            {
+              "symbol": "cv::StereoBMImpl::compute",
+              "period": 9686141,
+              "percent": 0.005025923017116322
+            },
+            {
+              "symbol": "cv::FindStereoCorrespInvoker::operator()",
+              "period": 7752105,
+              "percent": 0.004022394775236343
+            },
+            {
+              "symbol": "_int_free",
+              "period": 5826007,
+              "percent": 0.0030229853849103386
+            },
+            {
+              "symbol": "_int_malloc",
+              "period": 5758229,
+              "percent": 0.0029878168889887835
+            },
+            {
+              "symbol": "cv::NAryMatIterator::init",
+              "period": 3882016,
+              "percent": 0.0020142917150611206
+            },
+            {
+              "symbol": "cv::utils::trace::details::Region::Region",
+              "period": 3864762,
+              "percent": 0.002005338998418102
+            },
+            {
+              "symbol": "cv::PrefilterInvoker::operator()",
+              "period": 1950243,
+              "percent": 0.0010119376935221144
+            },
+            {
+              "symbol": "cv::utils::BufferArea::allocate_",
+              "period": 1946153,
+              "percent": 0.001009815483537766
+            },
+            {
+              "symbol": "_init",
+              "period": 1945942,
+              "percent": 0.0010097060003331946
+            },
+            {
+              "symbol": "cv::utils::BufferArea::~BufferArea",
+              "period": 1945322,
+              "percent": 0.0010093842961301882
+            },
+            {
+              "symbol": "__lrint",
+              "period": 1942037,
+              "percent": 0.0010076797827320014
+            },
+            {
+              "symbol": "cv::Mat::create",
+              "period": 1941298,
+              "percent": 0.0010072963320771277
+            },
+            {
+              "symbol": "cv::fastFree",
+              "period": 1940932,
+              "percent": 0.0010071064228218047
+            },
+            {
+              "symbol": "cv::Mat::~Mat",
+              "period": 1939611,
+              "percent": 0.0010064209853183025
+            },
+            {
+              "symbol": "cv::Mat::release",
+              "period": 1937539,
+              "percent": 0.001005345870626965
+            },
+            {
+              "symbol": "cv::Mat::Mat",
+              "period": 1934610,
+              "percent": 0.0010038260777066334
+            },
+            {
+              "symbol": "__aarch64_ldadd4_acq_rel",
+              "period": 1931984,
+              "percent": 0.0010024635047435775
+            },
+            {
+              "symbol": "cv::utils::BufferArea::commit",
+              "period": 1920144,
+              "percent": 0.0009963199922216497
+            },
+            {
+              "symbol": "malloc",
+              "period": 1917201,
+              "percent": 0.0009947929350128631
+            }
+          ]
+        },
+        "depth": {
+          "samples": 1223,
+          "period": 2375525354,
+          "percent_of_compute": 1.0856321926665022,
+          "functions": [
+            {
+              "symbol": "main",
+              "period": 2373582174,
+              "percent": 99.91819998903703
+            },
+            {
+              "symbol": "[unknown]",
+              "period": 1943180,
+              "percent": 0.08180001096296445
+            }
+          ]
+        }
+      }
+    }
+  },
+  "instruction_addresses_artifact": "install/stereo-bm-a53/perf-20261013/640x400-64-15-summary.json"
+}
