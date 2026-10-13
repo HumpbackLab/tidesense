@@ -1,0 +1,608 @@
+{
+  "320x200": {
+    "baseline_bm_ms": 26.1689146875,
+    "baseline_process_ms": 35.02595062499999,
+    "runs": {
+      "all32": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 25.077399375,
+          "median": 26.0473,
+          "p95": 28.46117
+        },
+        "rectify_ms": {
+          "mean": 7.879862,
+          "median": 7.85028,
+          "p95": 8.131599999999999
+        },
+        "depth_ms": {
+          "mean": 0.98031525,
+          "median": 1.12676,
+          "p95": 1.48049
+        },
+        "process_ms": {
+          "mean": 33.93757625,
+          "median": 35.05555,
+          "p95": 37.88599
+        },
+        "valid_fraction": {
+          "mean": 0.23553106000000001,
+          "median": 0.300594,
+          "p95": 0.467828
+        },
+        "compute_fps": 29.46586381518627,
+        "bm_reduction_percent": 4.1710377580977065,
+        "process_reduction_percent": 3.107337147398248
+      },
+      "all64": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 23.315531874999998,
+          "median": 24.18925,
+          "p95": 26.537995000000002
+        },
+        "rectify_ms": {
+          "mean": 7.853829625,
+          "median": 7.819800000000001,
+          "p95": 7.889971999999999
+        },
+        "depth_ms": {
+          "mean": 0.9752054999999998,
+          "median": 1.12538,
+          "p95": 1.4785819999999998
+        },
+        "process_ms": {
+          "mean": 32.144557500000005,
+          "median": 33.07195,
+          "p95": 35.83522
+        },
+        "valid_fraction": {
+          "mean": 0.23553106000000001,
+          "median": 0.300594,
+          "p95": 0.467828
+        },
+        "compute_fps": 31.109465420390368,
+        "bm_reduction_percent": 10.90371093556648,
+        "process_reduction_percent": 8.226452312027687
+      },
+      "base-repeat": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 26.149223749999997,
+          "median": 27.0156,
+          "p95": 29.47841
+        },
+        "rectify_ms": {
+          "mean": 7.899039250000001,
+          "median": 7.891120000000001,
+          "p95": 7.987842
+        },
+        "depth_ms": {
+          "mean": 0.97648925,
+          "median": 1.1311,
+          "p95": 1.478298
+        },
+        "process_ms": {
+          "mean": 35.02474874999999,
+          "median": 36.006699999999995,
+          "p95": 38.853519999999996
+        },
+        "valid_fraction": {
+          "mean": 0.23553106000000001,
+          "median": 0.300594,
+          "p95": 0.467828
+        },
+        "compute_fps": 28.551239785838582,
+        "bm_reduction_percent": 0.07524552598051626,
+        "process_reduction_percent": 0.0034313843837341373
+      },
+      "base": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 26.188605625,
+          "median": 27.141150000000003,
+          "p95": 29.566105
+        },
+        "rectify_ms": {
+          "mean": 7.86189725,
+          "median": 7.8442,
+          "p95": 7.898243999999999
+        },
+        "depth_ms": {
+          "mean": 0.9766455,
+          "median": 1.1296599999999999,
+          "p95": 1.4726999999999997
+        },
+        "process_ms": {
+          "mean": 35.0271525,
+          "median": 36.07475,
+          "p95": 38.853235
+        },
+        "valid_fraction": {
+          "mean": 0.23553106000000001,
+          "median": 0.300594,
+          "p95": 0.467828
+        },
+        "compute_fps": 28.549280447504263,
+        "bm_reduction_percent": -0.07524552598050516,
+        "process_reduction_percent": -0.0034313843837452396
+      },
+      "recompute": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 23.497276875,
+          "median": 24.300150000000002,
+          "p95": 26.76777
+        },
+        "rectify_ms": {
+          "mean": 7.83942,
+          "median": 7.81818,
+          "p95": 8.076178
+        },
+        "depth_ms": {
+          "mean": 0.9789427499999999,
+          "median": 1.12646,
+          "p95": 1.477288
+        },
+        "process_ms": {
+          "mean": 32.31564125,
+          "median": 33.23075,
+          "p95": 36.17773
+        },
+        "valid_fraction": {
+          "mean": 0.23553106000000001,
+          "median": 0.300594,
+          "p95": 0.467828
+        },
+        "compute_fps": 30.944767342346953,
+        "bm_reduction_percent": 10.209203722828253,
+        "process_reduction_percent": 7.738003756179268
+      },
+      "stripe32": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 26.881084999999995,
+          "median": 27.7362,
+          "p95": 30.098565
+        },
+        "rectify_ms": {
+          "mean": 7.823630249999999,
+          "median": 7.81446,
+          "p95": 7.889704
+        },
+        "depth_ms": {
+          "mean": 0.9770735,
+          "median": 1.12772,
+          "p95": 1.483002
+        },
+        "process_ms": {
+          "mean": 35.681789375,
+          "median": 36.6332,
+          "p95": 39.369369999999996
+        },
+        "valid_fraction": {
+          "mean": 0.23553106000000001,
+          "median": 0.300594,
+          "p95": 0.467828
+        },
+        "compute_fps": 28.025500332688964,
+        "bm_reduction_percent": -2.721436181073944,
+        "process_reduction_percent": -1.8724366885046084
+      },
+      "stripe64": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 24.720044374999997,
+          "median": 25.57035,
+          "p95": 27.982915
+        },
+        "rectify_ms": {
+          "mean": 7.8769635,
+          "median": 7.87138,
+          "p95": 7.941868
+        },
+        "depth_ms": {
+          "mean": 0.9783137500000001,
+          "median": 1.12424,
+          "p95": 1.476554
+        },
+        "process_ms": {
+          "mean": 33.575321875,
+          "median": 34.556,
+          "p95": 37.385705
+        },
+        "valid_fraction": {
+          "mean": 0.23553106000000001,
+          "median": 0.300594,
+          "p95": 0.467828
+        },
+        "compute_fps": 29.783779995407713,
+        "bm_reduction_percent": 5.53660833780042,
+        "process_reduction_percent": 4.141582809645705
+      },
+      "wide-recompute": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 23.55236625,
+          "median": 24.149250000000002,
+          "p95": 26.435885
+        },
+        "rectify_ms": {
+          "mean": 8.0454955,
+          "median": 7.83572,
+          "p95": 7.981622
+        },
+        "depth_ms": {
+          "mean": 1.0068515000000002,
+          "median": 1.1360199999999998,
+          "p95": 1.478408
+        },
+        "process_ms": {
+          "mean": 32.60471875,
+          "median": 33.13695,
+          "p95": 35.81345
+        },
+        "valid_fraction": {
+          "mean": 0.23553106000000001,
+          "median": 0.300594,
+          "p95": 0.467828
+        },
+        "compute_fps": 30.670407178408798,
+        "bm_reduction_percent": 9.998689165163722,
+        "process_reduction_percent": 6.912679975263314
+      },
+      "wide": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 25.51673125,
+          "median": 26.42005,
+          "p95": 28.816275
+        },
+        "rectify_ms": {
+          "mean": 7.839025749999999,
+          "median": 7.828659999999999,
+          "p95": 7.907617999999999
+        },
+        "depth_ms": {
+          "mean": 0.97974525,
+          "median": 1.12528,
+          "p95": 1.4785799999999998
+        },
+        "process_ms": {
+          "mean": 34.335505,
+          "median": 35.351749999999996,
+          "p95": 38.170995
+        },
+        "valid_fraction": {
+          "mean": 0.23553106000000001,
+          "median": 0.300594,
+          "p95": 0.467828
+        },
+        "compute_fps": 29.12437140505142,
+        "bm_reduction_percent": 2.4922066707318447,
+        "process_reduction_percent": 1.9712402166957466
+      }
+    }
+  },
+  "640x400": {
+    "baseline_bm_ms": 222.473734375,
+    "baseline_process_ms": 253.1153625,
+    "runs": {
+      "all32": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 149.029225,
+          "median": 151.08350000000002,
+          "p95": 160.85775
+        },
+        "rectify_ms": {
+          "mean": 27.719205,
+          "median": 27.518549999999998,
+          "p95": 27.678495
+        },
+        "depth_ms": {
+          "mean": 2.8852545,
+          "median": 3.16772,
+          "p95": 4.003914
+        },
+        "process_ms": {
+          "mean": 179.6337,
+          "median": 181.785,
+          "p95": 192.65404999999998
+        },
+        "valid_fraction": {
+          "mean": 0.115800182,
+          "median": 0.145176,
+          "p95": 0.235379
+        },
+        "compute_fps": 5.566884164830986,
+        "bm_reduction_percent": 33.01266532938334,
+        "process_reduction_percent": 29.030897917150323
+      },
+      "all64": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 137.69691875,
+          "median": 140.68849999999998,
+          "p95": 150.4881
+        },
+        "rectify_ms": {
+          "mean": 27.573323749999997,
+          "median": 27.538800000000002,
+          "p95": 27.731215
+        },
+        "depth_ms": {
+          "mean": 2.85151775,
+          "median": 3.144,
+          "p95": 3.983396
+        },
+        "process_ms": {
+          "mean": 168.1217875,
+          "median": 171.32299999999998,
+          "p95": 182.3706
+        },
+        "valid_fraction": {
+          "mean": 0.115800182,
+          "median": 0.145176,
+          "p95": 0.235379
+        },
+        "compute_fps": 5.9480690448880695,
+        "bm_reduction_percent": 38.106437986113384,
+        "process_reduction_percent": 33.57898713081866
+      },
+      "base-repeat": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 221.33911874999998,
+          "median": 223.59750000000003,
+          "p95": 233.81145
+        },
+        "rectify_ms": {
+          "mean": 27.76257125,
+          "median": 27.5113,
+          "p95": 27.674005
+        },
+        "depth_ms": {
+          "mean": 2.88135625,
+          "median": 3.1653599999999997,
+          "p95": 4.000495999999999
+        },
+        "process_ms": {
+          "mean": 251.9830375,
+          "median": 254.148,
+          "p95": 265.41139999999996
+        },
+        "valid_fraction": {
+          "mean": 0.115800182,
+          "median": 0.145176,
+          "p95": 0.235379
+        },
+        "compute_fps": 3.968521095393177,
+        "bm_reduction_percent": 0.5099998110732029,
+        "process_reduction_percent": 0.4473553042439349
+      },
+      "base": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 223.60835000000003,
+          "median": 224.35000000000002,
+          "p95": 234.5803
+        },
+        "rectify_ms": {
+          "mean": 27.777295000000002,
+          "median": 27.5394,
+          "p95": 27.78822
+        },
+        "depth_ms": {
+          "mean": 2.8620885,
+          "median": 3.18048,
+          "p95": 4.008218
+        },
+        "process_ms": {
+          "mean": 254.24768750000004,
+          "median": 255.099,
+          "p95": 266.32425
+        },
+        "valid_fraction": {
+          "mean": 0.115800182,
+          "median": 0.145176,
+          "p95": 0.235379
+        },
+        "compute_fps": 3.9331724501919014,
+        "bm_reduction_percent": -0.5099998110732251,
+        "process_reduction_percent": -0.4473553042439349
+      },
+      "recompute": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 179.1992125,
+          "median": 181.336,
+          "p95": 192.124
+        },
+        "rectify_ms": {
+          "mean": 27.452259375000004,
+          "median": 27.42445,
+          "p95": 27.58529
+        },
+        "depth_ms": {
+          "mean": 2.8550345,
+          "median": 3.1605600000000003,
+          "p95": 3.986044
+        },
+        "process_ms": {
+          "mean": 209.50653125,
+          "median": 211.834,
+          "p95": 223.66225
+        },
+        "valid_fraction": {
+          "mean": 0.115800182,
+          "median": 0.145176,
+          "p95": 0.235379
+        },
+        "compute_fps": 4.773120885700312,
+        "bm_reduction_percent": 19.45151952277513,
+        "process_reduction_percent": 17.22883621889999
+      },
+      "stripe32": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 164.84885624999998,
+          "median": 166.9215,
+          "p95": 176.61655
+        },
+        "rectify_ms": {
+          "mean": 27.485193124999995,
+          "median": 27.398699999999998,
+          "p95": 27.56962
+        },
+        "depth_ms": {
+          "mean": 2.9071565,
+          "median": 3.15114,
+          "p95": 4.001286
+        },
+        "process_ms": {
+          "mean": 195.24124375000002,
+          "median": 197.3655,
+          "p95": 208.19385
+        },
+        "valid_fraction": {
+          "mean": 0.115800182,
+          "median": 0.145176,
+          "p95": 0.235379
+        },
+        "compute_fps": 5.121868621572945,
+        "bm_reduction_percent": 25.901879287856953,
+        "process_reduction_percent": 22.86471993575656
+      },
+      "stripe64": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 150.188825,
+          "median": 152.30599999999998,
+          "p95": 162.0041
+        },
+        "rectify_ms": {
+          "mean": 27.798013749999996,
+          "median": 27.58655,
+          "p95": 27.724625
+        },
+        "depth_ms": {
+          "mean": 2.85014925,
+          "median": 3.1622399999999997,
+          "p95": 3.994382
+        },
+        "process_ms": {
+          "mean": 180.83698125,
+          "median": 182.96949999999998,
+          "p95": 193.77675000000002
+        },
+        "valid_fraction": {
+          "mean": 0.115800182,
+          "median": 0.145176,
+          "p95": 0.235379
+        },
+        "compute_fps": 5.5298423645854795,
+        "bm_reduction_percent": 32.491435260019095,
+        "process_reduction_percent": 28.555509446804116
+      },
+      "wide-recompute": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 174.71036875,
+          "median": 177.8745,
+          "p95": 188.64475
+        },
+        "rectify_ms": {
+          "mean": 27.68499625,
+          "median": 27.6427,
+          "p95": 27.813335
+        },
+        "depth_ms": {
+          "mean": 2.8467,
+          "median": 3.15628,
+          "p95": 3.98957
+        },
+        "process_ms": {
+          "mean": 205.24205625,
+          "median": 208.661,
+          "p95": 220.54545000000002
+        },
+        "valid_fraction": {
+          "mean": 0.115800182,
+          "median": 0.145176,
+          "p95": 0.235379
+        },
+        "compute_fps": 4.872295757853479,
+        "bm_reduction_percent": 21.46921557242818,
+        "process_reduction_percent": 18.913631230107587
+      },
+      "wide": {
+        "calls": 180,
+        "measured_calls": 160,
+        "hash_match": true,
+        "bm_ms": {
+          "mean": 215.335425,
+          "median": 218.5475,
+          "p95": 228.48845
+        },
+        "rectify_ms": {
+          "mean": 27.57253875,
+          "median": 27.5397,
+          "p95": 27.73498
+        },
+        "depth_ms": {
+          "mean": 2.8861565,
+          "median": 3.1993400000000003,
+          "p95": 4.010422
+        },
+        "process_ms": {
+          "mean": 245.794175,
+          "median": 249.077,
+          "p95": 260.1167
+        },
+        "valid_fraction": {
+          "mean": 0.115800182,
+          "median": 0.145176,
+          "p95": 0.235379
+        },
+        "compute_fps": 4.068444665134965,
+        "bm_reduction_percent": 3.2086077015130776,
+        "process_reduction_percent": 2.8924311142908277
+      }
+    }
+  }
+}

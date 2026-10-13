@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <array>
 
 using Clock = std::chrono::steady_clock;
 static double ms(Clock::time_point a, Clock::time_point b) {
@@ -53,6 +54,24 @@ int main(int argc, char **argv) try {
   std::vector<std::string> lines;
   std::string line;
   while (std::getline(csv, line)) if (!line.empty() && line[0] != '#') lines.push_back(line);
+  const bool preload = std::getenv("STEREO_BM_PRELOAD") != nullptr;
+  const int repeats = std::getenv("STEREO_BM_REPEAT") ? std::stoi(std::getenv("STEREO_BM_REPEAT")) : 1;
+  if (lines.empty() || repeats < 1) throw std::runtime_error("Empty dataset or invalid repeats");
+  auto load = [&](const std::string &s) {
+    auto c1 = s.find(','), c2 = s.find(',', c1 + 1);
+    if (c1 == std::string::npos || c2 == std::string::npos) throw std::runtime_error("Bad CSV row");
+    return std::array<cv::Mat,2>{{
+      cv::imread(std::string(argv[1]) + "/" + s.substr(c1 + 1, c2 - c1 - 1), 0),
+      cv::imread(std::string(argv[1]) + "/" + s.substr(c2 + 1), 0)}};
+  };
+  std::vector<std::array<cv::Mat,2>> cached;
+  if (preload) for (const auto &s : lines) cached.push_back(load(s));
+  std::ofstream hashes;
+  if (const char *path = std::getenv("STEREO_BM_HASHES")) {
+    hashes.open(path);
+    if (!hashes) throw std::runtime_error("Cannot open disparity hashes");
+    hashes << "frame,timestamp_ns,disparity_fnv64\n";
+  }
   std::ofstream timings(argv[5]);
   if (!timings) throw std::runtime_error("Cannot open timing output");
   timings << "frame,timestamp_ns,read_ms,rectify_ms,bm_ms,depth_ms,process_ms,with_read_ms,valid_fraction\n";
@@ -67,15 +86,14 @@ int main(int argc, char **argv) try {
   std::cout << "OpenCV " << CV_VERSION << " threads=" << cv::getNumThreads()
             << " optimized=" << cv::useOptimized() << " size=" << w << "x" << h
             << " disparities=" << nd << " block=" << block << " fx=" << fx
-            << " baseline=" << baseline << " frames=" << lines.size() << std::endl;
-  for (size_t n = 0; n < lines.size(); ++n) {
-    const auto &s = lines[n];
+            << " baseline=" << baseline << " frames=" << lines.size()*repeats
+            << " preload=" << preload << " repeats=" << repeats << std::endl;
+  for (size_t n = 0; n < lines.size()*repeats; ++n) {
+    const auto &s = lines[n % lines.size()];
     auto c1 = s.find(','), c2 = s.find(',', c1 + 1);
     if (c1 == std::string::npos || c2 == std::string::npos) throw std::runtime_error("Bad CSV row");
     auto t0 = Clock::now();
-    cv::Mat raw[2] = {
-      cv::imread(std::string(argv[1]) + "/" + s.substr(c1 + 1, c2 - c1 - 1), 0),
-      cv::imread(std::string(argv[1]) + "/" + s.substr(c2 + 1), 0)};
+    auto raw = preload ? cached[n % lines.size()] : load(s);
     if (raw[0].size() != cv::Size(640,400) || raw[1].size() != cv::Size(640,400))
       throw std::runtime_error("Bad source image");
     auto t1 = Clock::now();
@@ -100,6 +118,13 @@ int main(int argc, char **argv) try {
       }
     }
     auto t4 = Clock::now();
+    if (hashes.is_open()) {
+      uint64_t hash = UINT64_C(14695981039346656037);
+      for (size_t i = 0; i < disparity.total()*disparity.elemSize(); ++i) {
+        hash ^= disparity.data[i]; hash *= UINT64_C(1099511628211);
+      }
+      hashes << n << ',' << s.substr(0,c1) << ',' << hash << '\n';
+    }
     if (intervals.is_open()) {
       intervals << n;
       for (auto time : {t0, t1, t2, t3, t4})
