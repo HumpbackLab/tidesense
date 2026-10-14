@@ -21,7 +21,7 @@
     <project name="SensorSupportList" path="cvi_mpi/component/isp" remote_url="git@github.com:HumpbackLab/"/>
     <project name="cvibuilder" path="cvibuilder"/>
     <project name="cvikernel" path="cvikernel"/>
-    <project name="cviruntime" path="cviruntime"/>
+    <project name="cviruntime" path="cviruntime" remote_url="git@github.com:HumpbackLab/"/>
     <project name="cvimath" path="cvimath"/>
     <project name="flatbuffers" path="flatbuffers" revision="master"/>
     <project name="cnpy" path="cnpy" revision="tpu"/>
