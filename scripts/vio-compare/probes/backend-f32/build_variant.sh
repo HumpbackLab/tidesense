@@ -36,8 +36,15 @@ if ! patch -d "$variant/base_source" -p1 -R --dry-run --batch --force < "$lk_pat
   patch -d "$variant/base_source" -p1 --forward --batch < "$lk_patch"
 fi
 filter_patch="$sdk/scripts/vio-compare/patches/openvins-lk-filter.patch"
-if ! patch -d "$variant/base_source" -p1 -R --dry-run --batch --force < "$filter_patch" >/dev/null 2>&1; then
-  patch -d "$variant/base_source" -p1 --forward --batch < "$filter_patch"
+ransac_patch="$sdk/scripts/vio-compare/patches/openvins-ransac-cap.patch"
+# The installed cap changes the older filter patch's matching context.
+if ! patch -d "$variant/base_source" -p1 -R --dry-run --batch --force < "$ransac_patch" >/dev/null 2>&1; then
+  if ! patch -d "$variant/base_source" -p1 -R --dry-run --batch --force < "$filter_patch" >/dev/null 2>&1; then
+    patch -d "$variant/base_source" -p1 --forward --batch < "$filter_patch"
+  fi
+fi
+if ! patch -d "$variant/base_source" -p1 -R --dry-run --batch --force < "$ransac_patch" >/dev/null 2>&1; then
+  patch -d "$variant/base_source" -p1 --forward --batch < "$ransac_patch"
 fi
 if ! cmp -s "$here/numeric_probe.h" "$variant/numeric_probe.h"; then
   cp "$here/numeric_probe.h" "$variant/numeric_probe.h"
@@ -63,7 +70,8 @@ PY
 source="$variant/base_source"
 flags=(-DCMAKE_BUILD_TYPE=Release -DENABLE_ROS=OFF -DENABLE_ARUCO_TAGS=OFF -DOPENVINS_SKIP_ACTIVE_VIZ=ON
   "-DOPENVINS_LK_WINDOW_16X15=${OPENVINS_LK_WINDOW_16X15:-ON}"
-  "-DOPENVINS_LK_FILTER_VALID=${OPENVINS_LK_FILTER_VALID:-ON}" -DEigen3_DIR=/usr/share/eigen3/cmake)
+  "-DOPENVINS_LK_FILTER_VALID=${OPENVINS_LK_FILTER_VALID:-ON}"
+  "-DOPENVINS_RANSAC_CAP_200=${OPENVINS_RANSAC_CAP_200:-OFF}" -DEigen3_DIR=/usr/share/eigen3/cmake)
 if [[ "$precision" == fp32 ]]; then
   python3 "$here/prepare.py" --source "$source" --output "$variant/fp32_source"
   source="$variant/fp32_source"

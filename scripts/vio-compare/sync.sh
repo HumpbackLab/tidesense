@@ -46,7 +46,12 @@ if ! rg -q '^option\(OPENVINS_SKIP_ACTIVE_VIZ ' "$work/openvins/open_vins/ov_msc
   apply_once "$work/openvins/open_vins" "$here/patches/openvins-headless.patch"
 fi
 apply_once "$work/openvins/open_vins" "$here/patches/openvins-lk-window.patch"
-apply_once "$work/openvins/open_vins" "$here/patches/openvins-lk-filter.patch"
+# The cap patch changes the filter patch's original RANSAC-call context.
+# A reversible cap patch confirms that its filter prerequisite is installed.
+if ! git -C "$work/openvins/open_vins" apply --reverse --check "$here/patches/openvins-ransac-cap.patch" 2>/dev/null; then
+  apply_once "$work/openvins/open_vins" "$here/patches/openvins-lk-filter.patch"
+fi
+apply_once "$work/openvins/open_vins" "$here/patches/openvins-ransac-cap.patch"
 if [[ ${OPENVINS_EKF_MA_EXPERIMENT:-0} == 1 ]]; then
   apply_once "$work/openvins/open_vins" "$here/probes/ekf-f32/openvins-core.patch"
   apply_once "$work/openvins/open_vins" "$here/probes/ekf-f32/openvins-cmake.patch"

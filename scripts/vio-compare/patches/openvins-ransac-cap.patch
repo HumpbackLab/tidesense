@@ -1,0 +1,38 @@
+--- a/ov_core/src/track/TrackKLT.cpp
++++ b/ov_core/src/track/TrackKLT.cpp
+@@ -21,6 +21,10 @@
+ 
+ #include "TrackKLT.h"
+ #include <cmath>
++
++#ifndef OPENVINS_RANSAC_CAP_200
++#define OPENVINS_RANSAC_CAP_200 0
++#endif
+ 
+ #ifndef OPENVINS_LK_FILTER_VALID
+ #define OPENVINS_LK_FILTER_VALID 1
+@@ -888,7 +892,11 @@
+   // Keep the existing minimum of ten correspondences.
+   if (ransac_indices.size() >= 10)
+ #endif
++#if OPENVINS_RANSAC_CAP_200
++  cv::findFundamentalMat(pts0_n, pts1_n, cv::FM_RANSAC, 2.0 / max_focallength, 0.999, 200, mask_rsc);
++#else
+   cv::findFundamentalMat(pts0_n, pts1_n, cv::FM_RANSAC, 2.0 / max_focallength, 0.999, mask_rsc);
++#endif
+ 
+ #if OPENVINS_LK_FILTER_VALID
+   // Restore the original feature indices; IDs and output vector sizes are unchanged.
+--- a/ov_msckf/CMakeLists.txt
++++ b/ov_msckf/CMakeLists.txt
+@@ -68,6 +68,10 @@
+     OPENVINS_LK_FILTER_VALID=$<BOOL:${OPENVINS_LK_FILTER_VALID}>)
+ 
+ 
++option(OPENVINS_RANSAC_CAP_200 "Limit fundamental-matrix RANSAC to 200 iterations" OFF)
++target_compile_definitions(ov_msckf_lib PRIVATE
++    OPENVINS_RANSAC_CAP_200=$<BOOL:${OPENVINS_RANSAC_CAP_200}>)
++
+ if (OPENVINS_SKIP_ACTIVE_VIZ)
+     target_compile_definitions(ov_msckf_lib PRIVATE OPENVINS_SKIP_ACTIVE_VIZ=1)
+ endif ()

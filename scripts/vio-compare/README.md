@@ -226,3 +226,11 @@ feature indices. It is enabled by default in both standard and precision
 builds through `OPENVINS_LK_FILTER_VALID=ON`; rebuild with `OFF` to disable.
 IMU initial flow and shallow tracking with retries were removed after the
 FPV experiments. Historical measurements are retained in the filter directory.
+
+## Optional RANSAC iteration cap
+
+Only `OPENVINS_RANSAC_CAP_200` is retained from the mono frontend experiment.
+It defaults to OFF. Build with `OPENVINS_RANSAC_CAP_200=ON` to limit the
+fundamental-matrix RANSAC to 200 iterations; OFF uses the original OpenCV
+default of 1000. Confidence stays 0.999 and LK settings stay unchanged.
+See [usage and measurements](probes/ransac-cap/README.md).
