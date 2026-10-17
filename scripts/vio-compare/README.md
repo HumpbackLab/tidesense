@@ -234,3 +234,10 @@ It defaults to OFF. Build with `OPENVINS_RANSAC_CAP_200=ON` to limit the
 fundamental-matrix RANSAC to 200 iterations; OFF uses the original OpenCV
 default of 1000. Confidence stays 0.999 and LK settings stay unchanged.
 See [usage and measurements](probes/ransac-cap/README.md).
+
+## Codec motion-vector initial flow experiment
+
+The separate [PC codec-MV experiment](probes/codec-mv/README.md) uses causal,
+single-reference H.264 motion vectors to seed the existing full-pyramid LK
+tracker, followed by unchanged geometric rejection and FP64 estimation.
+It defaults to disabled and keeps codec extraction costs separate from VIO timing.
