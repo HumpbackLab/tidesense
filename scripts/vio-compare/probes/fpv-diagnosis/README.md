@@ -858,3 +858,193 @@ runs there are 14 matching repeat pairs and four matching logging-toggle
 comparisons. The standalone lifecycle patch was independently applied to
 original `fefa113` files and reconstructed all three modified main-source
 files byte-for-byte.
+
+## Time-resolved comparison with OpenVINS (2026-10-17)
+
+This comparison uses the committed SchurVINS lifecycle fix `abe4374` and the
+same fixed `equi-nogs` offline calibration as the previous section. Both
+recordings were replayed again without frame limits. Schur poses and OpenVINS
+raw state trajectories match their archived outputs byte-for-byte.
+
+### Alignment and interpretation
+
+Time zero is the first recorded stereo frame, including the initialization
+period. Join **identical integer camera timestamps**; do not interpolate time,
+fit scale, or align using the whole trajectory. Apply one yaw rotation and
+translation at the first common initialized state. Both poses refer to the
+IMU. OpenVINS exports a JPL world-to-IMU quaternion: its transpose is the
+Hamilton world-from-IMU matrix with the same `xyzw` numbers. Rotation convention
+and known yaw/translation gauge invariance are checked in the analysis code.
+
+Use OpenVINS `states.csv` with `raw_initialized=1`, including startup ZUPT
+states; its normal pose-export `initialized` flag would discard most of the
+initial stationary period. The common interval starts at 1.954568 s on
+`084638`, and 10.975768 s on `003648` (Schur has no earlier visual poses).
+This gives 846 and 610 exactly matched frames. Report **estimator disagreement,
+not error against ground truth**. Schur externally corrects IMU samples while
+OpenVINS uses its native fixed matrices, so their stochastic propagation
+models remain different as documented above.
+
+The main reference keeps OpenVINS online IMU calibration **off**. The first
+crossings below require the difference to remain at/above the threshold for
+at least 1 s, excluding brief excursions. They locate a sampled event to
+about one image interval (50 ms), not a continuous-time physical failure.
+
+| Recording | >=0.1 m for 1 s | >=0.5 m for 1 s | >=1 m for 1 s | Final position disagreement |
+|---|---:|---:|---:|---:|
+| 084638 | 21.450 s | 23.455 s | 25.209 s | 3.824 m |
+| 003648 | 13.081 s | 22.202 s | 26.612 s | 2.870 m |
+
+Using a full initial rotation instead of yaw alone leaves both 0.1 m events
+unchanged. The 003648 0.5 m event changes by only 0.251 s. The conclusions are
+therefore not explained by an arbitrary initial yaw or gravity-frame tilt.
+One-second relative translation disagreement is also computed in each
+starting IMU frame, independently of global position/yaw alignment.
+
+### What happens around the growing difference
+
+For `084638`, position disagreement is generally only several centimeters
+before 20 s. At 20--22 s, the corrected IMU angular speed reaches about
+604 deg/s. Schur's median **surviving current observations** drops from
+167 at 18--20 s to 20 at 20--22 s and 13 at 22--24 s. The position difference
+then grows through 0.5 m at 23.455 s, 1 m at 25.209 s and 2 m at 28.968 s.
+These feature counts are the post-rejection `nObs` statistic, **not** the
+number of observations accumulated by `Solve3()` or proof of a zero update.
+
+There is a second growth phase near the end. At 43--44.3 s, an independent
+forward/backward-checked image tracker measures median motion of only
+0.127 px/frame with about 196 consistent corners. The image is essentially
+stationary. The median inter-estimator tilt difference is about 2.66 deg in
+this interval; the final filter speeds are 1.428 m/s for Schur and 0.392 m/s
+for fixed-intrinsic OpenVINS. Position disagreement grows rapidly again.
+This supports investigating attitude/gravity compensation and residual
+velocity after stopping, in addition to the earlier rapid-turn tracking loss.
+It is evidence about this recording, not external trajectory ground truth.
+
+For `003648`, Schur first initializes at 10.976 s while motion is underway.
+At that instant the two gravity/tilt estimates differ by about 3.15 deg.
+There is an initial position separation at 13--14 s, then a plateau rather
+than uninterrupted growth. The difference later exceeds 0.5 m at 22.202 s;
+26.6--30 s is another rapid growth interval, passing 1 m at 26.612 s and 2 m
+at 29.519 s. Schur's median surviving observations at 26--28 s is only 4;
+angular speed reaches roughly 1099 deg/s in that interval. Early initialization
+and later tracking weaknesses are both relevant; endpoint closure alone
+(1.10 m Schur versus 2.92 m OpenVINS) does not show where the estimates differ.
+
+For telemetry, an isolated adapter appends state snapshots to the existing
+timing stream and emits stack-formatted per-frame markers before filtering.
+The committed estimator library is unchanged. Its pose output matches the
+uninstrumented executable byte-for-byte on both recordings, so the current
+observation counts and velocities are from the actual compared trajectories.
+The source and exact compile/link commands are retained under
+`install/schur-openvins-timeline/probe/`.
+
+### Online IMU calibration sensitivity
+
+A separate OpenVINS ablation changes **only** `calib_imu_intrinsics: false`
+to `true`, starting from the same new offline matrices and camera calibration.
+Both online runs were repeated and have identical raw state CSVs.
+
+| Recording | Online: first >=0.1 m for 1 s | Online: first >=0.5 m for 1 s | Final disagreement with Schur | OpenVINS first-to-last distance |
+|---|---:|---:|---:|---:|
+| 084638 | 12.479 s | 32.576 s | 2.579 m | 1.063 m |
+| 003648 | 11.677 s | 18.694 s | 328.068 m | 328.347 m |
+
+The second online run diverges with these new initial values, and is not a
+stable reference. This ablation uses the new offline calibration as its
+initial state; it is not the earlier old-calibration online reference.
+On `084638`, the early small separation does not imply continuous growth:
+the online comparison crosses 0.5 m persistently much later. Keep the two
+OpenVINS settings separate when interpreting onset times.
+
+### Reproduction and artifacts
+
+[`compare_timeline.py`](compare_timeline.py) checks alignment conventions and
+short-pulse rejection, computes exact-timestamp differences and one-second
+relative motion, and validates that diagnostic telemetry did not change poses.
+[`timeline-results-20261017.json`](timeline-results-20261017.json) freezes
+all four comparisons, input/config/executable hashes, image motion statistics,
+and eight successful freshness/repeat/telemetry checks.
+
+```bash
+install/dataset-test-venv/bin/python \
+  scripts/vio-compare/probes/fpv-diagnosis/compare_timeline.py \
+  --replays install/schur-openvins-timeline/replay \
+  --validation-root install/kalibr-intrinsics-20261017 \
+  --output install/schur-openvins-timeline/reproduce-new
+```
+
+`install/schur-openvins-timeline/` contains:
+
+- `comparison.png` / `.pdf`: position, attitude/tilt, relative motion,
+  observation counts and angular speed against the fixed-intrinsic reference.
+- `online-comparison.png` / `.pdf`: separate online-calibration sensitivity.
+- `final/<record>/<fixed|online>/timeline.csv`: every matched frame and video
+  time, pose differences, relative motion and current observation statistics.
+- `events.csv`: threshold-crossing times and their one-second confirmation.
+- `replay/`: exact commands, complete trajectories, diagnostics and online
+  repeat outputs; `image-motion.json` documents the independent optical-flow
+  check. No recording, device calibration or deployed program was modified.
+
+## 084638 retained changes: midpoint and pixel residuals only (2026-10-17)
+
+At the user's request, the current estimator changes retain only:
+
+- `SCHUR_IMU_MIDPOINT=1`: average adjacent IMU readings, including the
+  interpolated camera-boundary reading, before propagating the state.
+- `SCHUR_PIXEL_RESIDUAL=1`: use each camera's actual projection and Jacobian
+  for the pose update, point EKF and outlier checks.
+
+Exact exponential rotation, Schur whitening/Joseph update and point-ID
+ordering have been removed from the current estimator changes. The state
+header, original quaternion increment, solver/covariance update and pointer
+ordering are restored. The stop-constraint experiment and its profiles are
+also removed from the active change set. `084638.env` contains only the two
+retained options; both default off in the estimator.
+
+The refreshed 084638 replay uses all 885 stereo pairs, the same refitted
+calibration and corrected IMU CSV, and the same fixed-intrinsics OpenVINS
+reference. It uses original pointer ordering; previous point-ID-order
+ablation results do not describe this retained source.
+
+| Enabled options | First-to-last displacement, m | OpenVINS position disagreement RMSE, m | Final filter speed, m/s |
+| --- | ---: | ---: | ---: |
+| Neither | 3.389314 | 1.558099 | 1.428336 |
+| Midpoint only | 1.304050 | 0.938960 | 1.075992 |
+| Pixels only | 4.056312 | 1.544393 | 1.806965 |
+| Both | 1.298118 | 0.922629 | 0.942110 |
+
+There is no device ground truth: first-to-last displacement is not ATE,
+and OpenVINS agreement is not an accuracy measurement. All variants produce
+885 finite poses. The retained combination has a maximum pose step of
+0.102134 m. The disabled-options replay is byte-identical to the previously
+committed default. Frozen results and commands are recorded in
+`084638-retained-20261017.json` and `install/schur084638/retain-two-*`.
+
+The current unit tests are `tests/midpoint_pixel_test.cpp`. They check the
+analytic angular/acceleration ramps at an interpolated camera boundary,
+quadratic convergence of the retained small-angle rotation approximation,
+and pixel-residual/Jacobian consistency for both device and UZH cameras.
+The original core is a negative control for the angular-ramp test. The
+native build helper now builds `schurvins_midpoint_pixel_test`; the old
+Schur-whitening test target is available only when building its historical
+patched source.
+
+Build the current source with `build_host.sh SchurVINS BUILD_DIR`. To
+reproduce the four-way comparison using the existing frame-marker adapter:
+
+```sh
+install/dataset-test-venv/bin/python \
+  scripts/vio-compare/probes/fpv-diagnosis/084638_followup.py \
+  --library install/schur084638/retain-two-build \
+  --output install/schur084638/reproduce-retained \
+  --variants baseline midpoint pixel candidate
+```
+
+The wider experiments are preserved under
+`install/schur084638/archive-before-retain-two/`, including their original
+runner, profiles, patch, tests, documentation and frozen result files.
+They are historical artifacts and are not part of the active configuration.
+The retained implementation is committed in the nested SchurVINS repository
+as `5f30dbb`; its full commit ID is recorded in the retained results JSON.
+No device program was replaced.

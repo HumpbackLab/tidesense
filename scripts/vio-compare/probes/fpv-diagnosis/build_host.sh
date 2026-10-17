@@ -20,4 +20,4 @@ cmake -S "$sdk/scripts/schurvins" -B "$build_dir" \
   -DSCHUR_SOURCE="$source_dir" -DSCHUR_STATIC=OFF \
   -DSCHUR_WITH_MICRO_ROS=OFF -DSCHUR_SYNC_OUTLIER_OBSERVATIONS=OFF \
   -DWORK="$work" -DGLOG_LIBRARY="$work/stage/lib/libglog.so" -DOpenCV_DIR="$opencv"
-cmake --build "$build_dir" --target schurvins_stereo schurvins_estimator_update_test -j"${JOBS:-2}"
+cmake --build "$build_dir" --target schurvins_stereo schurvins_midpoint_pixel_test -j"${JOBS:-2}"
