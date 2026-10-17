@@ -1,32 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
-    <remote name="origin" fetch="git@github.com:sophgo/" review="git@github.com:sophgo/"/>
+    <remote name="origin" fetch="https://github.com/sophgo/" review="https://github.com/sophgo/"/>
     <default revision="sg200x-dev" remote="origin" sync-j="4"/>
 
     <project name="host-tools" revision="master"/>
-    <project name="build" remote_url="git@github.com:HumpbackLab/"/>
+    <project name="build" remote_url="https://github.com/HumpbackLab/"/>
     <project name="freertos" path="freertos"/>
     <project name="FreeRTOS-Kernel" path="freertos/Source"/>
     <project name="Lab-Project-FreeRTOS-POSIX" path="freertos/Source/FreeRTOS-Plus-POSIX"/>
-    <project name="fsbl" remote_url="git@github.com:HumpbackLab/"/>
+    <project name="fsbl" remote_url="https://github.com/HumpbackLab/"/>
     <project name="opensbi"/>
     <project name="u-boot-2021.10"/>
-    <project name="linux_5.10" remote_url="git@github.com:HumpbackLab/"/>
-    <project name="osdrv" remote_url="git@github.com:HumpbackLab/"/>
-    <project name="ramdisk" remote_url="git@github.com:HumpbackLab/"/>
+    <project name="linux_5.10" remote_url="https://github.com/HumpbackLab/"/>
+    <project name="osdrv" remote_url="https://github.com/HumpbackLab/"/>
+    <project name="ramdisk" remote_url="https://github.com/HumpbackLab/"/>
     <project name="oss" revision="master"/>
     <project name="cvi_rtsp"/>
-    <project name="cvi_mpi" remote_url="git@github.com:HumpbackLab/"/>
+    <project name="cvi_mpi" remote_url="https://github.com/HumpbackLab/"/>
     <project name="isp_tuning"/>
-    <project name="SensorSupportList" path="cvi_mpi/component/isp" remote_url="git@github.com:HumpbackLab/"/>
+    <project name="SensorSupportList" path="cvi_mpi/component/isp" remote_url="https://github.com/HumpbackLab/"/>
     <project name="cvibuilder" path="cvibuilder"/>
     <project name="cvikernel" path="cvikernel"/>
-    <project name="cviruntime" path="cviruntime" remote_url="git@github.com:HumpbackLab/"/>
+    <project name="cviruntime" path="cviruntime" remote_url="https://github.com/HumpbackLab/"/>
     <project name="cvimath" path="cvimath"/>
     <project name="flatbuffers" path="flatbuffers" revision="master"/>
     <project name="cnpy" path="cnpy" revision="tpu"/>
-    <project name="buildroot-2021.05" remote_url="git@github.com:HumpbackLab/"/>
+    <project name="buildroot-2021.05" remote_url="https://github.com/HumpbackLab/"/>
     <project name="tdl_sdk" path="tdl_sdk" revision="master"/>
     <project name="ive"/>
-    <project name="SchurVINS" revision="master" remote_url="git@github.com:HumpbackLab/"/>
+    <project name="SchurVINS" revision="master" remote_url="https://github.com/HumpbackLab/"/>
 </manifest>
