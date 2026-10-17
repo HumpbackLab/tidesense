@@ -1,0 +1,2936 @@
+{
+  "protocol": "Offline residual IMU calibration on the unchanged six-face-corrected calibration bag. Independent VIO recordings are validation only; no fitted pose scale/time alignment and no GT.",
+  "preflight": {
+    "source": "/home/ncer/sophpi/cali/tidesense-imucam-kalibr-20261011-173935/imucam.bag",
+    "sha256": "9b01523e7ec4d34a8f2c6eaebd0f89cce68b31de7e2e4891550249c8944526bb",
+    "topics": {
+      "/tidesense/left/image_raw": 1753,
+      "/tidesense/right/image_raw": 1753,
+      "/tidesense/imu": 18666
+    },
+    "imu_rows": 18666,
+    "duration_s": 94.58001464,
+    "mean_hz": 197.34613143214884,
+    "median_dt_ms": 5.011760000000001,
+    "max_dt_ms": 30.069080000000003,
+    "gaps_over_7_5ms": 160,
+    "max_abs_gyro_rad_s": [
+      5.277317856,
+      3.5420028,
+      5.421128496
+    ],
+    "gyro_std_rad_s": [
+      0.6210117179287585,
+      0.6697918366779964,
+      0.8991439282488575
+    ],
+    "accel_min_m_s2": [
+      -10.092254296878954,
+      -6.049728123607671,
+      -14.794775344018136
+    ],
+    "accel_max_m_s2": [
+      10.275518062690253,
+      7.182189169259058,
+      -2.872978150750786
+    ],
+    "raw_accel_lattice": {
+      "median_abs_lsb_fraction": 0.24602898924163696,
+      "p99_abs_lsb_fraction": 0.49427187747915013,
+      "max_abs_lsb_fraction": 0.49993745024377745
+    },
+    "six_face_inverse_lattice": {
+      "median_abs_lsb_fraction": 0.0,
+      "p99_abs_lsb_fraction": 4.547473508864641e-13,
+      "max_abs_lsb_fraction": 9.094947017729282e-13
+    },
+    "six_face_reference": {
+      "sensor": "sc7u22",
+      "frame": "imu_chip_xyz",
+      "sampling_frequency_hz": 200,
+      "source": "/mnt/data/penguin-flight-console/accelerometer-calibration.json",
+      "six_face_applied": true,
+      "accel_scale_m_s2_per_lsb": 0.004788403,
+      "gyro_scale_rad_s_per_lsb": 0.001065264,
+      "bias_m_s2": [
+        -0.44857120850268206,
+        0.20333474499202886,
+        -0.6918093118279289
+      ],
+      "correction_scale": [
+        0.9977862286984542,
+        0.9975905220776843,
+        0.9875934244981269
+      ]
+    },
+    "six_face_applied_confirmed": true
+  },
+  "original_ros2_check": {
+    "ros2_source": "/home/ncer/sophpi/cali/tidesense-imucam/tidesense-imucam_0.db3",
+    "ros1_source": "/home/ncer/sophpi/cali/tidesense-imucam-kalibr-20261011-173935/imucam.bag",
+    "imu_rows": 18666,
+    "all_header_timestamps_and_six_values_identical": true
+  },
+  "calibrations": {
+    "radtan": {
+      "directory": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-radtan",
+      "run": {
+        "source": "/home/ncer/sophpi/cali/tidesense-imucam-kalibr-20261011-173935",
+        "output": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-radtan",
+        "status": "complete",
+        "model": "scale-misalignment",
+        "input_values_changed": false,
+        "six_face_policy": "Preserve bag IMU values exactly; estimate residual intrinsics for this input stream.",
+        "input_sha256": {
+          "imucam.bag": "9b01523e7ec4d34a8f2c6eaebd0f89cce68b31de7e2e4891550249c8944526bb",
+          "camchain-input.yaml": "b6634060207f842ce54de5eab297d44644769e75e8f840e296738e1d4663c510",
+          "imu-input.yaml": "9f1e17f3125e04c615a056a5e4bd589cad6f3737985c4bfd242ab90b8c84d7bd",
+          "target.yaml": "2b2d4e5beaed5a298fa9b47c807b6499a8f5eb1ca984d06a952f7197ebeda278"
+        },
+        "command": [
+          "podman",
+          "run",
+          "--rm",
+          "--init",
+          "--network=none",
+          "--cap-drop=all",
+          "--security-opt=no-new-privileges",
+          "--env",
+          "PYTHONUNBUFFERED=1",
+          "--env",
+          "OMP_NUM_THREADS=2",
+          "--env",
+          "OPENBLAS_NUM_THREADS=1",
+          "--volume",
+          "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-radtan:/output:rw",
+          "--workdir",
+          "/output",
+          "localhost/tidesense-kalibr:noetic",
+          "xvfb-run",
+          "-a",
+          "rosrun",
+          "kalibr",
+          "kalibr_calibrate_imu_camera",
+          "--bag",
+          "/output/imucam.bag",
+          "--cams",
+          "/output/camchain-input.yaml",
+          "--imu",
+          "/output/imu-input.yaml",
+          "--target",
+          "/output/target.yaml",
+          "--imu-models",
+          "scale-misalignment",
+          "--max-iter",
+          "30",
+          "--dont-show-report"
+        ],
+        "runner_sha256": "33ca454bb8e6502eff711f0e4310ae43e71b655bd469ad4d722fd26a05832bb8",
+        "returncode": 0,
+        "wall_s": 207.84251316904556,
+        "result_sha256": {
+          "imucam-imu.yaml": "b0a54145021816ae565c0c8be1a9fde9297001def6bdfe6eb060f44368d24215",
+          "imucam-camchain-imucam.yaml": "e95a907ce9db13087d683f2f621be9a67ba521ef98fb448e1ebada8455ae800d",
+          "imucam-results-imucam.txt": "fce0c2246d0be39f45791e7b2a9f37372ab35906f861629850261f241ad5134a",
+          "imucam-report-imucam.pdf": "f16f0d9d3cb50b1a187f94f10566d0f63165904ea62f38a669a8400ff80d38f6"
+        },
+        "source_inputs_unchanged": true
+      },
+      "imu": {
+        "imu0": {
+          "T_i_b": [
+            [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "accelerometer_noise_density": 0.0013456558736400605,
+          "accelerometer_random_walk": 0.0002833135380475674,
+          "accelerometers": {
+            "M": [
+              [
+                1.0141808260585166,
+                0.0,
+                0.0
+              ],
+              [
+                -0.007092979714966702,
+                1.0119736988949997,
+                0.0
+              ],
+              [
+                -0.005669384314517136,
+                -0.0009750260920409552,
+                1.0147496183397846
+              ]
+            ]
+          },
+          "gyroscope_noise_density": 0.0001253427834534552,
+          "gyroscope_random_walk": 4.450516959753275e-05,
+          "gyroscopes": {
+            "A": [
+              [
+                -7.031774789143351e-05,
+                -0.0024506087366423126,
+                0.00023807241914168494
+              ],
+              [
+                0.0010844023154777743,
+                5.3653456152948424e-05,
+                2.1182955939138955e-05
+              ],
+              [
+                -0.00010894653973488374,
+                -0.00037717081212245015,
+                0.00018759296593346672
+              ]
+            ],
+            "C_gyro_i": [
+              [
+                0.9999470656001276,
+                -0.0027175209860814294,
+                0.009923763267283555
+              ],
+              [
+                0.0027420439225974754,
+                0.9999932187993387,
+                -0.002458363371294491
+              ],
+              [
+                -0.009917015318200613,
+                0.002485444634061113,
+                0.9999477363203291
+              ]
+            ],
+            "M": [
+              [
+                1.0054165693747439,
+                0.0,
+                0.0
+              ],
+              [
+                0.003874871040632436,
+                1.0247985185697137,
+                0.0
+              ],
+              [
+                -0.002334351452261493,
+                -0.0006804699743966072,
+                1.0009955802379964
+              ]
+            ]
+          },
+          "model": "scale-misalignment",
+          "rostopic": "/tidesense/imu",
+          "time_offset": 0.0,
+          "update_rate": 199.5227416020878
+        }
+      },
+      "cameras": {
+        "cam0": {
+          "T_cam_imu": [
+            [
+              -0.999853936303108,
+              0.009083018802396689,
+              -0.014477735617727736,
+              -0.037751634995045434
+            ],
+            [
+              -0.009166024778802743,
+              -0.9999418741781525,
+              0.005677345756553088,
+              0.00364715404345242
+            ],
+            [
+              -0.014425326649191977,
+              0.0058092197858563965,
+              0.9998790741467415,
+              -0.02298203730860456
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "cam_overlaps": [
+            1
+          ],
+          "camera_model": "pinhole",
+          "distortion_coeffs": [
+            -0.2742635453235618,
+            0.05908787873991614,
+            0.0010990188499435513,
+            -0.00025414547837411175
+          ],
+          "distortion_model": "radtan",
+          "intrinsics": [
+            328.9542148274374,
+            328.2538626851859,
+            356.1404103703769,
+            175.52741735596317
+          ],
+          "resolution": [
+            640,
+            400
+          ],
+          "rostopic": "/tidesense/left/image_raw",
+          "timeshift_cam_imu": 0.010506778706557238
+        },
+        "cam1": {
+          "T_cam_imu": [
+            [
+              0.9990818814866225,
+              -0.009187797992952567,
+              0.041844694444951695,
+              -0.012626408630432816
+            ],
+            [
+              0.009171098583616118,
+              0.9999577699241432,
+              0.0005910322361276031,
+              -0.003770129423370723
+            ],
+            [
+              -0.041848357625123934,
+              -0.0002067277805336656,
+              0.9991239523841398,
+              -0.022038266466837667
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "T_cn_cnm1": [
+            [
+              -0.9996252212586129,
+              0.00026722146132531697,
+              0.02737417791194856,
+              -0.0497357553349978
+            ],
+            [
+              -9.568060168499052e-05,
+              -0.9999803535794588,
+              0.006267639134313693,
+              1.7383983830320803e-05
+            ],
+            [
+              0.027375314955025935,
+              0.006262670978594234,
+              0.9996056077690451,
+              0.001945328877075077
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "cam_overlaps": [
+            0
+          ],
+          "camera_model": "pinhole",
+          "distortion_coeffs": [
+            -0.2685731354829868,
+            0.05448827405566794,
+            -0.0012513636983430888,
+            0.000759217932427126
+          ],
+          "distortion_model": "radtan",
+          "intrinsics": [
+            328.7295170516949,
+            328.67205068451767,
+            342.33222952058753,
+            197.79095214360643
+          ],
+          "resolution": [
+            640,
+            400
+          ],
+          "rostopic": "/tidesense/right/image_raw",
+          "timeshift_cam_imu": 0.010560379706811365
+        }
+      },
+      "residual": {
+        "Reprojection error \\(cam0\\) \\[px\\]": {
+          "mean": 0.7552905246301111,
+          "median": 0.5491501837745518,
+          "std": 1.5171367925846886
+        },
+        "Reprojection error \\(cam1\\) \\[px\\]": {
+          "mean": 0.7566473006147375,
+          "median": 0.5946175919778919,
+          "std": 0.905140102892114
+        },
+        "Gyroscope error \\(imu0\\) \\[rad/s\\]": {
+          "mean": 0.0017644824833692738,
+          "median": 0.0015809333164039556,
+          "std": 0.001128464778026592
+        },
+        "Accelerometer error \\(imu0\\) \\[m/s\\^2\\]": {
+          "mean": 0.036752026598327846,
+          "median": 0.030430449067181214,
+          "std": 0.02997562900330229
+        }
+      },
+      "iterations": 11,
+      "last_iteration": [
+        "11",
+        "685504",
+        "0.00996647"
+      ],
+      "inverse_gyro_scale_diagonal": [
+        0.9946126117872591,
+        0.9758015667271608,
+        0.9990054099561961
+      ],
+      "inverse_accel_scale_diagonal": [
+        0.9860174579383161,
+        0.9881679742190197,
+        0.9854647707442195
+      ],
+      "condition_numbers": {
+        "ma": 1.009469319622394,
+        "mw": 1.0242771459709068
+      }
+    },
+    "equi": {
+      "directory": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi",
+      "run": {
+        "source": "/home/ncer/sophpi/cali/tidesense-stereo-yy-equi-20261011-231002-imucam",
+        "output": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi",
+        "status": "complete",
+        "model": "scale-misalignment",
+        "input_values_changed": false,
+        "six_face_policy": "Preserve bag IMU values exactly; estimate residual intrinsics for this input stream.",
+        "input_sha256": {
+          "imucam.bag": "9b01523e7ec4d34a8f2c6eaebd0f89cce68b31de7e2e4891550249c8944526bb",
+          "camchain-input.yaml": "7d7687f9e50fdb0e2753d7b46f0e7eedc72c25ab19f83dedd824e3f4ca00e5d8",
+          "imu-input.yaml": "9f1e17f3125e04c615a056a5e4bd589cad6f3737985c4bfd242ab90b8c84d7bd",
+          "target.yaml": "2b2d4e5beaed5a298fa9b47c807b6499a8f5eb1ca984d06a952f7197ebeda278"
+        },
+        "command": [
+          "podman",
+          "run",
+          "--rm",
+          "--init",
+          "--network=none",
+          "--cap-drop=all",
+          "--security-opt=no-new-privileges",
+          "--env",
+          "PYTHONUNBUFFERED=1",
+          "--env",
+          "OMP_NUM_THREADS=2",
+          "--env",
+          "OPENBLAS_NUM_THREADS=1",
+          "--volume",
+          "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi:/output:rw",
+          "--workdir",
+          "/output",
+          "localhost/tidesense-kalibr:noetic",
+          "xvfb-run",
+          "-a",
+          "rosrun",
+          "kalibr",
+          "kalibr_calibrate_imu_camera",
+          "--bag",
+          "/output/imucam.bag",
+          "--cams",
+          "/output/camchain-input.yaml",
+          "--imu",
+          "/output/imu-input.yaml",
+          "--target",
+          "/output/target.yaml",
+          "--imu-models",
+          "scale-misalignment",
+          "--max-iter",
+          "30",
+          "--dont-show-report"
+        ],
+        "runner_sha256": "33ca454bb8e6502eff711f0e4310ae43e71b655bd469ad4d722fd26a05832bb8",
+        "returncode": 0,
+        "wall_s": 147.14954383706208,
+        "result_sha256": {
+          "imucam-imu.yaml": "5d93b88176b39621275a6bd85b88a3999df745f02fc65cf222303daa84581822",
+          "imucam-camchain-imucam.yaml": "15502f3a2ff7174bd178fe0110ce6db8b558799731672486214e5e8835bb4e98",
+          "imucam-results-imucam.txt": "64e688f4aabbd19f907bea6cdf04e0b49c60aadad9089bc3d5f26664276ac9ab",
+          "imucam-report-imucam.pdf": "262ebb93cff50e41e63031dc00749c3a0d438683eed59270b9a02d81c6fec92c"
+        },
+        "source_inputs_unchanged": true
+      },
+      "imu": {
+        "imu0": {
+          "T_i_b": [
+            [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "accelerometer_noise_density": 0.0013456558736400605,
+          "accelerometer_random_walk": 0.0002833135380475674,
+          "accelerometers": {
+            "M": [
+              [
+                1.0060012690210691,
+                0.0,
+                0.0
+              ],
+              [
+                -0.004031548331292806,
+                1.0028311022816792,
+                0.0
+              ],
+              [
+                -0.0030249937051860837,
+                -0.0032913564719907864,
+                1.0144266110210804
+              ]
+            ]
+          },
+          "gyroscope_noise_density": 0.0001253427834534552,
+          "gyroscope_random_walk": 4.450516959753275e-05,
+          "gyroscopes": {
+            "A": [
+              [
+                -0.00017718467650851876,
+                -0.0024158668132176985,
+                0.0003707897413735065
+              ],
+              [
+                0.0011142119877669517,
+                0.0002513955677265385,
+                5.399289013802696e-05
+              ],
+              [
+                -0.00022172988516347026,
+                -0.0003219950131200323,
+                0.00039306575266646383
+              ]
+            ],
+            "C_gyro_i": [
+              [
+                0.999965922446907,
+                -0.005114825543117092,
+                0.0064801623876739045
+              ],
+              [
+                0.005114451723821048,
+                0.9999869183491725,
+                7.425692530795328e-05
+              ],
+              [
+                -0.006480457427670559,
+                -4.111191711935944e-05,
+                0.9999790007701858
+              ]
+            ],
+            "M": [
+              [
+                0.9925508333091508,
+                0.0,
+                0.0
+              ],
+              [
+                -0.0002429044690790608,
+                1.013181590581413,
+                0.0
+              ],
+              [
+                -0.0007179390210012217,
+                -0.0014272789657484377,
+                1.0003446620445378
+              ]
+            ]
+          },
+          "model": "scale-misalignment",
+          "rostopic": "/tidesense/imu",
+          "time_offset": 0.0,
+          "update_rate": 199.5227416020878
+        }
+      },
+      "cameras": {
+        "cam0": {
+          "T_cam_imu": [
+            [
+              -0.9999560270845331,
+              0.006236246100909252,
+              -0.007003794106542654,
+              -0.034584912899092386
+            ],
+            [
+              -0.006250692716933813,
+              -0.9999783778907971,
+              0.002042692206350545,
+              -0.0015932799858186049
+            ],
+            [
+              -0.006990903938434432,
+              0.002086380948031499,
+              0.9999733867842007,
+              -0.022908354047498792
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "cam_overlaps": [
+            1
+          ],
+          "camera_model": "pinhole",
+          "distortion_coeffs": [
+            -0.023349850697831704,
+            0.02209306556232834,
+            -0.036616542680611576,
+            0.013291129420501067
+          ],
+          "distortion_model": "equidistant",
+          "intrinsics": [
+            327.2693566805583,
+            326.57531384191236,
+            352.95861564713647,
+            179.85056414504874
+          ],
+          "resolution": [
+            640,
+            400
+          ],
+          "rostopic": "/tidesense/left/image_raw",
+          "timeshift_cam_imu": 0.010630672663655283
+        },
+        "cam1": {
+          "T_cam_imu": [
+            [
+              0.9999320284786065,
+              -0.005790253084501119,
+              0.010119851376209067,
+              -0.0151524756218347
+            ],
+            [
+              0.0057493249008578546,
+              0.9999751948799334,
+              0.004068769841579243,
+              0.001471648268446358
+            ],
+            [
+              -0.010143159559205951,
+              -0.004010310967592692,
+              0.9999405150908226,
+              -0.022851080580976835
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "T_cn_cnm1": [
+            [
+              -0.9999950453506927,
+              -0.0004394682192878564,
+              0.003117072624642923,
+              -0.04966651035745341
+            ],
+            [
+              0.0004585224975586242,
+              -0.9999811993259076,
+              0.00611479777553823,
+              3.433615037673406e-05
+            ],
+            [
+              0.003114326762286668,
+              0.0061161967267845995,
+              0.9999764462758182,
+              0.00017418742311640418
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "cam_overlaps": [
+            0
+          ],
+          "camera_model": "pinhole",
+          "distortion_coeffs": [
+            -0.01177923045326392,
+            -0.030331395173953984,
+            0.035293164705659845,
+            -0.014581531049422869
+          ],
+          "distortion_model": "equidistant",
+          "intrinsics": [
+            327.4161409731128,
+            326.7520686484653,
+            353.1470885068694,
+            193.54737372082502
+          ],
+          "resolution": [
+            640,
+            400
+          ],
+          "rostopic": "/tidesense/right/image_raw",
+          "timeshift_cam_imu": 0.010652210123638033
+        }
+      },
+      "residual": {
+        "Reprojection error \\(cam0\\) \\[px\\]": {
+          "mean": 0.4226649507859326,
+          "median": 0.3803354218651934,
+          "std": 0.2525589577669001
+        },
+        "Reprojection error \\(cam1\\) \\[px\\]": {
+          "mean": 0.4173277050102508,
+          "median": 0.3717428562889282,
+          "std": 0.25070327784271207
+        },
+        "Gyroscope error \\(imu0\\) \\[rad/s\\]": {
+          "mean": 0.0016339696162448985,
+          "median": 0.0014804020142635387,
+          "std": 0.00098511482512762
+        },
+        "Accelerometer error \\(imu0\\) \\[m/s\\^2\\]": {
+          "mean": 0.03132608676213088,
+          "median": 0.027067622529861824,
+          "std": 0.020600227855655916
+        }
+      },
+      "iterations": 5,
+      "last_iteration": [
+        "5",
+        "160507",
+        "0.00012519"
+      ],
+      "inverse_gyro_scale_diagonal": [
+        1.0075050732323843,
+        0.9869899031881849,
+        0.9996554567064583
+      ],
+      "inverse_accel_scale_diagonal": [
+        0.9940345313610699,
+        0.9971768902308298,
+        0.9857785562165416
+      ],
+      "condition_numbers": {
+        "ma": 1.013315184725551,
+        "mw": 1.0208442835601723
+      }
+    },
+    "equi-nogs": {
+      "directory": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs",
+      "run": {
+        "source": "/home/ncer/sophpi/cali/tidesense-stereo-yy-equi-20261011-231002-imucam",
+        "output": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs",
+        "status": "complete",
+        "model": "scale-misalignment",
+        "input_values_changed": false,
+        "gyro_g_sensitivity_estimated": false,
+        "six_face_policy": "Preserve bag IMU values exactly; estimate residual intrinsics for this input stream.",
+        "input_sha256": {
+          "imucam.bag": "9b01523e7ec4d34a8f2c6eaebd0f89cce68b31de7e2e4891550249c8944526bb",
+          "camchain-input.yaml": "7d7687f9e50fdb0e2753d7b46f0e7eedc72c25ab19f83dedd824e3f4ca00e5d8",
+          "imu-input.yaml": "9f1e17f3125e04c615a056a5e4bd589cad6f3737985c4bfd242ab90b8c84d7bd",
+          "target.yaml": "2b2d4e5beaed5a298fa9b47c807b6499a8f5eb1ca984d06a952f7197ebeda278"
+        },
+        "python_override": {
+          "container_path": "/catkin_ws/src/kalibr/aslam_offline_calibration/kalibr/python/kalibr_imu_camera_calibration/IccSensors.py",
+          "original_sha256": "1594682a604691bb2b0ef2fc3f1ee0afe149ac23a8c68158f7788af21a52d473",
+          "patched_sha256": "7b6a24cedbfcff8c586f668471047a2993eec0e85b03c11df978caefea391446",
+          "change": "Fix the initially zero M_accel_gyro design variable inactive; all other source is unchanged."
+        },
+        "command": [
+          "podman",
+          "run",
+          "--rm",
+          "--init",
+          "--network=none",
+          "--cap-drop=all",
+          "--security-opt=no-new-privileges",
+          "--env",
+          "PYTHONUNBUFFERED=1",
+          "--env",
+          "OMP_NUM_THREADS=2",
+          "--env",
+          "OPENBLAS_NUM_THREADS=1",
+          "--volume",
+          "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs:/output:rw",
+          "--volume",
+          "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs/IccSensors-zero-g-sensitivity.py:/catkin_ws/src/kalibr/aslam_offline_calibration/kalibr/python/kalibr_imu_camera_calibration/IccSensors.py:ro",
+          "--workdir",
+          "/output",
+          "localhost/tidesense-kalibr:noetic",
+          "xvfb-run",
+          "-a",
+          "rosrun",
+          "kalibr",
+          "kalibr_calibrate_imu_camera",
+          "--bag",
+          "/output/imucam.bag",
+          "--cams",
+          "/output/camchain-input.yaml",
+          "--imu",
+          "/output/imu-input.yaml",
+          "--target",
+          "/output/target.yaml",
+          "--imu-models",
+          "scale-misalignment",
+          "--max-iter",
+          "30",
+          "--dont-show-report"
+        ],
+        "runner_sha256": "72e1015112f065f311ef8e9d7975ea70c9a2bc04a9613baa8bc12038961ad8ec",
+        "returncode": 0,
+        "wall_s": 149.50230642803945,
+        "result_sha256": {
+          "imucam-imu.yaml": "25c582b10ccdbf7441c380880f9f68e335a0c4cbdebfc428627ca496761759cf",
+          "imucam-camchain-imucam.yaml": "c8c0fbe790d49814cb8f1069024c29e5f24e3d247b6ffa4e6d2beef4b09eb2e3",
+          "imucam-results-imucam.txt": "201b9917ce1818d8302ba77086a4c5b18caff99ae5e5a429bcbc3155f9de8c94",
+          "imucam-report-imucam.pdf": "abc7e82e96f3e75e6f5abbd0e2a8ecf90393067148c7834eaa6ded8959d5d4e9"
+        },
+        "source_inputs_unchanged": true
+      },
+      "imu": {
+        "imu0": {
+          "T_i_b": [
+            [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "accelerometer_noise_density": 0.0013456558736400605,
+          "accelerometer_random_walk": 0.0002833135380475674,
+          "accelerometers": {
+            "M": [
+              [
+                1.0052115149433154,
+                0.0,
+                0.0
+              ],
+              [
+                -0.0034702896362878957,
+                0.9982177791303957,
+                0.0
+              ],
+              [
+                -0.002876851545533874,
+                -0.004116397228591143,
+                1.0075722899964126
+              ]
+            ]
+          },
+          "gyroscope_noise_density": 0.0001253427834534552,
+          "gyroscope_random_walk": 4.450516959753275e-05,
+          "gyroscopes": {
+            "A": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "C_gyro_i": [
+              [
+                0.9999657321876307,
+                -0.0045613757793981045,
+                0.0069085672505080535
+              ],
+              [
+                0.004570229146422994,
+                0.9999887547311063,
+                -0.0012662609843650057
+              ],
+              [
+                -0.006902713669627172,
+                0.001297791327779478,
+                0.9999753338366225
+              ]
+            ],
+            "M": [
+              [
+                0.9865695565956947,
+                0.0,
+                0.0
+              ],
+              [
+                0.0003802216149932062,
+                1.0093284283950534,
+                0.0
+              ],
+              [
+                0.0021345707849734596,
+                -0.0024004850712802932,
+                0.9999966425837646
+              ]
+            ]
+          },
+          "model": "scale-misalignment",
+          "rostopic": "/tidesense/imu",
+          "time_offset": 0.0,
+          "update_rate": 199.5227416020878
+        }
+      },
+      "cameras": {
+        "cam0": {
+          "T_cam_imu": [
+            [
+              -0.999968674143425,
+              0.005668477857549687,
+              -0.005524408621559803,
+              -0.03494034649309693
+            ],
+            [
+              -0.005685089286508302,
+              -0.9999793520639431,
+              0.002995864746637743,
+              -0.0007215408717181328
+            ],
+            [
+              -0.005507312560943306,
+              0.003027177654877097,
+              0.9999802526569216,
+              -0.020290713880423503
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "cam_overlaps": [
+            1
+          ],
+          "camera_model": "pinhole",
+          "distortion_coeffs": [
+            -0.023349850697831704,
+            0.02209306556232834,
+            -0.036616542680611576,
+            0.013291129420501067
+          ],
+          "distortion_model": "equidistant",
+          "intrinsics": [
+            327.2693566805583,
+            326.57531384191236,
+            352.95861564713647,
+            179.85056414504874
+          ],
+          "resolution": [
+            640,
+            400
+          ],
+          "rostopic": "/tidesense/left/image_raw",
+          "timeshift_cam_imu": 0.010918640546458844
+        },
+        "cam1": {
+          "T_cam_imu": [
+            [
+              0.9999490513721747,
+              -0.005219554694455695,
+              0.008640075733447442,
+              -0.014789267516009168
+            ],
+            [
+              0.005192798166451971,
+              0.9999816614818626,
+              0.003116335536528999,
+              0.0006157689096004176
+            ],
+            [
+              -0.008656183171041085,
+              -0.0030713105940829177,
+              0.9999578178824066,
+              -0.020229277277513797
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "T_cn_cnm1": [
+            [
+              -0.9999950453506927,
+              -0.0004394682192878564,
+              0.003117072624642923,
+              -0.04966651035745341
+            ],
+            [
+              0.0004585224975586242,
+              -0.9999811993259076,
+              0.00611479777553823,
+              3.433615037673406e-05
+            ],
+            [
+              0.003114326762286668,
+              0.0061161967267845995,
+              0.9999764462758182,
+              0.00017418742311640418
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "cam_overlaps": [
+            0
+          ],
+          "camera_model": "pinhole",
+          "distortion_coeffs": [
+            -0.01177923045326392,
+            -0.030331395173953984,
+            0.035293164705659845,
+            -0.014581531049422869
+          ],
+          "distortion_model": "equidistant",
+          "intrinsics": [
+            327.4161409731128,
+            326.7520686484653,
+            353.1470885068694,
+            193.54737372082502
+          ],
+          "resolution": [
+            640,
+            400
+          ],
+          "rostopic": "/tidesense/right/image_raw",
+          "timeshift_cam_imu": 0.010941001656751189
+        }
+      },
+      "residual": {
+        "Reprojection error \\(cam0\\) \\[px\\]": {
+          "mean": 0.4457501347402621,
+          "median": 0.39805798398444747,
+          "std": 0.26892731124674657
+        },
+        "Reprojection error \\(cam1\\) \\[px\\]": {
+          "mean": 0.4400530063515632,
+          "median": 0.38987923549471903,
+          "std": 0.26716199454990747
+        },
+        "Gyroscope error \\(imu0\\) \\[rad/s\\]": {
+          "mean": 0.0018514919540030584,
+          "median": 0.0016067016444932,
+          "std": 0.001223898469270955
+        },
+        "Accelerometer error \\(imu0\\) \\[m/s\\^2\\]": {
+          "mean": 0.03952886905988934,
+          "median": 0.03363930525949105,
+          "std": 0.027374533583041556
+        }
+      },
+      "iterations": null,
+      "last_iteration": null,
+      "inverse_gyro_scale_diagonal": [
+        1.0136132757335925,
+        0.9907577869278024,
+        1.0000033574275076
+      ],
+      "inverse_accel_scale_diagonal": [
+        0.9948155041343619,
+        1.0017854028518276,
+        0.9924846186505987
+      ],
+      "condition_numbers": {
+        "ma": 1.0111502675289086,
+        "mw": 1.0233140306525748
+      }
+    }
+  },
+  "validation": {
+    "radtan-084638": {
+      "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-radtan",
+      "recording": "/home/ncer/sophpi/install/replay-20261012-084638/record",
+      "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
+      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "noise": "Original device continuous-time scalar noise coefficients held fixed.",
+      "new_camera_offset_ns": 10506779,
+      "old_export_offset_ns": 10797086,
+      "imu_rows": 8868,
+      "stereo_rows": 885,
+      "model_consistency_test_passed": true,
+      "binary_sha256": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+      "library_sha256": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69",
+      "calibration_sha256": {
+        "imucam-imu.yaml": "b0a54145021816ae565c0c8be1a9fde9297001def6bdfe6eb060f44368d24215",
+        "imucam-camchain-imucam.yaml": "e95a907ce9db13087d683f2f621be9a67ba521ef98fb448e1ebada8455ae800d"
+      },
+      "ma": [
+        [
+          1.0141808260585166,
+          0.0,
+          0.0
+        ],
+        [
+          -0.007092979714966702,
+          1.0119736988949997,
+          0.0
+        ],
+        [
+          -0.005669384314517136,
+          -0.0009750260920409552,
+          1.0147496183397846
+        ]
+      ],
+      "mw": [
+        [
+          1.0054165693747439,
+          0.0,
+          0.0
+        ],
+        [
+          0.003874871040632436,
+          1.0247985185697137,
+          0.0
+        ],
+        [
+          -0.002334351452261493,
+          -0.0006804699743966072,
+          1.0009955802379964
+        ]
+      ],
+      "c_gyro_i": [
+        [
+          0.9999470656001276,
+          -0.0027175209860814294,
+          0.009923763267283555
+        ],
+        [
+          0.0027420439225974754,
+          0.9999932187993387,
+          -0.002458363371294491
+        ],
+        [
+          -0.009917015318200613,
+          0.002485444634061113,
+          0.9999477363203291
+        ]
+      ],
+      "a": [
+        [
+          -7.031774789143351e-05,
+          -0.0024506087366423126,
+          0.00023807241914168494
+        ],
+        [
+          0.0010844023154777743,
+          5.3653456152948424e-05,
+          2.1182955939138955e-05
+        ],
+        [
+          -0.00010894653973488374,
+          -0.00037717081212245015,
+          0.00018759296593346672
+        ]
+      ],
+      "runs": {
+        "new-geometry": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 322.6194740671617,
+              "max_distance_from_first_pose_m": 322.6194740671617,
+              "estimated_path_m": 331.1767731839229,
+              "max_pose_step_m": 1.9697188317605536,
+              "max_finite_difference_speed_m_s": 39.293000693417795,
+              "backend_zero_observation_logs": 43,
+              "backend_observation_logs": 764,
+              "backend_observations_median": 20.0,
+              "compute_ms_mean": 9.417824537853107,
+              "compute_ms_p95": 25.38003779999999,
+              "poses_sha256": "7d3e2fb57c93d807d8576987982ba59da0d36269e2d015b30ed9e89518e6f2a1"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 322.6194740671617,
+              "max_distance_from_first_pose_m": 322.6194740671617,
+              "estimated_path_m": 331.1767731839229,
+              "max_pose_step_m": 1.9697188317605536,
+              "max_finite_difference_speed_m_s": 39.293000693417795,
+              "backend_zero_observation_logs": 43,
+              "backend_observation_logs": 764,
+              "backend_observations_median": 20.0,
+              "compute_ms_mean": 7.853436957062146,
+              "compute_ms_p95": 22.594297399999988,
+              "poses_sha256": "7d3e2fb57c93d807d8576987982ba59da0d36269e2d015b30ed9e89518e6f2a1"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "gyro-only": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 358.66972825125555,
+              "max_distance_from_first_pose_m": 358.66972825125555,
+              "estimated_path_m": 364.92984270995805,
+              "max_pose_step_m": 2.2817428029426035,
+              "max_finite_difference_speed_m_s": 45.5174211123772,
+              "backend_zero_observation_logs": 67,
+              "backend_observation_logs": 792,
+              "backend_observations_median": 13.0,
+              "compute_ms_mean": 4.636322213559322,
+              "compute_ms_p95": 10.274622399999998,
+              "poses_sha256": "d66d799946f664bdd5bfefd066be560a7f9973ddc0c2cf3464f42d5b1a7eddad"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 358.66972825125555,
+              "max_distance_from_first_pose_m": 358.66972825125555,
+              "estimated_path_m": 364.92984270995805,
+              "max_pose_step_m": 2.2817428029426035,
+              "max_finite_difference_speed_m_s": 45.5174211123772,
+              "backend_zero_observation_logs": 67,
+              "backend_observation_logs": 792,
+              "backend_observations_median": 13.0,
+              "compute_ms_mean": 5.104107993220339,
+              "compute_ms_p95": 10.4838266,
+              "poses_sha256": "d66d799946f664bdd5bfefd066be560a7f9973ddc0c2cf3464f42d5b1a7eddad"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "no-g-sensitivity": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 363.5192267759387,
+              "max_distance_from_first_pose_m": 363.5192267759387,
+              "estimated_path_m": 368.2185226085157,
+              "max_pose_step_m": 2.282223364460527,
+              "max_finite_difference_speed_m_s": 45.52700760957291,
+              "backend_zero_observation_logs": 77,
+              "backend_observation_logs": 808,
+              "backend_observations_median": 11.0,
+              "compute_ms_mean": 5.616161616949152,
+              "compute_ms_p95": 11.718375399999998,
+              "poses_sha256": "312150cbe38432d656dce4068a13e79bd9c0bafad0ca3a2d488fb192a54b287e"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 363.5192267759387,
+              "max_distance_from_first_pose_m": 363.5192267759387,
+              "estimated_path_m": 368.2185226085157,
+              "max_pose_step_m": 2.282223364460527,
+              "max_finite_difference_speed_m_s": 45.52700760957291,
+              "backend_zero_observation_logs": 77,
+              "backend_observation_logs": 808,
+              "backend_observations_median": 11.0,
+              "compute_ms_mean": 5.307027013559322,
+              "compute_ms_p95": 10.963616799999997,
+              "poses_sha256": "312150cbe38432d656dce4068a13e79bd9c0bafad0ca3a2d488fb192a54b287e"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "full": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 669.4234999481209,
+              "max_distance_from_first_pose_m": 669.4234999481209,
+              "estimated_path_m": 673.7217650864834,
+              "max_pose_step_m": 3.91547478962681,
+              "max_finite_difference_speed_m_s": 78.10797721132252,
+              "backend_zero_observation_logs": 73,
+              "backend_observation_logs": 657,
+              "backend_observations_median": 33.0,
+              "compute_ms_mean": 5.057137689265537,
+              "compute_ms_p95": 8.912746199999999,
+              "poses_sha256": "16a866ca890ab588e8e03a36dca36df55f00cb92928dc300164e3577574fa2a4"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 669.4234999481209,
+              "max_distance_from_first_pose_m": 669.4234999481209,
+              "estimated_path_m": 673.7217650864834,
+              "max_pose_step_m": 3.91547478962681,
+              "max_finite_difference_speed_m_s": 78.10797721132252,
+              "backend_zero_observation_logs": 73,
+              "backend_observation_logs": 657,
+              "backend_observations_median": 33.0,
+              "compute_ms_mean": 5.018259635028248,
+              "compute_ms_p95": 8.719527999999999,
+              "poses_sha256": "16a866ca890ab588e8e03a36dca36df55f00cb92928dc300164e3577574fa2a4"
+            }
+          ],
+          "repeat_pose_identity": true
+        }
+      }
+    },
+    "openvins-radtan-084638": {
+      "new-geometry": {
+        "results": [
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 218.20979562514114,
+            "max_displacement_m": 218.20979562514114,
+            "max_speed_m_s": 28.624861775598678,
+            "pose_values_sha256": "9c4d3c8931f28464ead90555cc6251f4b21e43adf9f2b0b64f9166124f0ac898"
+          },
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 218.20979562514114,
+            "max_displacement_m": 218.20979562514114,
+            "max_speed_m_s": 28.624861775598678,
+            "pose_values_sha256": "9c4d3c8931f28464ead90555cc6251f4b21e43adf9f2b0b64f9166124f0ac898"
+          }
+        ],
+        "repeat_pose_identity": true
+      },
+      "no-g-sensitivity": {
+        "results": [
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 212.35834862504305,
+            "max_displacement_m": 212.35834862504305,
+            "max_speed_m_s": 30.775197530815877,
+            "pose_values_sha256": "00a3c5a30e69aa0430495baee6aa7b0b185d14b6bce4c09c14c3009aa54c37d0"
+          },
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 212.35834862504305,
+            "max_displacement_m": 212.35834862504305,
+            "max_speed_m_s": 30.775197530815877,
+            "pose_values_sha256": "00a3c5a30e69aa0430495baee6aa7b0b185d14b6bce4c09c14c3009aa54c37d0"
+          }
+        ],
+        "repeat_pose_identity": true
+      },
+      "full": {
+        "results": [
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 593.4285776268414,
+            "max_displacement_m": 593.4285776268414,
+            "max_speed_m_s": 71.03142682453908,
+            "pose_values_sha256": "cb9ea7fba652f306365773c030fd5c5f92c43645b71ed2b6fa2ead9c70e3261e"
+          },
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 593.4285776268414,
+            "max_displacement_m": 593.4285776268414,
+            "max_speed_m_s": 71.03142682453908,
+            "pose_values_sha256": "cb9ea7fba652f306365773c030fd5c5f92c43645b71ed2b6fa2ead9c70e3261e"
+          }
+        ],
+        "repeat_pose_identity": true
+      }
+    },
+    "radtan-003648": {
+      "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-radtan",
+      "recording": "/home/ncer/sophpi/install/replay-20261012-003648/record",
+      "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
+      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "noise": "Original device continuous-time scalar noise coefficients held fixed.",
+      "new_camera_offset_ns": 10506779,
+      "old_export_offset_ns": 10797086,
+      "imu_rows": 8307,
+      "stereo_rows": 829,
+      "model_consistency_test_passed": true,
+      "binary_sha256": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+      "library_sha256": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69",
+      "calibration_sha256": {
+        "imucam-imu.yaml": "b0a54145021816ae565c0c8be1a9fde9297001def6bdfe6eb060f44368d24215",
+        "imucam-camchain-imucam.yaml": "e95a907ce9db13087d683f2f621be9a67ba521ef98fb448e1ebada8455ae800d"
+      },
+      "ma": [
+        [
+          1.0141808260585166,
+          0.0,
+          0.0
+        ],
+        [
+          -0.007092979714966702,
+          1.0119736988949997,
+          0.0
+        ],
+        [
+          -0.005669384314517136,
+          -0.0009750260920409552,
+          1.0147496183397846
+        ]
+      ],
+      "mw": [
+        [
+          1.0054165693747439,
+          0.0,
+          0.0
+        ],
+        [
+          0.003874871040632436,
+          1.0247985185697137,
+          0.0
+        ],
+        [
+          -0.002334351452261493,
+          -0.0006804699743966072,
+          1.0009955802379964
+        ]
+      ],
+      "c_gyro_i": [
+        [
+          0.9999470656001276,
+          -0.0027175209860814294,
+          0.009923763267283555
+        ],
+        [
+          0.0027420439225974754,
+          0.9999932187993387,
+          -0.002458363371294491
+        ],
+        [
+          -0.009917015318200613,
+          0.002485444634061113,
+          0.9999477363203291
+        ]
+      ],
+      "a": [
+        [
+          -7.031774789143351e-05,
+          -0.0024506087366423126,
+          0.00023807241914168494
+        ],
+        [
+          0.0010844023154777743,
+          5.3653456152948424e-05,
+          2.1182955939138955e-05
+        ],
+        [
+          -0.00010894653973488374,
+          -0.00037717081212245015,
+          0.00018759296593346672
+        ]
+      ],
+      "runs": {
+        "new-geometry": {
+          "results": [
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 758.1836824606282,
+              "max_distance_from_first_pose_m": 758.1836824606282,
+              "estimated_path_m": 766.310245752737,
+              "max_pose_step_m": 2.243461070350711,
+              "max_finite_difference_speed_m_s": 44.760006989957134,
+              "backend_zero_observation_logs": 175,
+              "backend_observation_logs": 205,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 4.408646240048251,
+              "compute_ms_p95": 10.645676199999992,
+              "poses_sha256": "17bae7112914e723ae9ac613a3bcc9ee011f64a53c0f5fe5ae0622e716cdfbf8"
+            },
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 758.1836824606282,
+              "max_distance_from_first_pose_m": 758.1836824606282,
+              "estimated_path_m": 766.310245752737,
+              "max_pose_step_m": 2.243461070350711,
+              "max_finite_difference_speed_m_s": 44.760006989957134,
+              "backend_zero_observation_logs": 175,
+              "backend_observation_logs": 205,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 4.340710379975874,
+              "compute_ms_p95": 10.784611199999997,
+              "poses_sha256": "17bae7112914e723ae9ac613a3bcc9ee011f64a53c0f5fe5ae0622e716cdfbf8"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "full": {
+          "results": [
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 1315.0201662993895,
+              "max_distance_from_first_pose_m": 1315.0201662993895,
+              "estimated_path_m": 1321.3296004859176,
+              "max_pose_step_m": 5.4549732075281625,
+              "max_finite_difference_speed_m_s": 108.83390941159509,
+              "backend_zero_observation_logs": 119,
+              "backend_observation_logs": 140,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 3.8960098069963816,
+              "compute_ms_p95": 9.864390799999992,
+              "poses_sha256": "7d60e4bef414d987b1c528eaab83b2d2cd380ca36c3b85b6079558e744833c84"
+            },
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 1315.0201662993895,
+              "max_distance_from_first_pose_m": 1315.0201662993895,
+              "estimated_path_m": 1321.3296004859176,
+              "max_pose_step_m": 5.4549732075281625,
+              "max_finite_difference_speed_m_s": 108.83390941159509,
+              "backend_zero_observation_logs": 119,
+              "backend_observation_logs": 140,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 3.768062133896261,
+              "compute_ms_p95": 9.585292999999993,
+              "poses_sha256": "7d60e4bef414d987b1c528eaab83b2d2cd380ca36c3b85b6079558e744833c84"
+            }
+          ],
+          "repeat_pose_identity": true
+        }
+      }
+    },
+    "equi-084638": {
+      "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi",
+      "recording": "/home/ncer/sophpi/install/replay-20261012-084638/record",
+      "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
+      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "noise": "Original device continuous-time scalar noise coefficients held fixed.",
+      "new_camera_offset_ns": 10630673,
+      "old_export_offset_ns": 10797086,
+      "imu_rows": 8868,
+      "stereo_rows": 885,
+      "model_consistency_test_passed": true,
+      "binary_sha256": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+      "library_sha256": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69",
+      "calibration_sha256": {
+        "imucam-imu.yaml": "5d93b88176b39621275a6bd85b88a3999df745f02fc65cf222303daa84581822",
+        "imucam-camchain-imucam.yaml": "15502f3a2ff7174bd178fe0110ce6db8b558799731672486214e5e8835bb4e98"
+      },
+      "ma": [
+        [
+          1.0060012690210691,
+          0.0,
+          0.0
+        ],
+        [
+          -0.004031548331292806,
+          1.0028311022816792,
+          0.0
+        ],
+        [
+          -0.0030249937051860837,
+          -0.0032913564719907864,
+          1.0144266110210804
+        ]
+      ],
+      "mw": [
+        [
+          0.9925508333091508,
+          0.0,
+          0.0
+        ],
+        [
+          -0.0002429044690790608,
+          1.013181590581413,
+          0.0
+        ],
+        [
+          -0.0007179390210012217,
+          -0.0014272789657484377,
+          1.0003446620445378
+        ]
+      ],
+      "c_gyro_i": [
+        [
+          0.999965922446907,
+          -0.005114825543117092,
+          0.0064801623876739045
+        ],
+        [
+          0.005114451723821048,
+          0.9999869183491725,
+          7.425692530795328e-05
+        ],
+        [
+          -0.006480457427670559,
+          -4.111191711935944e-05,
+          0.9999790007701858
+        ]
+      ],
+      "a": [
+        [
+          -0.00017718467650851876,
+          -0.0024158668132176985,
+          0.0003707897413735065
+        ],
+        [
+          0.0011142119877669517,
+          0.0002513955677265385,
+          5.399289013802696e-05
+        ],
+        [
+          -0.00022172988516347026,
+          -0.0003219950131200323,
+          0.00039306575266646383
+        ]
+      ],
+      "runs": {
+        "new-geometry": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 368.8897750460752,
+              "max_distance_from_first_pose_m": 368.8897750460752,
+              "estimated_path_m": 376.97154180265477,
+              "max_pose_step_m": 2.293928960073785,
+              "max_finite_difference_speed_m_s": 45.76051706743676,
+              "backend_zero_observation_logs": 41,
+              "backend_observation_logs": 759,
+              "backend_observations_median": 22.0,
+              "compute_ms_mean": 5.125039689265537,
+              "compute_ms_p95": 11.7823348,
+              "poses_sha256": "56cad89c1d33acc627f37bc8143182018e4acb97e923afdc8840ac096a88d923"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 368.8897750460752,
+              "max_distance_from_first_pose_m": 368.8897750460752,
+              "estimated_path_m": 376.97154180265477,
+              "max_pose_step_m": 2.293928960073785,
+              "max_finite_difference_speed_m_s": 45.76051706743676,
+              "backend_zero_observation_logs": 41,
+              "backend_observation_logs": 759,
+              "backend_observations_median": 22.0,
+              "compute_ms_mean": 4.722185908474577,
+              "compute_ms_p95": 10.5039716,
+              "poses_sha256": "56cad89c1d33acc627f37bc8143182018e4acb97e923afdc8840ac096a88d923"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "gyro-only": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 75.07719009339328,
+              "max_distance_from_first_pose_m": 75.07719009339328,
+              "estimated_path_m": 87.48029346432986,
+              "max_pose_step_m": 2.785415757547043,
+              "max_finite_difference_speed_m_s": 55.59268237161071,
+              "backend_zero_observation_logs": 11,
+              "backend_observation_logs": 883,
+              "backend_observations_median": 16.0,
+              "compute_ms_mean": 5.047970236158192,
+              "compute_ms_p95": 11.229346399999999,
+              "poses_sha256": "d06ec2f9c884d4d9123d6db3b6e6931783b509400f1427f4558de551c3a217d2"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 75.07719009339328,
+              "max_distance_from_first_pose_m": 75.07719009339328,
+              "estimated_path_m": 87.48029346432986,
+              "max_pose_step_m": 2.785415757547043,
+              "max_finite_difference_speed_m_s": 55.59268237161071,
+              "backend_zero_observation_logs": 11,
+              "backend_observation_logs": 883,
+              "backend_observations_median": 16.0,
+              "compute_ms_mean": 4.964902465536723,
+              "compute_ms_p95": 11.937063199999987,
+              "poses_sha256": "d06ec2f9c884d4d9123d6db3b6e6931783b509400f1427f4558de551c3a217d2"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "no-g-sensitivity": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 92.08977597064022,
+              "max_distance_from_first_pose_m": 92.08977597064022,
+              "estimated_path_m": 102.62336376617623,
+              "max_pose_step_m": 0.6245807953020782,
+              "max_finite_difference_speed_m_s": 12.45947047222188,
+              "backend_zero_observation_logs": 16,
+              "backend_observation_logs": 883,
+              "backend_observations_median": 18.0,
+              "compute_ms_mean": 5.038377673446329,
+              "compute_ms_p95": 10.127695799999996,
+              "poses_sha256": "98b0e956b17cae3024562a9dc1aa7ab7757452674915d5c8a233c7041131ae94"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 92.08977597064022,
+              "max_distance_from_first_pose_m": 92.08977597064022,
+              "estimated_path_m": 102.62336376617623,
+              "max_pose_step_m": 0.6245807953020782,
+              "max_finite_difference_speed_m_s": 12.45947047222188,
+              "backend_zero_observation_logs": 16,
+              "backend_observation_logs": 883,
+              "backend_observations_median": 18.0,
+              "compute_ms_mean": 5.036923446327683,
+              "compute_ms_p95": 9.650920999999991,
+              "poses_sha256": "98b0e956b17cae3024562a9dc1aa7ab7757452674915d5c8a233c7041131ae94"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "full": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 661.7360369316701,
+              "max_distance_from_first_pose_m": 661.7360369316701,
+              "estimated_path_m": 666.6497887038894,
+              "max_pose_step_m": 3.818426087658692,
+              "max_finite_difference_speed_m_s": 76.17199799832989,
+              "backend_zero_observation_logs": 94,
+              "backend_observation_logs": 701,
+              "backend_observations_median": 27.0,
+              "compute_ms_mean": 4.332370694915254,
+              "compute_ms_p95": 9.1470018,
+              "poses_sha256": "f8b6ca370bf2576dae61f3771adfc7390d3b7e562faeb3b8e713b6fc00e81c6a"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 661.7360369316701,
+              "max_distance_from_first_pose_m": 661.7360369316701,
+              "estimated_path_m": 666.6497887038894,
+              "max_pose_step_m": 3.818426087658692,
+              "max_finite_difference_speed_m_s": 76.17199799832989,
+              "backend_zero_observation_logs": 94,
+              "backend_observation_logs": 701,
+              "backend_observations_median": 27.0,
+              "compute_ms_mean": 4.096076957062147,
+              "compute_ms_p95": 8.7640184,
+              "poses_sha256": "f8b6ca370bf2576dae61f3771adfc7390d3b7e562faeb3b8e713b6fc00e81c6a"
+            }
+          ],
+          "repeat_pose_identity": true
+        }
+      }
+    },
+    "openvins-equi-084638": {
+      "new-geometry": {
+        "results": [
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 203.28480345653662,
+            "max_displacement_m": 203.28480345653662,
+            "max_speed_m_s": 26.946264308019018,
+            "pose_values_sha256": "f476deb2204691094d7efd1a24d10fef6c27704596e6a35d2aa323327610fc13"
+          },
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 203.28480345653662,
+            "max_displacement_m": 203.28480345653662,
+            "max_speed_m_s": 26.946264308019018,
+            "pose_values_sha256": "f476deb2204691094d7efd1a24d10fef6c27704596e6a35d2aa323327610fc13"
+          }
+        ],
+        "repeat_pose_identity": true
+      },
+      "no-g-sensitivity": {
+        "results": [
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 0.2530675259696811,
+            "max_displacement_m": 0.869166160319929,
+            "max_speed_m_s": 2.059713264304699,
+            "pose_values_sha256": "b951ef921e2cb929686f8b618002c5696598e00ccb4b300a150c4dce3aa31113"
+          },
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 0.2530675259696811,
+            "max_displacement_m": 0.869166160319929,
+            "max_speed_m_s": 2.059713264304699,
+            "pose_values_sha256": "b951ef921e2cb929686f8b618002c5696598e00ccb4b300a150c4dce3aa31113"
+          }
+        ],
+        "repeat_pose_identity": true
+      },
+      "full": {
+        "results": [
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 633.307622852479,
+            "max_displacement_m": 633.307622852479,
+            "max_speed_m_s": 73.73767230939549,
+            "pose_values_sha256": "0359ed3de1440fc8146596255a65040c993419bbe18b54c740ace500c9fb2beb"
+          },
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 633.307622852479,
+            "max_displacement_m": 633.307622852479,
+            "max_speed_m_s": 73.73767230939549,
+            "pose_values_sha256": "0359ed3de1440fc8146596255a65040c993419bbe18b54c740ace500c9fb2beb"
+          }
+        ],
+        "repeat_pose_identity": true
+      }
+    },
+    "equi-003648": {
+      "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi",
+      "recording": "/home/ncer/sophpi/install/replay-20261012-003648/record",
+      "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
+      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "noise": "Original device continuous-time scalar noise coefficients held fixed.",
+      "new_camera_offset_ns": 10630673,
+      "old_export_offset_ns": 10797086,
+      "imu_rows": 8307,
+      "stereo_rows": 829,
+      "model_consistency_test_passed": true,
+      "binary_sha256": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+      "library_sha256": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69",
+      "calibration_sha256": {
+        "imucam-imu.yaml": "5d93b88176b39621275a6bd85b88a3999df745f02fc65cf222303daa84581822",
+        "imucam-camchain-imucam.yaml": "15502f3a2ff7174bd178fe0110ce6db8b558799731672486214e5e8835bb4e98"
+      },
+      "ma": [
+        [
+          1.0060012690210691,
+          0.0,
+          0.0
+        ],
+        [
+          -0.004031548331292806,
+          1.0028311022816792,
+          0.0
+        ],
+        [
+          -0.0030249937051860837,
+          -0.0032913564719907864,
+          1.0144266110210804
+        ]
+      ],
+      "mw": [
+        [
+          0.9925508333091508,
+          0.0,
+          0.0
+        ],
+        [
+          -0.0002429044690790608,
+          1.013181590581413,
+          0.0
+        ],
+        [
+          -0.0007179390210012217,
+          -0.0014272789657484377,
+          1.0003446620445378
+        ]
+      ],
+      "c_gyro_i": [
+        [
+          0.999965922446907,
+          -0.005114825543117092,
+          0.0064801623876739045
+        ],
+        [
+          0.005114451723821048,
+          0.9999869183491725,
+          7.425692530795328e-05
+        ],
+        [
+          -0.006480457427670559,
+          -4.111191711935944e-05,
+          0.9999790007701858
+        ]
+      ],
+      "a": [
+        [
+          -0.00017718467650851876,
+          -0.0024158668132176985,
+          0.0003707897413735065
+        ],
+        [
+          0.0011142119877669517,
+          0.0002513955677265385,
+          5.399289013802696e-05
+        ],
+        [
+          -0.00022172988516347026,
+          -0.0003219950131200323,
+          0.00039306575266646383
+        ]
+      ],
+      "runs": {
+        "new-geometry": {
+          "results": [
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 757.9679820914155,
+              "max_distance_from_first_pose_m": 757.9679820914155,
+              "estimated_path_m": 766.1220322125002,
+              "max_pose_step_m": 2.2429566823007474,
+              "max_finite_difference_speed_m_s": 44.749943783182395,
+              "backend_zero_observation_logs": 195,
+              "backend_observation_logs": 226,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 4.785418987937274,
+              "compute_ms_p95": 11.919962999999996,
+              "poses_sha256": "44ea4d2a2dc51d508b4dfe14f7491117230b48b30f801a79a18716fe10aa784c"
+            },
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 757.9679820914155,
+              "max_distance_from_first_pose_m": 757.9679820914155,
+              "estimated_path_m": 766.1220322125002,
+              "max_pose_step_m": 2.2429566823007474,
+              "max_finite_difference_speed_m_s": 44.749943783182395,
+              "backend_zero_observation_logs": 195,
+              "backend_observation_logs": 226,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 4.470810828709289,
+              "compute_ms_p95": 11.272844599999996,
+              "poses_sha256": "44ea4d2a2dc51d508b4dfe14f7491117230b48b30f801a79a18716fe10aa784c"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "full": {
+          "results": [
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 1307.1592831439596,
+              "max_distance_from_first_pose_m": 1307.1592831439596,
+              "estimated_path_m": 1309.3033038581307,
+              "max_pose_step_m": 5.255487012913106,
+              "max_finite_difference_speed_m_s": 104.85389675018793,
+              "backend_zero_observation_logs": 116,
+              "backend_observation_logs": 146,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 3.7077664607961403,
+              "compute_ms_p95": 9.755817999999994,
+              "poses_sha256": "42de78017fa5cb3480c31949d9b0786c653a7a6d92527c29dc91b2382cef2abe"
+            },
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 1307.1592831439596,
+              "max_distance_from_first_pose_m": 1307.1592831439596,
+              "estimated_path_m": 1309.3033038581307,
+              "max_pose_step_m": 5.255487012913106,
+              "max_finite_difference_speed_m_s": 104.85389675018793,
+              "backend_zero_observation_logs": 116,
+              "backend_observation_logs": 146,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 3.520348044632087,
+              "compute_ms_p95": 9.249324799999988,
+              "poses_sha256": "42de78017fa5cb3480c31949d9b0786c653a7a6d92527c29dc91b2382cef2abe"
+            }
+          ],
+          "repeat_pose_identity": true
+        }
+      }
+    },
+    "openvins-equi-003648": {
+      "new-geometry": {
+        "results": [
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 159.4560154666921,
+            "max_displacement_m": 159.4560154666921,
+            "max_speed_m_s": 10.985573120393424,
+            "pose_values_sha256": "afa3104eba5a8fd8c9aef576dd53513e924a8592005f32f928ee7b0fae865df6"
+          },
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 159.4560154666921,
+            "max_displacement_m": 159.4560154666921,
+            "max_speed_m_s": 10.985573120393424,
+            "pose_values_sha256": "afa3104eba5a8fd8c9aef576dd53513e924a8592005f32f928ee7b0fae865df6"
+          }
+        ],
+        "repeat_pose_identity": true
+      },
+      "full": {
+        "results": [
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 464.4524166491641,
+            "max_displacement_m": 464.4524166491641,
+            "max_speed_m_s": 52.38050240872181,
+            "pose_values_sha256": "9880782e329a78683318bff5e35d08fe8f9ca66aedb084e281afa1a883585dea"
+          },
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 464.4524166491641,
+            "max_displacement_m": 464.4524166491641,
+            "max_speed_m_s": 52.38050240872181,
+            "pose_values_sha256": "9880782e329a78683318bff5e35d08fe8f9ca66aedb084e281afa1a883585dea"
+          }
+        ],
+        "repeat_pose_identity": true
+      }
+    },
+    "equi-nogs-084638": {
+      "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs",
+      "recording": "/home/ncer/sophpi/install/replay-20261012-084638/record",
+      "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
+      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "noise": "Original device continuous-time scalar noise coefficients held fixed.",
+      "new_camera_offset_ns": 10918641,
+      "old_export_offset_ns": 10797086,
+      "imu_rows": 8868,
+      "stereo_rows": 885,
+      "model_consistency_test_passed": true,
+      "binary_sha256": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+      "library_sha256": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69",
+      "calibration_sha256": {
+        "imucam-imu.yaml": "25c582b10ccdbf7441c380880f9f68e335a0c4cbdebfc428627ca496761759cf",
+        "imucam-camchain-imucam.yaml": "c8c0fbe790d49814cb8f1069024c29e5f24e3d247b6ffa4e6d2beef4b09eb2e3"
+      },
+      "ma": [
+        [
+          1.0052115149433154,
+          0.0,
+          0.0
+        ],
+        [
+          -0.0034702896362878957,
+          0.9982177791303957,
+          0.0
+        ],
+        [
+          -0.002876851545533874,
+          -0.004116397228591143,
+          1.0075722899964126
+        ]
+      ],
+      "mw": [
+        [
+          0.9865695565956947,
+          0.0,
+          0.0
+        ],
+        [
+          0.0003802216149932062,
+          1.0093284283950534,
+          0.0
+        ],
+        [
+          0.0021345707849734596,
+          -0.0024004850712802932,
+          0.9999966425837646
+        ]
+      ],
+      "c_gyro_i": [
+        [
+          0.9999657321876307,
+          -0.0045613757793981045,
+          0.0069085672505080535
+        ],
+        [
+          0.004570229146422994,
+          0.9999887547311063,
+          -0.0012662609843650057
+        ],
+        [
+          -0.006902713669627172,
+          0.001297791327779478,
+          0.9999753338366225
+        ]
+      ],
+      "a": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "runs": {
+        "new-geometry": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 351.73122905434104,
+              "max_distance_from_first_pose_m": 351.73122905434104,
+              "estimated_path_m": 359.8362481197169,
+              "max_pose_step_m": 2.1666860551645284,
+              "max_finite_difference_speed_m_s": 43.222207807143455,
+              "backend_zero_observation_logs": 58,
+              "backend_observation_logs": 777,
+              "backend_observations_median": 17.0,
+              "compute_ms_mean": 5.036109663276836,
+              "compute_ms_p95": 10.7532844,
+              "poses_sha256": "bc6b2389e4ff8378417b90f7ffca65f8e54346a09bca108f08355e46d2f00ca1"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 351.73122905434104,
+              "max_distance_from_first_pose_m": 351.73122905434104,
+              "estimated_path_m": 359.8362481197169,
+              "max_pose_step_m": 2.1666860551645284,
+              "max_finite_difference_speed_m_s": 43.222207807143455,
+              "backend_zero_observation_logs": 58,
+              "backend_observation_logs": 777,
+              "backend_observations_median": 17.0,
+              "compute_ms_mean": 5.549496404519774,
+              "compute_ms_p95": 12.027528999999992,
+              "poses_sha256": "bc6b2389e4ff8378417b90f7ffca65f8e54346a09bca108f08355e46d2f00ca1"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "gyro-only": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 9.428610796797999,
+              "max_distance_from_first_pose_m": 9.428610796797999,
+              "estimated_path_m": 27.070773622730332,
+              "max_pose_step_m": 0.1659218754046902,
+              "max_finite_difference_speed_m_s": 3.3115494851648277,
+              "backend_zero_observation_logs": 11,
+              "backend_observation_logs": 882,
+              "backend_observations_median": 23.0,
+              "compute_ms_mean": 5.030811016949152,
+              "compute_ms_p95": 10.0046268,
+              "poses_sha256": "4026417e2ea6d1146914bda850c9a216d6e556e940302a7d584605b96f06c0de"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 9.428610796797999,
+              "max_distance_from_first_pose_m": 9.428610796797999,
+              "estimated_path_m": 27.070773622730332,
+              "max_pose_step_m": 0.1659218754046902,
+              "max_finite_difference_speed_m_s": 3.3115494851648277,
+              "backend_zero_observation_logs": 11,
+              "backend_observation_logs": 882,
+              "backend_observations_median": 23.0,
+              "compute_ms_mean": 4.76614973220339,
+              "compute_ms_p95": 9.5087342,
+              "poses_sha256": "4026417e2ea6d1146914bda850c9a216d6e556e940302a7d584605b96f06c0de"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "full": {
+          "results": [
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 37.67011365873698,
+              "max_distance_from_first_pose_m": 37.67011365873698,
+              "estimated_path_m": 52.73933678222609,
+              "max_pose_step_m": 0.6492574348065548,
+              "max_finite_difference_speed_m_s": 12.957937028370983,
+              "backend_zero_observation_logs": 18,
+              "backend_observation_logs": 883,
+              "backend_observations_median": 18.0,
+              "compute_ms_mean": 4.6075974926553664,
+              "compute_ms_p95": 9.843486599999997,
+              "poses_sha256": "5f429ccfc2e59a49ec6f607147858b27c9219b4f5195cf1ff82f07dfe14b2ea4"
+            },
+            {
+              "input_pairs": 885,
+              "processed_frames": 885,
+              "pose_rows": 885,
+              "full_pose_coverage": true,
+              "all_finite": true,
+              "first_pose_s": 0.0,
+              "last_pose_s": 44.303382000000006,
+              "endpoint_displacement_m": 37.67011365873698,
+              "max_distance_from_first_pose_m": 37.67011365873698,
+              "estimated_path_m": 52.73933678222609,
+              "max_pose_step_m": 0.6492574348065548,
+              "max_finite_difference_speed_m_s": 12.957937028370983,
+              "backend_zero_observation_logs": 18,
+              "backend_observation_logs": 883,
+              "backend_observations_median": 18.0,
+              "compute_ms_mean": 4.583914610169492,
+              "compute_ms_p95": 9.242631,
+              "poses_sha256": "5f429ccfc2e59a49ec6f607147858b27c9219b4f5195cf1ff82f07dfe14b2ea4"
+            }
+          ],
+          "repeat_pose_identity": true
+        }
+      }
+    },
+    "openvins-equi-nogs-084638": {
+      "new-geometry": {
+        "results": [
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 179.5480573755122,
+            "max_displacement_m": 179.5480573755122,
+            "max_speed_m_s": 23.791687683253112,
+            "pose_values_sha256": "6a207f71dc0d77755738d012de8c1b4e6391c473ccf362e39a8895a50b6dc4b4"
+          },
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 179.5480573755122,
+            "max_displacement_m": 179.5480573755122,
+            "max_speed_m_s": 23.791687683253112,
+            "pose_values_sha256": "6a207f71dc0d77755738d012de8c1b4e6391c473ccf362e39a8895a50b6dc4b4"
+          }
+        ],
+        "repeat_pose_identity": true
+      },
+      "full": {
+        "results": [
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 0.9746559687478297,
+            "max_displacement_m": 1.4991379366138038,
+            "max_speed_m_s": 2.229707454315984,
+            "pose_values_sha256": "1ce86851da1f6a407d1bdad4d004a6b3b2533e8cc184d99a1323cfb7cb932baf"
+          },
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 0.9746559687478297,
+            "max_displacement_m": 1.4991379366138038,
+            "max_speed_m_s": 2.229707454315984,
+            "pose_values_sha256": "1ce86851da1f6a407d1bdad4d004a6b3b2533e8cc184d99a1323cfb7cb932baf"
+          }
+        ],
+        "repeat_pose_identity": true
+      }
+    },
+    "openvins-direct-equi-nogs-084638": {
+      "direct": {
+        "results": [
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 1.356003247170107,
+            "max_displacement_m": 1.7004670397100667,
+            "max_speed_m_s": 2.231112917737211,
+            "pose_values_sha256": "97ea5d9101fd59cb0a2f3c31f6575e413ce0c7dccb83321c5a4c0287a8675141"
+          },
+          {
+            "input_rows": 885,
+            "initialized_rows": 647,
+            "first_pose_s": 11.927864000000001,
+            "endpoint_m": 1.356003247170107,
+            "max_displacement_m": 1.7004670397100667,
+            "max_speed_m_s": 2.231112917737211,
+            "pose_values_sha256": "97ea5d9101fd59cb0a2f3c31f6575e413ce0c7dccb83321c5a4c0287a8675141"
+          }
+        ],
+        "repeat_pose_identity": true
+      }
+    },
+    "equi-nogs-003648": {
+      "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs",
+      "recording": "/home/ncer/sophpi/install/replay-20261012-003648/record",
+      "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
+      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "noise": "Original device continuous-time scalar noise coefficients held fixed.",
+      "new_camera_offset_ns": 10918641,
+      "old_export_offset_ns": 10797086,
+      "imu_rows": 8307,
+      "stereo_rows": 829,
+      "model_consistency_test_passed": true,
+      "binary_sha256": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+      "library_sha256": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69",
+      "calibration_sha256": {
+        "imucam-imu.yaml": "25c582b10ccdbf7441c380880f9f68e335a0c4cbdebfc428627ca496761759cf",
+        "imucam-camchain-imucam.yaml": "c8c0fbe790d49814cb8f1069024c29e5f24e3d247b6ffa4e6d2beef4b09eb2e3"
+      },
+      "ma": [
+        [
+          1.0052115149433154,
+          0.0,
+          0.0
+        ],
+        [
+          -0.0034702896362878957,
+          0.9982177791303957,
+          0.0
+        ],
+        [
+          -0.002876851545533874,
+          -0.004116397228591143,
+          1.0075722899964126
+        ]
+      ],
+      "mw": [
+        [
+          0.9865695565956947,
+          0.0,
+          0.0
+        ],
+        [
+          0.0003802216149932062,
+          1.0093284283950534,
+          0.0
+        ],
+        [
+          0.0021345707849734596,
+          -0.0024004850712802932,
+          0.9999966425837646
+        ]
+      ],
+      "c_gyro_i": [
+        [
+          0.9999657321876307,
+          -0.0045613757793981045,
+          0.0069085672505080535
+        ],
+        [
+          0.004570229146422994,
+          0.9999887547311063,
+          -0.0012662609843650057
+        ],
+        [
+          -0.006902713669627172,
+          0.001297791327779478,
+          0.9999753338366225
+        ]
+      ],
+      "a": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "runs": {
+        "new-geometry": {
+          "results": [
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 757.3019081821136,
+              "max_distance_from_first_pose_m": 757.3019081821136,
+              "estimated_path_m": 765.5427238509865,
+              "max_pose_step_m": 2.241468676208333,
+              "max_finite_difference_speed_m_s": 44.72025609928282,
+              "backend_zero_observation_logs": 198,
+              "backend_observation_logs": 230,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 4.708124201447527,
+              "compute_ms_p95": 12.019615399999998,
+              "poses_sha256": "af02c250bac22581a4d8caad852a098b35e04b6c39cb4c7d8042e1d06aa7e379"
+            },
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 757.3019081821136,
+              "max_distance_from_first_pose_m": 757.3019081821136,
+              "estimated_path_m": 765.5427238509865,
+              "max_pose_step_m": 2.241468676208333,
+              "max_finite_difference_speed_m_s": 44.72025609928282,
+              "backend_zero_observation_logs": 198,
+              "backend_observation_logs": 230,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 5.031186121833534,
+              "compute_ms_p95": 12.8134544,
+              "poses_sha256": "af02c250bac22581a4d8caad852a098b35e04b6c39cb4c7d8042e1d06aa7e379"
+            }
+          ],
+          "repeat_pose_identity": true
+        },
+        "full": {
+          "results": [
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 792.0560874379918,
+              "max_distance_from_first_pose_m": 792.0560874379918,
+              "estimated_path_m": 794.1888298157655,
+              "max_pose_step_m": 2.455353036053882,
+              "max_finite_difference_speed_m_s": 48.9875311450819,
+              "backend_zero_observation_logs": 139,
+              "backend_observation_logs": 185,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 4.63091166344994,
+              "compute_ms_p95": 11.418095599999996,
+              "poses_sha256": "4aa12369ebfa43a1585ae355635975bf51d6dcb73b339e5f359c6eb54f70b968"
+            },
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 792.0560874379918,
+              "max_distance_from_first_pose_m": 792.0560874379918,
+              "estimated_path_m": 794.1888298157655,
+              "max_pose_step_m": 2.455353036053882,
+              "max_finite_difference_speed_m_s": 48.9875311450819,
+              "backend_zero_observation_logs": 139,
+              "backend_observation_logs": 185,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 4.595197048250904,
+              "compute_ms_p95": 11.508583199999999,
+              "poses_sha256": "4aa12369ebfa43a1585ae355635975bf51d6dcb73b339e5f359c6eb54f70b968"
+            }
+          ],
+          "repeat_pose_identity": true
+        }
+      }
+    },
+    "openvins-equi-nogs-003648": {
+      "new-geometry": {
+        "results": [
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 181.42460761858445,
+            "max_displacement_m": 181.42460761858445,
+            "max_speed_m_s": 14.757511790642338,
+            "pose_values_sha256": "a140471b0b09ffebb4ac76cee41d09f13478867ee16aa612d4e2f52c995f4b3d"
+          },
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 181.42460761858445,
+            "max_displacement_m": 181.42460761858445,
+            "max_speed_m_s": 14.757511790642338,
+            "pose_values_sha256": "a140471b0b09ffebb4ac76cee41d09f13478867ee16aa612d4e2f52c995f4b3d"
+          }
+        ],
+        "repeat_pose_identity": true
+      },
+      "full": {
+        "results": [
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 4.71619259998161,
+            "max_displacement_m": 4.810623288558059,
+            "max_speed_m_s": 3.467194411069692,
+            "pose_values_sha256": "e87eb923ba71a2a6ea8d8dff5c4702c5c01543dddd12631c5409e0d851ce2a9b"
+          },
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 4.71619259998161,
+            "max_displacement_m": 4.810623288558059,
+            "max_speed_m_s": 3.467194411069692,
+            "pose_values_sha256": "e87eb923ba71a2a6ea8d8dff5c4702c5c01543dddd12631c5409e0d851ce2a9b"
+          }
+        ],
+        "repeat_pose_identity": true
+      }
+    },
+    "openvins-direct-equi-nogs-003648": {
+      "direct": {
+        "results": [
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 2.923040163894172,
+            "max_displacement_m": 3.5922032203198997,
+            "max_speed_m_s": 3.484829888709732,
+            "pose_values_sha256": "1a6e84c10df3dfd374e09c74157d9e37b34b15c565ccaefa234a3209f9beb211"
+          },
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 2.923040163894172,
+            "max_displacement_m": 3.5922032203198997,
+            "max_speed_m_s": 3.484829888709732,
+            "pose_values_sha256": "1a6e84c10df3dfd374e09c74157d9e37b34b15c565ccaefa234a3209f9beb211"
+          }
+        ],
+        "repeat_pose_identity": true
+      }
+    },
+    "equi-003648-no-g-sensitivity": {
+      "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi",
+      "recording": "/home/ncer/sophpi/install/replay-20261012-003648/record",
+      "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
+      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "noise": "Original device continuous-time scalar noise coefficients held fixed.",
+      "new_camera_offset_ns": 10630673,
+      "old_export_offset_ns": 10797086,
+      "imu_rows": 8307,
+      "stereo_rows": 829,
+      "model_consistency_test_passed": true,
+      "binary_sha256": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+      "library_sha256": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69",
+      "calibration_sha256": {
+        "imucam-imu.yaml": "5d93b88176b39621275a6bd85b88a3999df745f02fc65cf222303daa84581822",
+        "imucam-camchain-imucam.yaml": "15502f3a2ff7174bd178fe0110ce6db8b558799731672486214e5e8835bb4e98"
+      },
+      "ma": [
+        [
+          1.0060012690210691,
+          0.0,
+          0.0
+        ],
+        [
+          -0.004031548331292806,
+          1.0028311022816792,
+          0.0
+        ],
+        [
+          -0.0030249937051860837,
+          -0.0032913564719907864,
+          1.0144266110210804
+        ]
+      ],
+      "mw": [
+        [
+          0.9925508333091508,
+          0.0,
+          0.0
+        ],
+        [
+          -0.0002429044690790608,
+          1.013181590581413,
+          0.0
+        ],
+        [
+          -0.0007179390210012217,
+          -0.0014272789657484377,
+          1.0003446620445378
+        ]
+      ],
+      "c_gyro_i": [
+        [
+          0.999965922446907,
+          -0.005114825543117092,
+          0.0064801623876739045
+        ],
+        [
+          0.005114451723821048,
+          0.9999869183491725,
+          7.425692530795328e-05
+        ],
+        [
+          -0.006480457427670559,
+          -4.111191711935944e-05,
+          0.9999790007701858
+        ]
+      ],
+      "a": [
+        [
+          -0.00017718467650851876,
+          -0.0024158668132176985,
+          0.0003707897413735065
+        ],
+        [
+          0.0011142119877669517,
+          0.0002513955677265385,
+          5.399289013802696e-05
+        ],
+        [
+          -0.00022172988516347026,
+          -0.0003219950131200323,
+          0.00039306575266646383
+        ]
+      ],
+      "runs": {
+        "no-g-sensitivity": {
+          "results": [
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 839.6646717820603,
+              "max_distance_from_first_pose_m": 839.6646717820603,
+              "estimated_path_m": 843.5598157982124,
+              "max_pose_step_m": 2.774566482572701,
+              "max_finite_difference_speed_m_s": 55.35626037613429,
+              "backend_zero_observation_logs": 161,
+              "backend_observation_logs": 196,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 5.1489502026538005,
+              "compute_ms_p95": 12.500474199999998,
+              "poses_sha256": "e15787dad548cf43f1f6b62c8de490969fb4ee3762f27a27a59ced35aa5d3fb3"
+            },
+            {
+              "input_pairs": 829,
+              "processed_frames": 829,
+              "pose_rows": 610,
+              "full_pose_coverage": false,
+              "all_finite": true,
+              "first_pose_s": 10.975768,
+              "last_pose_s": 41.497181000000005,
+              "endpoint_displacement_m": 839.6646717820603,
+              "max_distance_from_first_pose_m": 839.6646717820603,
+              "estimated_path_m": 843.5598157982124,
+              "max_pose_step_m": 2.774566482572701,
+              "max_finite_difference_speed_m_s": 55.35626037613429,
+              "backend_zero_observation_logs": 161,
+              "backend_observation_logs": 196,
+              "backend_observations_median": 0.0,
+              "compute_ms_mean": 4.624505123039807,
+              "compute_ms_p95": 11.0480722,
+              "poses_sha256": "e15787dad548cf43f1f6b62c8de490969fb4ee3762f27a27a59ced35aa5d3fb3"
+            }
+          ],
+          "repeat_pose_identity": true
+        }
+      }
+    },
+    "openvins-equi-003648-no-g-sensitivity": {
+      "no-g-sensitivity": {
+        "results": [
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 38.28476641772925,
+            "max_displacement_m": 38.28476641772925,
+            "max_speed_m_s": 5.751497875999009,
+            "pose_values_sha256": "a630a429d26916aa61f864088c45fd0d209c72f008d033e5fc0971e506e5e805"
+          },
+          {
+            "input_rows": 829,
+            "initialized_rows": 616,
+            "first_pose_s": 10.675062,
+            "endpoint_m": 38.28476641772925,
+            "max_displacement_m": 38.28476641772925,
+            "max_speed_m_s": 5.751497875999009,
+            "pose_values_sha256": "a630a429d26916aa61f864088c45fd0d209c72f008d033e5fc0971e506e5e805"
+          }
+        ],
+        "repeat_pose_identity": true
+      }
+    }
+  },
+  "code_sha256": {
+    "calibrate_intrinsics.py": "72e1015112f065f311ef8e9d7975ea70c9a2bc04a9613baa8bc12038961ad8ec",
+    "validate_intrinsics.py": "cdcbc759e8a6842aef987b85580ab1a4258d505d91c8ee06182c2a500350444c"
+  },
+  "decision": {
+    "candidate": "equi-nogs: jointly refit with acceleration sensitivity A fixed zero",
+    "status": "Offline calibration completed; candidate parameters only. Not deployed.",
+    "supported": "Fixed offline IMU parameters substantially reduce OpenVINS runaway drift in both independent recordings without online IMU calibration.",
+    "remaining": "SchurVINS still diverges. The second recording still has metre-scale closure drift in OpenVINS; no GT/ATE evidence.",
+    "direct_vs_preprocessing": "Direct fixed Tw/Ta/R in OpenVINS is the preferred validation. External preprocessing keeps scalar noise and bias priors unchanged and gives different trajectories; both protocols are retained.",
+    "solver_logging": "Standard radtan/equi runs include iteration histories. The A=0 run exits successfully with all four outputs, but its captured stdout stops during preparation, so its iteration count is unknown."
+  },
+  "validation_code_sha256": {
+    "preflight.py": "d09075672fc918317c765ff83cf62096ad4275e1fa9149e29e2e5d941b733520",
+    "check_original_bag.py": "3b3d3d62d3884c9cf6632fd060bb65c8f32e04fe525f84909de33846e08d3372",
+    "openvins_validate.py": "54e20379536043fb746ab1f28347d8b7a7b5f1d9887ae60bfa36685b558f9109",
+    "compile_report.py": "906249158ba1531ce001b7478010e048f4b80b14720d98ef659716b312a661e1",
+    "plot.py": "550c876996b32b93de7c9f4e50edd3b3df5c3ef4a1760cec267b90ee9f0a7746"
+  },
+  "replay_counts": {
+    "native": 36,
+    "openvins": 30,
+    "all_repeat_pairs_identical": true
+  },
+  "final_source_hash_audit_passed": true
+}
