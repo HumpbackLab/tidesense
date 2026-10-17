@@ -1,0 +1,229 @@
+{
+  "source": "https://fpv.ifi.uzh.ch/datasets/",
+  "sequences": [
+    {
+      "name": "race_1",
+      "group": "splits",
+      "sensor": "t265",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/drone_racing_data/race_1.zip"
+    },
+    {
+      "name": "race_2",
+      "group": "splits",
+      "sensor": "t265",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/drone_racing_data/race_2.zip"
+    },
+    {
+      "name": "race_3",
+      "group": "splits",
+      "sensor": "t265",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/drone_racing_data/race_3.zip"
+    },
+    {
+      "name": "indoor_forward_3",
+      "group": "indoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_forward_3_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_forward_5",
+      "group": "indoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_forward_5_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_forward_6",
+      "group": "indoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_forward_6_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_forward_7",
+      "group": "indoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_forward_7_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_forward_8",
+      "group": "indoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_forward_8_snapdragon.zip"
+    },
+    {
+      "name": "indoor_forward_9",
+      "group": "indoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_forward_9_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_forward_10",
+      "group": "indoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_forward_10_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_forward_11",
+      "group": "indoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_forward_11_snapdragon.zip"
+    },
+    {
+      "name": "indoor_forward_12",
+      "group": "indoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_forward_12_snapdragon.zip"
+    },
+    {
+      "name": "indoor_45_1",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_1_snapdragon.zip"
+    },
+    {
+      "name": "indoor_45_2",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_2_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_45_3",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_3_snapdragon.zip"
+    },
+    {
+      "name": "indoor_45_4",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_4_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_45_9",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_9_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_45_11",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_11_snapdragon.zip"
+    },
+    {
+      "name": "indoor_45_12",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_12_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_45_13",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_13_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_45_14",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_14_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "indoor_45_16",
+      "group": "indoor_45",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/indoor_45_16_snapdragon.zip"
+    },
+    {
+      "name": "outdoor_forward_1",
+      "group": "outdoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/outdoor_forward_1_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "outdoor_forward_2",
+      "group": "outdoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/outdoor_forward_2_snapdragon.zip"
+    },
+    {
+      "name": "outdoor_forward_3",
+      "group": "outdoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/outdoor_forward_3_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "outdoor_forward_5",
+      "group": "outdoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/outdoor_forward_5_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "outdoor_forward_6",
+      "group": "outdoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/outdoor_forward_6_snapdragon.zip"
+    },
+    {
+      "name": "outdoor_forward_9",
+      "group": "outdoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/outdoor_forward_9_snapdragon.zip"
+    },
+    {
+      "name": "outdoor_forward_10",
+      "group": "outdoor_forward",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/outdoor_forward_10_snapdragon.zip"
+    },
+    {
+      "name": "outdoor_45_1",
+      "group": "outdoor_45",
+      "sensor": "snapdragon",
+      "public_gt": true,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/outdoor_45_1_snapdragon_with_gt.zip"
+    },
+    {
+      "name": "outdoor_45_2",
+      "group": "outdoor_45",
+      "sensor": "snapdragon",
+      "public_gt": false,
+      "url": "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv-newer-versions/v3/outdoor_45_2_snapdragon.zip"
+    }
+  ],
+  "calibrations": [
+    "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv/calib/indoor_forward_calib_snapdragon.zip",
+    "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv/calib/indoor_45_calib_snapdragon.zip",
+    "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv/calib/outdoor_forward_calib_snapdragon.zip",
+    "https://download.ifi.uzh.ch/rpg/web/datasets/uzh-fpv/calib/outdoor_45_calib_snapdragon.zip",
+    "https://download.ifi.uzh.ch/rpg/drone_racing_data/race_calibration.zip"
+  ]
+}

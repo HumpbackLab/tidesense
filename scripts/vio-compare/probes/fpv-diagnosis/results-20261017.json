@@ -1,0 +1,320 @@
+{
+  "fpv_final": {
+    "inputs": {
+      "binary": "/home/ncer/sophpi/install/fpv-stability/build/schurvins_stereo",
+      "calibration": "/home/ncer/sophpi/install/schurvins-gcc11-static/public-datasets/uzh-fpv/indoor_forward_6_replay/calibration.yaml",
+      "stereo": "/home/ncer/sophpi/install/fpv-stability/stereo.csv",
+      "imu": "/home/ncer/sophpi/install/schurvins-gcc11-static/public-datasets/uzh-fpv/indoor_forward_6_replay/imu.csv",
+      "groundtruth": "/home/ncer/sophpi/install/schurvins-gcc11-static/public-datasets/uzh-fpv/indoor_forward_6_replay/groundtruth.csv"
+    },
+    "sha256": {
+      "binary": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+      "calibration": "8d699de7440fb2bcf70c778492a851c0d61ca265925a1fe52e9a84ad905fc598",
+      "stereo": "94c1808c49e7c83188d4fcb680dfae771b772a31f602030c2583dbf71b6036d7",
+      "imu": "f8f6fced1ccc2feef085510f8021577d4cbc28db4094b8774f594e5f6af768db",
+      "groundtruth": "39764a62d810dfaa22836249d921f7ba65bdb1063ec3081f931c099f109435e4",
+      "libschurvins.so": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69",
+      "matched_imu_source": "c2628ea491e0fad2804e37952d3a808c161d98a67bfab698cc82359ed377b0ac",
+      "matched_imu_calibration": "f42bd73435f56a38ce76436b2d72602afc5f40b1581747b2289fa893a8ffcad4"
+    },
+    "runs": {
+      "baseline": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 23.447628942443576,
+        "ate_p95_m": 52.1782167965587,
+        "backend_zero_observation_logs": 332,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 3.86685013857868,
+        "compute_ms_p95": 8.9026449,
+        "poses_sha256": "4dd748643a32107f4523a0f84e0abd10e555cd0245437be6084b2ecf30a57d3e"
+      },
+      "baseline-repeat1": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 23.447628942443576,
+        "ate_p95_m": 52.1782167965587,
+        "backend_zero_observation_logs": 332,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.115537858375635,
+        "compute_ms_p95": 9.841021099999999,
+        "poses_sha256": "4dd748643a32107f4523a0f84e0abd10e555cd0245437be6084b2ecf30a57d3e"
+      },
+      "stable": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 5.099440075277425,
+        "ate_p95_m": 8.645083264648326,
+        "backend_zero_observation_logs": 161,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.217029981218273,
+        "compute_ms_p95": 9.22169675,
+        "poses_sha256": "6ce30196deca42955872812df5baeb251b5e8336b287388b3f891a59e26cb910"
+      },
+      "stable-repeat1": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 5.099440075277425,
+        "ate_p95_m": 8.645083264648326,
+        "backend_zero_observation_logs": 161,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 3.701538418781726,
+        "compute_ms_p95": 8.110293449999999,
+        "poses_sha256": "6ce30196deca42955872812df5baeb251b5e8336b287388b3f891a59e26cb910"
+      },
+      "pixel-stable": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 4.820532887714344,
+        "ate_p95_m": 8.942555074046524,
+        "backend_zero_observation_logs": 12,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 3.4223458883248727,
+        "compute_ms_p95": 8.1278583,
+        "poses_sha256": "9a63924ca3d3e1cb2e50f3c76858e4eb091cf2a2e940a8afd6f296d984607989"
+      },
+      "pixel-stable-repeat1": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 4.820532887714344,
+        "ate_p95_m": 8.942555074046524,
+        "backend_zero_observation_logs": 12,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 3.469179488324873,
+        "compute_ms_p95": 8.26426965,
+        "poses_sha256": "9a63924ca3d3e1cb2e50f3c76858e4eb091cf2a2e940a8afd6f296d984607989"
+      },
+      "matched-imu": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.8102987582208796,
+        "ate_p95_m": 1.334512025252657,
+        "backend_zero_observation_logs": 0,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.136342615228426,
+        "compute_ms_p95": 7.2489400999999996,
+        "poses_sha256": "0a41b6d79c21e189fb668443a848eaf52eb80060d003e9e0bd84ec4ed57dc07a"
+      },
+      "matched-imu-repeat1": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.8102987582208796,
+        "ate_p95_m": 1.334512025252657,
+        "backend_zero_observation_logs": 0,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.115011261928934,
+        "compute_ms_p95": 7.0864655999999995,
+        "poses_sha256": "0a41b6d79c21e189fb668443a848eaf52eb80060d003e9e0bd84ec4ed57dc07a"
+      },
+      "matched-imu-stable": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.6323019353585577,
+        "ate_p95_m": 1.2669869991350184,
+        "backend_zero_observation_logs": 1,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.392378131472081,
+        "compute_ms_p95": 7.90293245,
+        "poses_sha256": "0821d36aa354effdec4a693bda2d360aa72b9d66df38ed8d8e39b04360a149fc"
+      },
+      "matched-imu-stable-repeat1": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.6323019353585577,
+        "ate_p95_m": 1.2669869991350184,
+        "backend_zero_observation_logs": 1,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.680539891878172,
+        "compute_ms_p95": 8.17579045,
+        "poses_sha256": "0821d36aa354effdec4a693bda2d360aa72b9d66df38ed8d8e39b04360a149fc"
+      },
+      "matched-imu-pixel-stable": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.4934734104245102,
+        "ate_p95_m": 0.6951924148327794,
+        "backend_zero_observation_logs": 0,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.587331620812182,
+        "compute_ms_p95": 8.247997400000001,
+        "poses_sha256": "27a08a3ee35c4c7128bb840e8b0725a8a8d91de1b5000db519708585548e4dbe"
+      },
+      "matched-imu-pixel-stable-repeat1": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.4934734104245102,
+        "ate_p95_m": 0.6951924148327794,
+        "backend_zero_observation_logs": 0,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.596335700000001,
+        "compute_ms_p95": 8.442344349999999,
+        "poses_sha256": "27a08a3ee35c4c7128bb840e8b0725a8a8d91de1b5000db519708585548e4dbe"
+      }
+    }
+  },
+  "tumvi_final": {
+    "inputs": {
+      "binary": "/home/ncer/sophpi/install/fpv-stability/build/schurvins_stereo",
+      "calibration": "/home/ncer/sophpi/install/fisheye-benchmark/schurvins/tumvi-room1/calibration.yaml",
+      "stereo": "/home/ncer/sophpi/install/fpv-stability/tum-stereo.csv",
+      "imu": "/home/ncer/sophpi/install/fisheye-benchmark/schurvins/tumvi-room1/imu.csv",
+      "groundtruth": "/home/ncer/sophpi/install/fisheye-benchmark/datasets/dataset-room1_512_16/mav0/mocap0/data.csv"
+    },
+    "sha256": {
+      "binary": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+      "calibration": "5952f768d0a564fe61842424bc4b0879135dc59767367bc8557d1f7bfe36456c",
+      "stereo": "95d22bc760b4b0486a9789e0ae061a3b1ca5fbb52d1bf1ae469f5ca12d16c023",
+      "imu": "ca10ec219f85b08e9f6e59e809556dd53ce0bdfd02418396d250d2b63aea8d37",
+      "groundtruth": "24c577e2dcddcd54a4b5d9d988277d00b3b1b64785033bce93775da75eb95fa5",
+      "libschurvins.so": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69"
+    },
+    "runs": {
+      "baseline": {
+        "pose_rows": 2821,
+        "matched_pose_rows": 2821,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.16394646163307736,
+        "ate_p95_m": 0.3259014343347675,
+        "backend_zero_observation_logs": 0,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 3.549664303792981,
+        "compute_ms_p95": 5.187392,
+        "poses_sha256": "2f07ef965f0fef79d1342246b290ec5357f0fbc47ff87c85bd82f3f691a0e4c4"
+      },
+      "stable": {
+        "pose_rows": 2821,
+        "matched_pose_rows": 2821,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.19543084234283717,
+        "ate_p95_m": 0.38677930599199006,
+        "backend_zero_observation_logs": 0,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 3.603269699397376,
+        "compute_ms_p95": 5.243369,
+        "poses_sha256": "4628160cd47e0c752d9d82483e1b67ef8a544692163d22e2764f926a6282a3a2"
+      },
+      "pixel-stable": {
+        "pose_rows": 2821,
+        "matched_pose_rows": 2821,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.15501730977813444,
+        "ate_p95_m": 0.2941806064243435,
+        "backend_zero_observation_logs": 0,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 3.7395056090038987,
+        "compute_ms_p95": 5.514816,
+        "poses_sha256": "c37564881f31a068a430706785ec805fff60fee43849fc60d6715e3c3b243385"
+      }
+    }
+  },
+  "unpatched_noise_control": {
+    "inputs": {
+      "binary": "/home/ncer/sophpi/install/dataset-analysis-20260924-155813/pc-schurvins/build/schurvins_stereo",
+      "calibration": "/home/ncer/sophpi/install/schurvins-gcc11-static/public-datasets/uzh-fpv/indoor_forward_6_replay/calibration.yaml",
+      "stereo": "/home/ncer/sophpi/install/fpv-stability/stereo.csv",
+      "imu": "/home/ncer/sophpi/install/schurvins-gcc11-static/public-datasets/uzh-fpv/indoor_forward_6_replay/imu.csv",
+      "groundtruth": "/home/ncer/sophpi/install/schurvins-gcc11-static/public-datasets/uzh-fpv/indoor_forward_6_replay/groundtruth.csv"
+    },
+    "sha256": {
+      "binary": "030675654b3fecc28817b26dae2e854cc5e800819ebe2e637c233514bb6b6aa9",
+      "calibration": "8d699de7440fb2bcf70c778492a851c0d61ca265925a1fe52e9a84ad905fc598",
+      "stereo": "94c1808c49e7c83188d4fcb680dfae771b772a31f602030c2583dbf71b6036d7",
+      "imu": "f8f6fced1ccc2feef085510f8021577d4cbc28db4094b8774f594e5f6af768db",
+      "groundtruth": "39764a62d810dfaa22836249d921f7ba65bdb1063ec3081f931c099f109435e4",
+      "libschurvins.so": "84c22c9d9c1d1ad5ad51ec9400df94be6df066d21623454c3cceceade02b9080",
+      "matched_imu_source": "c2628ea491e0fad2804e37952d3a808c161d98a67bfab698cc82359ed377b0ac",
+      "matched_imu_calibration": "f42bd73435f56a38ce76436b2d72602afc5f40b1581747b2289fa893a8ffcad4"
+    },
+    "runs": {
+      "baseline": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 30.233278220023593,
+        "ate_p95_m": 70.43129289878524,
+        "backend_zero_observation_logs": 238,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 3.9186813314720816,
+        "compute_ms_p95": 8.999186949999999,
+        "poses_sha256": "dc57c0cc1bbb5de58f79a4ad481536f599c10f34450f8d41bed345532d69b89b"
+      },
+      "baseline-repeat1": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 30.233278220023593,
+        "ate_p95_m": 70.43129289878524,
+        "backend_zero_observation_logs": 238,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 3.9635126040609134,
+        "compute_ms_p95": 9.2459266,
+        "poses_sha256": "dc57c0cc1bbb5de58f79a4ad481536f599c10f34450f8d41bed345532d69b89b"
+      },
+      "matched-imu": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.8102987582208796,
+        "ate_p95_m": 1.334512025252657,
+        "backend_zero_observation_logs": 0,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.070835404568528,
+        "compute_ms_p95": 7.082062799999999,
+        "poses_sha256": "0a41b6d79c21e189fb668443a848eaf52eb80060d003e9e0bd84ec4ed57dc07a"
+      },
+      "matched-imu-repeat1": {
+        "pose_rows": 1970,
+        "matched_pose_rows": 816,
+        "full_pose_coverage": true,
+        "all_finite": true,
+        "ate_se3_rmse_m": 0.8102987582208796,
+        "ate_p95_m": 1.334512025252657,
+        "backend_zero_observation_logs": 0,
+        "alignment": "SE3 rotation+translation, scale fixed 1; linear GT position interpolation; no fitted time offset",
+        "compute_ms_mean": 4.082515058883248,
+        "compute_ms_p95": 7.1451858999999995,
+        "poses_sha256": "0a41b6d79c21e189fb668443a848eaf52eb80060d003e9e0bd84ec4ed57dc07a"
+      }
+    }
+  },
+  "date": "2026-10-17",
+  "source_base_commit": "fefa113",
+  "patch_sha256": "3593f2c5de2c5089f5a0c67f4051f5e826bd8a36c8f1ebb0e5e98a66ff21f935",
+  "unit_tests": "estimator update tests passed",
+  "dataset_imu_frequency": {
+    "samples": 34815,
+    "median_interval_ns": 1999855,
+    "mean_rate_hz": 500.00000840897354
+  },
+  "openvins_existing_reference_ate_m": 0.23755053465470832
+}

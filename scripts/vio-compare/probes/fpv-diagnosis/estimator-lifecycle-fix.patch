@@ -1,0 +1,57 @@
+diff --git a/svo/src/schur_vins.cpp b/svo/src/schur_vins.cpp
+index eade945..0549768 100644
+--- a/svo/src/schur_vins.cpp
++++ b/svo/src/schur_vins.cpp
+@@ -282,7 +282,7 @@ void SchurVINS::Solve3() {
+         }
+ 
+         if (curr_pt->CheckStatus() == false || curr_pt->CheckLocalStatus() == false
+-            || curr_pt->CheckLocalStatus(prev_frame_id0, prev_frame_id1, max_frame_idx) == false) {
++            || curr_pt->CheckLocalStatus(prev_frame_id0, prev_frame_id1, curr_state_id) == false) {
+             // LOG(INFO) << "Solve2 pass invalid point: " << curr_pt->id()
+             //           << " feature num : " << curr_pt->local_obs_.size() << " pos: " <<
+             //           curr_pt->pos().transpose();
+@@ -737,6 +737,14 @@ void SchurVINS::SetKeyframe(const bool _is_keyframe) {
+ void SchurVINS::Forward(const svo::FrameBundle::Ptr frame_bundle) {
+     constexpr double EPS = 1e-9;
+ 
++    // Failed visual initialization must not accumulate a running inertial state.
++    // Start each attempt from its own IMU interval until a pose clone is accepted.
++    if (states_map.empty() && curr_state->ts >= 0) {
++        *curr_state = ImuState();
++        prev_imu_ts = -1;
++        InitCov();
++    }
++
+     // LOG(WARNING) << "schurvins Forward";
+ 
+     double img_ts = frame_bundle->getMinTimestampSeconds();
+diff --git a/svo_common/include/svo/common/point.h b/svo_common/include/svo/common/point.h
+index 988dda4..b874228 100644
+--- a/svo_common/include/svo/common/point.h
++++ b/svo_common/include/svo/common/point.h
+@@ -131,7 +131,7 @@ public:
+ 
+   /// check
+   bool CheckLocalStatus();
+-  bool CheckLocalStatus(const int prev_frame_id0, const int prev_frame_id1, const int curr_framebundle_id);
++  bool CheckLocalStatus(const int prev_frame_id0, const int prev_frame_id1, const int curr_state_id);
+ 
+   /// Remove observation via frame-ID and camera-ID.
+   void RemoveLocalObs(const int state_id, const int camera_id);
+diff --git a/svo_common/src/point.cpp b/svo_common/src/point.cpp
+index 6dae20f..056dc69 100644
+--- a/svo_common/src/point.cpp
++++ b/svo_common/src/point.cpp
+@@ -59,8 +59,9 @@ bool Point::CheckLocalStatus() {
+     return true;
+ }
+ 
+-bool Point::CheckLocalStatus(const int prev_frame_id0, const int prev_frame_id1, const int curr_framebundle_id) {
+-    auto iter = local_obs_.find(curr_framebundle_id);
++bool Point::CheckLocalStatus(const int prev_frame_id0, const int prev_frame_id1, const int curr_state_id) {
++    // local_obs_ is keyed by augmented IMU state ID, not image bundle ID.
++    auto iter = local_obs_.find(curr_state_id);
+     bool has_opt_prev = ((last_structure_optim_ == prev_frame_id0) || (last_structure_optim_ == prev_frame_id1));
+     bool has_obs_curr = (iter != local_obs_.end());
+ 

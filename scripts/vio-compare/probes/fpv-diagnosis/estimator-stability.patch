@@ -1,0 +1,252 @@
+diff --git a/svo/include/svo/stable_update.h b/svo/include/svo/stable_update.h
+new file mode 100644
+index 0000000..a223be2
+--- /dev/null
++++ b/svo/include/svo/stable_update.h
+@@ -0,0 +1,40 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <Eigen/Dense>
++#include <algorithm>
++#include <cmath>
++
++namespace schur_vins {
++// The compressed Schur measurement has H = J^T J, g = J^T r and
++// covariance H. Its gauge nullspace must not be passed to an ordinary
++// innovation solve. Return an equivalent whitened measurement with R = I.
++inline bool whitenSchurMeasurement(const Eigen::MatrixXd& hessian,
++                                   const Eigen::VectorXd& gradient,
++                                   Eigen::MatrixXd& jacobian,
++                                   Eigen::VectorXd& residual) {
++    const int size = hessian.rows();
++    if (!size || hessian.cols() != size || gradient.size() != size ||
++        !hessian.allFinite() || !gradient.allFinite()) return false;
++    const Eigen::MatrixXd symmetric = 0.5 * (hessian + hessian.transpose());
++    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigen(symmetric);
++    if (eigen.info() != Eigen::Success) return false;
++    const double threshold = std::max(1e-10, eigen.eigenvalues().maxCoeff() * 1e-10);
++    if (eigen.eigenvalues().minCoeff() < -threshold) return false;
++    int rank = 0;
++    for (int i = 0; i < size; ++i)
++        if (eigen.eigenvalues()[i] > threshold) ++rank;
++    if (!rank) return false;
++    jacobian.resize(rank, size);
++    residual.resize(rank);
++    int row = 0;
++    for (int i = 0; i < size; ++i) {
++        const double value = eigen.eigenvalues()[i];
++        if (value <= threshold) continue;
++        const double root = std::sqrt(value);
++        jacobian.row(row) = root * eigen.eigenvectors().col(i).transpose();
++        residual[row] = eigen.eigenvectors().col(i).dot(gradient) / root;
++        ++row;
++    }
++    return jacobian.allFinite() && residual.allFinite();
++}
++}  // namespace schur_vins
+diff --git a/svo/src/schur_vins.cpp b/svo/src/schur_vins.cpp
+index eade945..6d41b98 100644
+--- a/svo/src/schur_vins.cpp
++++ b/svo/src/schur_vins.cpp
+@@ -16,6 +16,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>.
+ 
+ #include <svo/common/local_feature.h>
+ #include <svo/schur_vins.h>
++#include <svo/stable_update.h>
++#include <svo/common/pixel_residual.h>
+ 
+ #include <boost/math/distributions/chi_squared.hpp>
+ #include <cmath>
+@@ -308,8 +310,13 @@ void SchurVINS::Solve3() {
+                     reject_point = true;
+                     break;
+                 }
+-                const Eigen::Vector2d residual =
++                Eigen::Vector2d residual =
+                     (feature->xyz.head<2>() - Pc.head<2>() / Pc.z()) * focal_length;
++                if (svo::pixelResidualEnabled() && !svo::pixelResidual(
++                        *feature->frame->cam_, feature->xyz, Pc, residual)) {
++                    reject_point = true;
++                    break;
++                }
+                 if (!residual.allFinite() || residual.norm() > pregate_px) {
+                     reject_point = true;
+                     break;
+@@ -318,6 +325,26 @@ void SchurVINS::Solve3() {
+             if (reject_point)
+                 continue;
+         }
++        if (svo::pixelResidualEnabled()) {
++            bool valid = true;
++            for (const auto& observation : curr_pt->local_obs_) {
++                const auto& feature = observation.second;
++                const int frame_id = feature->frame->bundleId();
++                const auto state = feature->state.lock();
++                if (!state || frame_id < min_frame_idx || frame_id > max_frame_idx)
++                    continue;
++                const auto& extrinsic = feature->camera_id == 0 ? T_imu_cam0 : T_imu_cam1;
++                const Eigen::Vector3d Pi = state->quat.inverse() * (curr_pt->pos() - state->pos);
++                const Eigen::Vector3d Pc = extrinsic.getEigenQuaternion().inverse() *
++                    (Pi - extrinsic.getPosition());
++                Eigen::Vector2d residual;
++                if (!svo::pixelResidual(*feature->frame->cam_, feature->xyz, Pc, residual)) {
++                    valid = false;
++                    break;
++                }
++            }
++            if (!valid) continue;
++        }
+         schur_pts_.insert(curr_pt);
+         const Eigen::Vector3d& Pw = curr_pt->pos();
+ 
+@@ -347,7 +374,11 @@ void SchurVINS::Solve3() {
+             const double level_scale = 1;
+ 
+             // calc residual
+-            if (svo::LocalFeature::unit_sphere) {
++            Matrix2o3d pixel_jacobian;
++            if (svo::pixelResidualEnabled()) {
++                if (!svo::pixelResidual(*feature->frame->cam_, feature->xyz,
++                        Pc, r, &pixel_jacobian)) continue;
++            } else if (svo::LocalFeature::unit_sphere) {
+                 r = feature->tan_space * (feature->xyz - Pc.normalized()) * (focal_length / level_scale);
+             } else {
+                 r = (feature->xyz.head<2>() - Pc.head<2>() / Pc.z()) * (focal_length / level_scale);
+@@ -368,7 +399,9 @@ void SchurVINS::Solve3() {
+ 
+             // calc jacobian
+             dr_dpc.setZero();
+-            if (svo::LocalFeature::unit_sphere) {
++            if (svo::pixelResidualEnabled()) {
++                dr_dpc = pixel_jacobian * (effective_obs_invdev * huber_scale);
++            } else if (svo::LocalFeature::unit_sphere) {
+                 double Pc_norm = Pc.norm();
+                 double inv_norm = 1.0 / Pc_norm;
+                 double inv_norm3 = 1.0 / (Pc_norm * Pc_norm * Pc_norm);
+@@ -500,6 +533,29 @@ void SchurVINS::StateUpdate(const Eigen::MatrixXd& hessian, const Eigen::VectorX
+ 
+     int rows = (int)hessian.rows();
+     CHECK(rows == (int)states_map.size() * 6);
++    if (positiveEnv("SCHUR_STABLE_UPDATE") > 0.0) {
++        // Whiten only the observable subspace: the Schur Hessian has a
++        // gauge nullspace, so using it as R makes the old innovation singular.
++        dsw_ = Eigen::VectorXd::Zero(rows);
++        Eigen::MatrixXd whitened;
++        Eigen::VectorXd residual;
++        if (!whitenSchurMeasurement(hessian, gradient, whitened, residual))
++            return;
++        const int rank = whitened.rows();
++        Eigen::MatrixXd J = Eigen::MatrixXd::Zero(rank, rows + 15);
++        J.rightCols(rows) = whitened;
++        const Eigen::MatrixXd R = Eigen::MatrixXd::Identity(rank, rank);
++        const Eigen::MatrixXd PHt = cov * J.transpose();
++        const Eigen::MatrixXd S = J * PHt + R;
++        Eigen::LLT<Eigen::MatrixXd> llt(S);
++        if (llt.info() != Eigen::Success) return;
++        const Eigen::MatrixXd K = llt.solve(PHt.transpose()).transpose();
++        const Eigen::VectorXd delta = K * residual;
++        if (!delta.allFinite()) return;
++        StateCorrection(K, J, delta, R);
++        dsw_ = delta.tail(rows);
++        return;
++    }
+     const Eigen::MatrixXd& R = hessian;
+ 
+     Eigen::MatrixXd Jacob_compress = Eigen::MatrixXd::Zero(rows, rows + 15);
+@@ -549,7 +605,10 @@ void SchurVINS::StateCorrection(const Eigen::MatrixXd& K, const Eigen::MatrixXd&
+     }
+ 
+     Eigen::MatrixXd I_KH = Eigen::MatrixXd::Identity(K.rows(), K.rows()) - K * J;
+-    cov = I_KH * cov;
++    if (positiveEnv("SCHUR_STABLE_UPDATE") > 0.0)
++        cov = (I_KH * cov * I_KH.transpose() + K * R * K.transpose()).eval();
++    else
++        cov = I_KH * cov;
+     Eigen::MatrixXd stable_cov = (cov + cov.transpose()) / 2.0;
+     cov = stable_cov;
+ }
+@@ -921,7 +980,10 @@ int SchurVINS::RemovePointOutliers() {
+             const double level_scale = 1;
+ 
+             // calc residual
+-            const Eigen::Vector2d r = (feature->xyz.head<2>() - Pc.head<2>() / Pc.z()) * (focal_length / level_scale);
++            Eigen::Vector2d r = (feature->xyz.head<2>() - Pc.head<2>() / Pc.z()) * (focal_length / level_scale);
++            if (svo::pixelResidualEnabled() && !svo::pixelResidual(
++                    *feature->frame->cam_, feature->xyz, Pc, r))
++                r.setConstant(std::numeric_limits<double>::infinity());
+             total_error += r.norm();
+             ++num_obs;
+         }
+@@ -964,8 +1026,11 @@ int SchurVINS::RemoveOutliers(const svo::FrameBundle::Ptr frame_bundle) {
+                     continue;
+ 
+                 const Eigen::Vector3d Pc = frame->T_f_w_ * curr_pt->pos();
+-                const Eigen::Vector2d r
++                Eigen::Vector2d r
+                     = (obs.head<2>() / obs.z() - Pc.head<2>() / Pc.z()) * (focal_length / level_scale);
++                if (svo::pixelResidualEnabled() && !svo::pixelResidual(
++                        *frame->cam_, obs, Pc, r))
++                    r.setConstant(std::numeric_limits<double>::infinity());
+                 total_error += r.norm();
+ 
+                 if (r.norm() > MAX_REPROJECT_ERROR) {
+diff --git a/svo_common/include/svo/common/pixel_residual.h b/svo_common/include/svo/common/pixel_residual.h
+new file mode 100644
+index 0000000..0b0bf9c
+--- /dev/null
++++ b/svo_common/include/svo/common/pixel_residual.h
+@@ -0,0 +1,24 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <vikit/cameras/camera_geometry_base.h>
++#include <cstdlib>
++#include <cstring>
++namespace svo {
++inline bool pixelResidualEnabled() {
++    const char* value = std::getenv("SCHUR_PIXEL_RESIDUAL");
++    return value && std::strcmp(value, "1") == 0;
++}
++inline bool pixelResidual(const vk::cameras::CameraGeometryBase& camera,
++                          const Eigen::Vector3d& bearing,
++                          const Eigen::Vector3d& point,
++                          Eigen::Vector2d& residual,
++                          Eigen::Matrix<double, 2, 3>* jacobian = nullptr) {
++    if (!bearing.allFinite() || !point.allFinite() || point.z() <= 1e-8)
++        return false;
++    Eigen::Vector2d measured, predicted;
++    camera.project3(bearing, &measured);
++    camera.project3(point, &predicted, jacobian);
++    residual = measured - predicted;
++    return residual.allFinite() && (!jacobian || jacobian->allFinite());
++}
++}  // namespace svo
+diff --git a/svo_common/src/point.cpp b/svo_common/src/point.cpp
+index 6dae20f..fc4f315 100644
+--- a/svo_common/src/point.cpp
++++ b/svo_common/src/point.cpp
+@@ -11,6 +11,7 @@
+ // (All authors of SchurVINS are with PICO department of ByteDance Corporation)
+ 
+ #include <svo/common/point.h>
++#include <svo/common/pixel_residual.h>
+ 
+ #include <vikit/math_utils.h>
+ #include <svo/common/logging.h>
+@@ -361,6 +362,9 @@ void Point::EkfUpdate(const Eigen::VectorXd& dx, const double obs_std, const dou
+         // calc residual
+         Eigen::Vector2d r
+             = (obs.head<2>() / obs.z() - Pc.head<2>() / Pc.z()) * (focal_length);  // unsupport unit sphere
++        Matrix2o3d pixel_jacobian;
++        if (pixelResidualEnabled() && !pixelResidual(*frame->cam_, obs, Pc, r, &pixel_jacobian))
++            continue;
+         // LOG(ERROR) << "residual: " << r.transpose();
+ 
+         // huber
+@@ -382,6 +386,7 @@ void Point::EkfUpdate(const Eigen::VectorXd& dx, const double obs_std, const dou
+         dr_dpc(0, 2) = -Pc[0] / pc22;
+         dr_dpc(1, 2) = -Pc[1] / pc22;
+         dr_dpc *= (focal_length * obs_invdev * huber_scale);
++        if (pixelResidualEnabled()) dr_dpc = pixel_jacobian * (obs_invdev * huber_scale);
+ 
+         Matrix2o3d jf = Matrix2o3d::Zero();
+         jf.noalias() = dr_dpc * R_c_w;

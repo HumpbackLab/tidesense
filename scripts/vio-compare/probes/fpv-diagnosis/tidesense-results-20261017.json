@@ -1,0 +1,273 @@
+{
+  "source": "/home/ncer/sophpi/install/replay-20261012-084638/dataset-20261012-084638",
+  "recording": "/home/ncer/sophpi/install/replay-20261012-084638/record",
+  "binary": "/home/ncer/sophpi/install/fpv-stability/build/schurvins_stereo",
+  "validation": {
+    "pairs": 885,
+    "imu_samples": 8868,
+    "camera_hz": 19.9533299737704,
+    "imu_hz": 199.53337013994542,
+    "camera_offset_ns": 10797086,
+    "lossless_pixels_verified": true,
+    "imu_values_verified": true,
+    "archive_sha256": {
+      "COMPLETE": "decda6eccd6066fe065c4623c023571f71727c6dad0f285531ba73d710fb4734",
+      "calibration.yaml": "6c92e82235b89d04cc50ad0753bc0fe535331dec159004ce965a966d7eadc073",
+      "frames.bin": "04ebdc5e02dc68b197a7f151ca438ccadf2a9aee2b9bbd923dbb495f87135c87",
+      "imu-calibration.yaml": "d6b4b76b15a0c192c801818382ea7c0b62f1890aeb22c63c7ff9e885996a0694",
+      "imu.csv": "24df58a53776d7c8d5712de4f3a998ad7b8ac25f95b0a647c29139aeb1c96b60",
+      "metadata.yaml": "a283a994842a95616f7e68fc8f2fb2670682cb70a9f32c85049674b9ef4f70a7",
+      "sensor_cfg.ini": "7c7d9519906b67080334c44591b3723aadbd9e6a2067db9cdef7776d403104ef"
+    },
+    "replay_sha256": {
+      "replay.yaml": "194e5c4a0e6b63c0d11a0b676d1cbdd30820c9c053787d388cadb33d88a09d9f",
+      "stereo.csv": "217cb48c0aeb510e681d3d5e2a8c3dad45ec7d596369158537578060d3320379",
+      "imu.csv": "3bc7782617d920a844c97347baa7bb87aac4476c1ac60b5146454836589bb167"
+    }
+  },
+  "binary_sha256": "fb4bdbf1f33381f821044539a248eacd0e1eb49fb4f24807f3df52a234ece94f",
+  "library_sha256": "d83c0848b46a7f55c1c5356a0b07933ba7efae9ddc02c258a71e0cf6a319ac69",
+  "protocol": "Host FP64; identical input, calibration and IMU noise; no GT; no parameter sweep.",
+  "runs": {
+    "baseline": {
+      "results": [
+        {
+          "input_pairs": 885,
+          "processed_frames": 885,
+          "pose_rows": 885,
+          "full_pose_coverage": true,
+          "all_finite": true,
+          "first_pose_s": 0.0,
+          "last_pose_s": 44.303382000000006,
+          "endpoint_displacement_m": 332.06017407768667,
+          "max_distance_from_first_pose_m": 332.06017407768667,
+          "estimated_path_m": 340.018727437684,
+          "max_pose_step_m": 2.034579602349344,
+          "max_finite_difference_speed_m_s": 40.58687790199534,
+          "backend_zero_observation_logs": 84,
+          "backend_observation_logs": 861,
+          "backend_observations_median": 10.0,
+          "compute_ms_mean": 4.340846171751412,
+          "compute_ms_p95": 8.0530244,
+          "poses_sha256": "02c3b6eeda93eaa37b83f8bd805d56347bdab36296afaaee3586291eb9ce5447",
+          "wall_s": 4.732357079046778
+        },
+        {
+          "input_pairs": 885,
+          "processed_frames": 885,
+          "pose_rows": 885,
+          "full_pose_coverage": true,
+          "all_finite": true,
+          "first_pose_s": 0.0,
+          "last_pose_s": 44.303382000000006,
+          "endpoint_displacement_m": 332.06017407768667,
+          "max_distance_from_first_pose_m": 332.06017407768667,
+          "estimated_path_m": 340.018727437684,
+          "max_pose_step_m": 2.034579602349344,
+          "max_finite_difference_speed_m_s": 40.58687790199534,
+          "backend_zero_observation_logs": 84,
+          "backend_observation_logs": 861,
+          "backend_observations_median": 10.0,
+          "compute_ms_mean": 4.368850861016949,
+          "compute_ms_p95": 8.1987042,
+          "poses_sha256": "02c3b6eeda93eaa37b83f8bd805d56347bdab36296afaaee3586291eb9ce5447",
+          "wall_s": 4.08077331003733
+        }
+      ],
+      "repeat_pose_identity": true,
+      "position_distance_at_s": {
+        "5": 0.0018486588899247923,
+        "10": 0.0017933197556109282,
+        "15": 0.4535499715458491,
+        "20": 0.673200528047983,
+        "30": 18.946659096304433,
+        "40": 182.2813968633393
+      }
+    },
+    "stable": {
+      "results": [
+        {
+          "input_pairs": 885,
+          "processed_frames": 885,
+          "pose_rows": 885,
+          "full_pose_coverage": true,
+          "all_finite": true,
+          "first_pose_s": 0.0,
+          "last_pose_s": 44.303382000000006,
+          "endpoint_displacement_m": 306.071200338689,
+          "max_distance_from_first_pose_m": 306.071200338689,
+          "estimated_path_m": 315.3411905870423,
+          "max_pose_step_m": 1.8924794173028037,
+          "max_finite_difference_speed_m_s": 37.75218770178139,
+          "backend_zero_observation_logs": 86,
+          "backend_observation_logs": 851,
+          "backend_observations_median": 11.0,
+          "compute_ms_mean": 4.5771309638418085,
+          "compute_ms_p95": 8.374556199999997,
+          "poses_sha256": "c060e49e2e4b9a6f11caff17398edee29887e850f348179e709d5d51b2b57c8a",
+          "wall_s": 4.280481875990517
+        },
+        {
+          "input_pairs": 885,
+          "processed_frames": 885,
+          "pose_rows": 885,
+          "full_pose_coverage": true,
+          "all_finite": true,
+          "first_pose_s": 0.0,
+          "last_pose_s": 44.303382000000006,
+          "endpoint_displacement_m": 306.071200338689,
+          "max_distance_from_first_pose_m": 306.071200338689,
+          "estimated_path_m": 315.3411905870423,
+          "max_pose_step_m": 1.8924794173028037,
+          "max_finite_difference_speed_m_s": 37.75218770178139,
+          "backend_zero_observation_logs": 86,
+          "backend_observation_logs": 851,
+          "backend_observations_median": 11.0,
+          "compute_ms_mean": 4.416595934463277,
+          "compute_ms_p95": 8.184412,
+          "poses_sha256": "c060e49e2e4b9a6f11caff17398edee29887e850f348179e709d5d51b2b57c8a",
+          "wall_s": 4.130845626001246
+        }
+      ],
+      "repeat_pose_identity": true,
+      "position_distance_at_s": {
+        "5": 0.001848658914848372,
+        "10": 0.0013674370886634793,
+        "15": 0.5636197108733269,
+        "20": 0.7210688349737585,
+        "30": 17.85827640515782,
+        "40": 167.40903416883302
+      }
+    },
+    "pixel": {
+      "results": [
+        {
+          "input_pairs": 885,
+          "processed_frames": 885,
+          "pose_rows": 885,
+          "full_pose_coverage": true,
+          "all_finite": true,
+          "first_pose_s": 0.0,
+          "last_pose_s": 44.303382000000006,
+          "endpoint_displacement_m": 334.2710616826232,
+          "max_distance_from_first_pose_m": 334.2710616826232,
+          "estimated_path_m": 342.12821606884495,
+          "max_pose_step_m": 2.046447268934968,
+          "max_finite_difference_speed_m_s": 40.82362043796499,
+          "backend_zero_observation_logs": 85,
+          "backend_observation_logs": 833,
+          "backend_observations_median": 14.0,
+          "compute_ms_mean": 4.788928083615819,
+          "compute_ms_p95": 9.108030799999998,
+          "poses_sha256": "019e11a564591f9f278563575c720d28a63b78832cd702326e1ede22b77fc8a2",
+          "wall_s": 4.481600894010626
+        },
+        {
+          "input_pairs": 885,
+          "processed_frames": 885,
+          "pose_rows": 885,
+          "full_pose_coverage": true,
+          "all_finite": true,
+          "first_pose_s": 0.0,
+          "last_pose_s": 44.303382000000006,
+          "endpoint_displacement_m": 334.2710616826232,
+          "max_distance_from_first_pose_m": 334.2710616826232,
+          "estimated_path_m": 342.12821606884495,
+          "max_pose_step_m": 2.046447268934968,
+          "max_finite_difference_speed_m_s": 40.82362043796499,
+          "backend_zero_observation_logs": 85,
+          "backend_observation_logs": 833,
+          "backend_observations_median": 14.0,
+          "compute_ms_mean": 4.540201927683616,
+          "compute_ms_p95": 8.653242599999999,
+          "poses_sha256": "019e11a564591f9f278563575c720d28a63b78832cd702326e1ede22b77fc8a2",
+          "wall_s": 4.280585940927267
+        }
+      ],
+      "repeat_pose_identity": true,
+      "position_distance_at_s": {
+        "5": 0.0013462009538321863,
+        "10": 0.0013013948266933889,
+        "15": 0.47125934807689357,
+        "20": 0.6788728520553112,
+        "30": 18.777238067320177,
+        "40": 183.40777889393064
+      }
+    },
+    "pixel-stable": {
+      "results": [
+        {
+          "input_pairs": 885,
+          "processed_frames": 885,
+          "pose_rows": 885,
+          "full_pose_coverage": true,
+          "all_finite": true,
+          "first_pose_s": 0.0,
+          "last_pose_s": 44.303382000000006,
+          "endpoint_displacement_m": 339.6863298481535,
+          "max_distance_from_first_pose_m": 339.6863298481535,
+          "estimated_path_m": 346.6737433622116,
+          "max_pose_step_m": 2.0706248198195927,
+          "max_finite_difference_speed_m_s": 41.30592710445787,
+          "backend_zero_observation_logs": 69,
+          "backend_observation_logs": 840,
+          "backend_observations_median": 14.0,
+          "compute_ms_mean": 4.598028605649717,
+          "compute_ms_p95": 8.765654199999997,
+          "poses_sha256": "126a6dca6fd571edd2a5ec039f9e7895e93794aad99967cdc193790c24c126ba",
+          "wall_s": 4.280395045992918
+        },
+        {
+          "input_pairs": 885,
+          "processed_frames": 885,
+          "pose_rows": 885,
+          "full_pose_coverage": true,
+          "all_finite": true,
+          "first_pose_s": 0.0,
+          "last_pose_s": 44.303382000000006,
+          "endpoint_displacement_m": 339.6863298481535,
+          "max_distance_from_first_pose_m": 339.6863298481535,
+          "estimated_path_m": 346.6737433622116,
+          "max_pose_step_m": 2.0706248198195927,
+          "max_finite_difference_speed_m_s": 41.30592710445787,
+          "backend_zero_observation_logs": 69,
+          "backend_observation_logs": 840,
+          "backend_observations_median": 14.0,
+          "compute_ms_mean": 4.507574424858757,
+          "compute_ms_p95": 8.627656599999998,
+          "poses_sha256": "126a6dca6fd571edd2a5ec039f9e7895e93794aad99967cdc193790c24c126ba",
+          "wall_s": 4.230593897984363
+        }
+      ],
+      "repeat_pose_identity": true,
+      "position_distance_at_s": {
+        "5": 0.0013462009532709891,
+        "10": 0.0008809862977561944,
+        "15": 0.5953439321253202,
+        "20": 0.7027234758114318,
+        "30": 18.708688159250684,
+        "40": 186.62080842157377
+      }
+    }
+  },
+  "board_verification": {
+    "host": "192.168.123.99",
+    "source": "/mnt/data/dataset-20261012-084638",
+    "sha256": {
+      "COMPLETE": "decda6eccd6066fe065c4623c023571f71727c6dad0f285531ba73d710fb4734",
+      "calibration.yaml": "6c92e82235b89d04cc50ad0753bc0fe535331dec159004ce965a966d7eadc073",
+      "frames.bin": "04ebdc5e02dc68b197a7f151ca438ccadf2a9aee2b9bbd923dbb495f87135c87",
+      "imu-calibration.yaml": "d6b4b76b15a0c192c801818382ea7c0b62f1890aeb22c63c7ff9e885996a0694",
+      "imu.csv": "24df58a53776d7c8d5712de4f3a998ad7b8ac25f95b0a647c29139aeb1c96b60",
+      "metadata.yaml": "a283a994842a95616f7e68fc8f2fb2670682cb70a9f32c85049674b9ef4f70a7",
+      "sensor_cfg.ini": "7c7d9519906b67080334c44591b3723aadbd9e6a2067db9cdef7776d403104ef"
+    },
+    "all_files_match": true
+  },
+  "groundtruth": null,
+  "calibration_scope": "Original recording radtan snapshot; not the later equidistant recalibration. Same original images and noise for all variants.",
+  "code_sha256": {
+    "recording_ab.py": "e7b0f16562467f481b0afe955608305d3ab530e62f228d645228753bf4080188",
+    "estimator-stability.patch": "3593f2c5de2c5089f5a0c67f4051f5e826bd8a36c8f1ebb0e5e98a66ff21f935"
+  }
+}

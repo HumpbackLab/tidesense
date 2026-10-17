@@ -1,0 +1,206 @@
+diff --git a/svo/include/svo/schur_vins.h b/svo/include/svo/schur_vins.h
+index ce8e97e..8a76097 100644
+--- a/svo/include/svo/schur_vins.h
++++ b/svo/include/svo/schur_vins.h
+@@ -106,13 +106,17 @@ class SchurVINS {
+     Eigen::Vector3d prev_acc = Eigen::Vector3d::Zero();
+     Eigen::Vector3d prev_gyr = Eigen::Vector3d::Zero();
+     double prev_imu_ts = -1;
++    svo::ImuMeasurements startup_imu_;
+ 
+     Matrix12d imu_noise = Matrix12d::Zero();
+     Eigen::MatrixXd cov = Eigen::MatrixXd::Zero(15, 15);
+     int64_t id_creator = 0;
+     Eigen::Vector3d gravity = Eigen::Vector3d(0, 0, -9.81007);
+     Eigen::VectorXd dsw_;
+-    std::set<svo::PointPtr> schur_pts_;
++    struct PointOrder {
++        bool operator()(const svo::PointPtr& a, const svo::PointPtr& b) const;
++    };
++    std::set<svo::PointPtr, PointOrder> schur_pts_;
+ 
+     int state_max = 4;
+     int curr_fts_cnt = 0;
+@@ -132,4 +136,4 @@ inline Eigen::Matrix3d SkewMatrix(const Eigen::Vector3d& w) {
+     return mat;
+ }
+ }  // namespace Utility
+-}  // namespace schur_vins
+\ No newline at end of file
++}  // namespace schur_vins
+diff --git a/svo/src/schur_vins.cpp b/svo/src/schur_vins.cpp
+index 1630207..8f41492 100644
+--- a/svo/src/schur_vins.cpp
++++ b/svo/src/schur_vins.cpp
+@@ -55,6 +55,11 @@ SchurVINS::SchurVINS() : curr_state(new ImuState()) {
+     // LOG(INFO) << "init begins";
+ }
+ 
++bool SchurVINS::PointOrder::operator()(const svo::PointPtr& a, const svo::PointPtr& b) const {
++    if (positiveEnv("SCHUR_POINT_ID_ORDER") > 0) return a->id() < b->id();
++    return a < b;
++}
++
+ bool SchurVINS::getImuSnapshot(ImuSnapshot& s) const {
+     if (!curr_state || curr_state->ts < 0) return false;
+     s.timestamp = curr_state->ts;
+@@ -278,6 +283,8 @@ void SchurVINS::Solve3() {
+     double total_error = 0.0;
+     int count_gt4 = 0;
+     double max_error = 0;
++    int status_ok = 0, local_ok = 0, old_temporal_ok = 0, new_temporal_ok = 0;
++    int rescued_points = 0;
+     const double pregate_px = positiveEnv("SCHUR_VISUAL_PREGATE_PX");
+     schur_pts_.clear();
+     for (svo::LocalPointMap::iterator pit = local_pts.begin(); pit != local_pts.end(); ++pit) {
+@@ -289,8 +296,17 @@ void SchurVINS::Solve3() {
+             curr_pt->register_id_ = curr_state_id;  // avoid init multi times
+         }
+ 
+-        if (curr_pt->CheckStatus() == false || curr_pt->CheckLocalStatus() == false
+-            || curr_pt->CheckLocalStatus(prev_frame_id0, prev_frame_id1, max_frame_idx) == false) {
++        const bool valid_status = curr_pt->CheckStatus();
++        const bool valid_local = curr_pt->CheckLocalStatus();
++        const bool old_temporal = curr_pt->CheckLocalStatus(prev_frame_id0, prev_frame_id1, max_frame_idx);
++        const bool new_temporal = curr_pt->CheckLocalStatus(prev_frame_id0, prev_frame_id1, curr_state_id);
++        status_ok += valid_status;
++        local_ok += valid_status && valid_local;
++        old_temporal_ok += valid_status && valid_local && old_temporal;
++        new_temporal_ok += valid_status && valid_local && new_temporal;
++        rescued_points += valid_status && valid_local && new_temporal && !old_temporal;
++        const bool use_state_id = positiveEnv("SCHUR_FIX_OBSERVATION_ID") > 0;
++        if (!valid_status || !valid_local || !(use_state_id ? new_temporal : old_temporal)) {
+             // LOG(INFO) << "Solve2 pass invalid point: " << curr_pt->id()
+             //           << " feature num : " << curr_pt->local_obs_.size() << " pos: " <<
+             //           curr_pt->pos().transpose();
+@@ -463,6 +479,14 @@ void SchurVINS::Solve3() {
+         }
+     }
+ 
++    if (const char* path = std::getenv("SCHUR_CAUSE_CSV")) {
++        static std::ofstream out(path);
++        static bool header = (out << "time_s,bundle_id,state_id,local_points,status_ok,local_ok,old_temporal_ok,new_temporal_ok,rescued_points,schur_points,solve_obs\n", true);
++        (void)header;
++        out << std::setprecision(17) << curr_state->ts << ',' << max_frame_idx << ',' << curr_state_id
++            << ',' << local_pts.size() << ',' << status_ok << ',' << local_ok << ',' << old_temporal_ok
++            << ',' << new_temporal_ok << ',' << rescued_points << ',' << schur_pts_.size() << ',' << num_obs << '\n';
++    }
+     if (num_obs == 0) {
+         schur_pts_.clear();
+         dsw_ = Eigen::VectorXd::Zero(state_len);
+@@ -808,6 +832,53 @@ void SchurVINS::SetKeyframe(const bool _is_keyframe) {
+ void SchurVINS::Forward(const svo::FrameBundle::Ptr frame_bundle) {
+     constexpr double EPS = 1e-9;
+ 
++    const bool static_init = positiveEnv("SCHUR_STATIC_INIT") > 0;
++    if (states_map.empty() && curr_state->ts >= 0 && !static_init && positiveEnv("SCHUR_RESET_UNINITIALIZED") > 0) {
++        *curr_state = ImuState();
++        prev_imu_ts = -1;
++        InitCov();
++    }
++    if (static_init && curr_state->ts < 0) {
++        const double image_time = frame_bundle->getMinTimestampSeconds();
++        for (const auto& sample : frame_bundle->imu_datas_) {
++            if (sample.timestamp_ <= image_time &&
++                (startup_imu_.empty() || sample.timestamp_ > startup_imu_.back().timestamp_))
++                startup_imu_.push_back(sample);
++        }
++        if (startup_imu_.size() < 2) return;
++        while (startup_imu_.size() > 2 &&
++               startup_imu_.back().timestamp_ - startup_imu_[1].timestamp_ > 2.0)
++            startup_imu_.pop_front();
++        if (startup_imu_.back().timestamp_ - startup_imu_.front().timestamp_ < 2.0) return;
++        Eigen::Vector3d mean_a = Eigen::Vector3d::Zero(), mean_w = Eigen::Vector3d::Zero();
++        for (const auto& sample : startup_imu_) {
++            mean_a += sample.linear_acceleration_;
++            mean_w += sample.angular_velocity_;
++        }
++        mean_a /= startup_imu_.size(); mean_w /= startup_imu_.size();
++        double var_a = 0, var_w = 0;
++        for (const auto& sample : startup_imu_) {
++            var_a += (sample.linear_acceleration_ - mean_a).squaredNorm();
++            var_w += (sample.angular_velocity_ - mean_w).squaredNorm();
++        }
++        const double std_a = std::sqrt(var_a / (startup_imu_.size() - 1));
++        const double std_w = std::sqrt(var_w / (startup_imu_.size() - 1));
++        if (std_a > 0.3 || std_w > 0.02 || mean_w.norm() > 0.1 ||
++            mean_a.norm() < 6 || mean_a.norm() > 14) return;
++        const auto last = startup_imu_.back();
++        InitState(last.timestamp_, mean_a, mean_w);
++        curr_state->bg = mean_w;
++        curr_state->ba = mean_a - mean_a.normalized() * gravity.norm();
++        prev_imu_ts = last.timestamp_;
++        prev_acc = last.linear_acceleration_;
++        prev_gyr = last.angular_velocity_;
++        InitCov();
++        LOG(INFO) << "Static IMU init: " << std::setprecision(17) << last.timestamp_
++                  << " bg=" << mean_w.transpose() << " ba=" << curr_state->ba.transpose()
++                  << " std_a=" << std_a << " std_w=" << std_w;
++        startup_imu_.clear();
++    }
++
+     // LOG(WARNING) << "schurvins Forward";
+ 
+     double img_ts = frame_bundle->getMinTimestampSeconds();
+diff --git a/svo/src/frame_handler_stereo.cpp b/svo/src/frame_handler_stereo.cpp
+index b883085..35e74e1 100644
+--- a/svo/src/frame_handler_stereo.cpp
++++ b/svo/src/frame_handler_stereo.cpp
+@@ -11,6 +11,7 @@
+ // (All authors of SchurVINS are with PICO department of ByteDance Corporation)
+ 
+ #include <svo/frame_handler_stereo.h>
++#include <svo/schur_vins.h>
+ #include <svo/map.h>
+ #include <svo/common/frame.h>
+ #include <svo/common/point.h>
+@@ -27,9 +28,20 @@
+ #include <cstdlib>
+ #include <limits>
+ #include <unordered_map>
++#include <fstream>
++#include <iomanip>
+ 
+ namespace svo {
+ namespace {
++void debugFront(const FrameBundlePtr& bundle, const char* phase, size_t tracked) {
++  if (const char* path = std::getenv("SCHUR_FRONT_DEBUG_CSV")) {
++    static std::ofstream out(path);
++    static bool header = (out << "time_s,bundle_id,phase,tracked,landmarks\n", true);
++    (void)header;
++    out << std::setprecision(17) << bundle->getMinTimestampSeconds() << ',' << bundle->getBundleId()
++        << ',' << phase << ',' << tracked << ',' << bundle->numLandmarks() << '\n';
++  }
++}
+ size_t rejectStereoEpipolarOutliers(const FrameBundlePtr& bundle,
+                                    double max_error_px) {
+   const FramePtr& left = bundle->at(0);
+@@ -121,6 +133,12 @@ void FrameHandlerStereo::addImages(
+ UpdateResult FrameHandlerStereo::processFirstFrame()
+ {
+   schurvinsForward();
++  if (const char* enabled = std::getenv("SCHUR_STATIC_INIT")) {
++    if (std::atof(enabled) > 0) {
++      schur_vins::SchurVINS::ImuSnapshot snapshot;
++      if (!schur_vins_ || !schur_vins_->getImuSnapshot(snapshot)) return UpdateResult::kDefault;
++    }
++  }
+   if(initializer_->addFrameBundle(new_frames_) == InitResult::kFailure)
+   {
+     SVO_ERROR_STREAM("Initialization failed. Not enough triangulated points.");
+@@ -175,6 +193,7 @@ UpdateResult FrameHandlerStereo::processFrame()
+   }
+   if(n_tracked_features < options_.quality_min_fts)
+   {
++    debugFront(new_frames_, "skip_backend", n_tracked_features);
+     tracking_quality_ = TrackingQuality::kInsufficient;
+     return makeKeyframe(); // force stereo triangulation to recover
+   }
+@@ -183,6 +202,7 @@ UpdateResult FrameHandlerStereo::processFrame()
+   if(bundle_adjustment_type_!=BundleAdjustmentType::kCeres)
+   {
+     n_tracked_features = optimizePose();
++    debugFront(new_frames_, "backend", n_tracked_features);
+     if(n_tracked_features < options_.quality_min_fts)
+     {
+       tracking_quality_ = TrackingQuality::kInsufficient;
