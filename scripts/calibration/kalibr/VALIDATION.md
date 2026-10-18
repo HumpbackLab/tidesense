@@ -11,9 +11,11 @@
 
 ## 端到端命令
 
+在工程根目录执行：
+
 ```bash
-scripts/calibration/kalibr.sh /home/ncer/sophpi/cali/tidesense-stereo-calib \
-  --output /home/ncer/sophpi/cali/tidesense-stereo-calib-kalibr-20260918
+scripts/calibration/kalibr.sh cali/tidesense-stereo-calib \
+  --output cali/tidesense-stereo-calib-kalibr-20260918
 ```
 
 退出码 **0**，生成 ROS 1 bag、双目标定 YAML、文本摘要和 **11 页 PDF**。

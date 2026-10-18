@@ -34,6 +34,9 @@ https://oshwhub.com/brics-hospital-drone-team/project_hpetjiuj
 
 ## 文档导航
 
+以下文档中的电脑端命令均从工程根目录执行，工程内文件使用相对于根目录的路径；
+板端命令会单独注明，并使用设备上的部署路径。
+
 | 内容 | 入口 |
 | --- | --- |
 | SchurVINS 构建、运行与预测位姿 | [scripts/schurvins/README.md](scripts/schurvins/README.md) |

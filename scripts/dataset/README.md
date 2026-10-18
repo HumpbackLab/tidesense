@@ -1,5 +1,7 @@
 # TideSense 独立双目/IMU 数据集录制
 
+电脑端命令均在工程根目录执行；板端采集与回放在设备上的程序目录执行。
+
 `tidesense_record` 不链接 SchurVINS、OpenVINS、ROS 或 DDS，不运行特征提取和 VIO。
 复用经过板端验证的 CVITEK 双 OV9281 helper 和 SC7U22 IIO 读取代码。
 双目 640×400 mono8 / 20 Hz；IMU 200 Hz，INT1 内核时间戳，10 次中断触发一次 FSIN。

@@ -1,5 +1,7 @@
 # ROS 2 VIO 轨迹显示
 
+以下电脑端命令均在工程根目录执行。
+
 电脑端订阅位姿或里程计，生成 `nav_msgs/msg/Path` 并用 RViz2 显示。
 只需要位姿消息，无需图像或 RTAB-Map。
 
@@ -11,7 +13,6 @@
 然后在电脑终端运行：
 
 ```bash
-cd /home/ncer/sophpi
 scripts/visualization/run.sh
 ```
 

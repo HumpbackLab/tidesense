@@ -1,5 +1,8 @@
 # TideSense optional micro-ROS (ROS 2 Humble)
 
+Run computer-side commands from the project root. Run board-side commands
+from the deployed program directory on the device.
+
 Board verification results: [micro_ros/VALIDATION.md](micro_ros/VALIDATION.md)
 (packaged as `MICRO-ROS-VALIDATION.md`).
 
@@ -136,7 +139,7 @@ pinned host Agent after the micro-ROS library build. Its workspace setup is
 
 ```sh
 source /opt/ros/humble/setup.bash
-source /path/to/agent_ws/install/setup.bash
+source install/micro-ros/agent-install/local_setup.bash
 ROS_DOMAIN_ID=0 ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 ```
 

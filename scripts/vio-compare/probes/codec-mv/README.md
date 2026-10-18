@@ -1,5 +1,7 @@
 # 编码运动向量作为 LK 初值：本机实验
 
+以下电脑端命令均在工程根目录执行。
+
 只改 OpenVINS 前端的初始位置：
 
 ```text
@@ -40,7 +42,6 @@
 现有库路径写在脚本开头；不是独立从零构建 OpenVINS 的脚本。
 
 ```bash
-cd /home/ncer/sophpi
 python3 scripts/vio-compare/probes/codec-mv/prepare.py
 python3 scripts/vio-compare/probes/codec-mv/build.py
 
@@ -55,14 +56,14 @@ python3 scripts/vio-compare/probes/codec-mv/run.py --caps 200
 单独运行 TideSense 的覆盖块初值版本：
 
 ```bash
-work=/home/ncer/sophpi/install/openvins-codec-mv
+work=install/openvins-codec-mv
 OV_CODEC_MV_MODE=rect \
 OV_CODEC_MV_BIN="$work/tide/vectors.bin" \
 OV_CODEC_MV_DETAIL="$work/tide-example-detail.csv" \
 OV_CODEC_IMU_AHEAD=0.006 OMP_NUM_THREADS=1 \
   "$work/build/run_record.r1000" \
   "$work/tide/config/estimator_config.yaml" \
-  /home/ncer/sophpi/install/replay-20261012-084638/record \
+  install/replay-20261012-084638/record \
   "$work/tide-example-poses.csv" 0
 ```
 

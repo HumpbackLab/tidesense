@@ -1,5 +1,7 @@
 # TideSense 实时 OpenVINS + micro-ROS 位姿
 
+电脑端命令均在工程根目录执行；板端命令按对应章节进入设备部署目录。
+
 设备包：`/mnt/data/openvins-live-fp64/`。使用 A53、GCC11、**完整 FP64 后端**：
 `P Hᵀ` 使用原始双精度乘法，协方差存储、求解和写回也使用 FP64。
 构建时关闭局部与完整 FP32 实验，运行时强制 `OPENVINS_EKF_MA_MODE=original`。
@@ -38,9 +40,8 @@
 端口 8888 已有 Agent 时复用，避免重复启动。
 
 ```bash
-cd /home/ncer/sophpi
 source scripts/calibration/ros2-env.sh
-export FASTRTPS_DEFAULT_PROFILES_FILE=$PWD/scripts/schurvins/micro_ros/calibration-agent.xml
+export FASTRTPS_DEFAULT_PROFILES_FILE=scripts/schurvins/micro_ros/calibration-agent.xml
 ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 ```
 
@@ -95,7 +96,7 @@ Agent 断开不会阻塞 VIO，通信线程会重连。
 每个新终端先加载环境：
 
 ```bash
-source /home/ncer/sophpi/scripts/calibration/ros2-env.sh
+source scripts/calibration/ros2-env.sh
 ros2 topic echo /tidesense/pose geometry_msgs/msg/PoseStamped \
   --qos-reliability best_effort --no-daemon
 

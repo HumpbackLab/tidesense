@@ -1,5 +1,7 @@
 # TideSense / Cortex-A53 SchurVINS
 
+电脑端命令均在工程根目录执行；板端命令按对应章节进入设备部署目录。
+
 现已支持 OV9281 **实时双目图像输入与纯视觉前端**，用法和实测见 [CAMERA.md](CAMERA.md)。现已接入 SC7U22 **200Hz 实时 IMU**，双目＋惯性入口见 [IMU.md](IMU.md)；原离线双目＋IMU 入口保留。
 
 可选 **micro-ROS 位姿/跟踪状态发布**见 [MICRO-ROS.md](MICRO-ROS.md)。构建开关
@@ -87,9 +89,8 @@ cd /mnt/data/schurvins-gcc11-static
 在电脑终端 A 执行（如果端口 8888 已有 Agent，直接复用，不要重复启动）：
 
 ```bash
-cd /home/ncer/sophpi
 source scripts/calibration/ros2-env.sh
-export FASTRTPS_DEFAULT_PROFILES_FILE=/home/ncer/sophpi/scripts/schurvins/micro_ros/calibration-agent.xml
+export FASTRTPS_DEFAULT_PROFILES_FILE=scripts/schurvins/micro_ros/calibration-agent.xml
 ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 ```
 
@@ -157,7 +158,7 @@ kill -INT "$(cat /tmp/vio-micro-ros.pid)"
 电脑另开终端 B，**每个新终端都先加载环境**：
 
 ```bash
-source /home/ncer/sophpi/scripts/calibration/ros2-env.sh
+source scripts/calibration/ros2-env.sh
 ros2 topic echo /tidesense/pose \
   geometry_msgs/msg/PoseStamped \
   --qos-reliability best_effort --no-daemon
@@ -188,7 +189,6 @@ ros2 topic echo /tidesense/tracking \
 电脑端 Agent 和板端位姿发布已运行时，在电脑新终端执行：
 
 ```bash
-cd /home/ncer/sophpi
 scripts/visualization/run.sh
 ```
 

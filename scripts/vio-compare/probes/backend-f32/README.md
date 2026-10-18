@@ -1,6 +1,6 @@
 # OpenVINS FP32 backend experiment
 
-参考 `/home/ncer/fpga_vio/tools/prepare_openvins_fp32.py`，将 OpenVINS v2.7
+参考外部 `fpga_vio` 工程中的 `tools/prepare_openvins_fp32.py`，将 OpenVINS v2.7
 的 `ov_msckf/src/state` 和 `update` 中的 Eigen 矩阵转换为 FP32。
 默认不启用，生成独立源码和构建目录，不替换设备正在使用的程序。
 

@@ -1,5 +1,7 @@
 # TideSense 双目 ROS 标定采集模式
 
+电脑端命令均在工程根目录执行；板端命令在解压后的程序目录执行。
+
 IMU 发布现默认应用网页保存的六面加速度计校准，使用共用 LiveImu 读取层。
 启动日志应包含 `six-face accelerometer calibration applied`；历史 bag 不自动改变。
 校准文件路径与显式原始数据模式见 [IMU.md](IMU.md#六面加速度计校准)。
@@ -19,9 +21,9 @@ IMU 发布现默认应用网页保存的六面加速度计校准，使用共用 
 
 ```sh
 source /opt/ros/humble/setup.bash
-source /home/ncer/sophpi/install/micro-ros/agent-install/local_setup.bash
+source install/micro-ros/agent-install/local_setup.bash
 export ROS_DOMAIN_ID=0
-export FASTRTPS_DEFAULT_PROFILES_FILE=/home/ncer/sophpi/scripts/schurvins/micro_ros/calibration-agent.xml
+export FASTRTPS_DEFAULT_PROFILES_FILE=scripts/schurvins/micro_ros/calibration-agent.xml
 ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 ```
 

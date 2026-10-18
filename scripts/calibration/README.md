@@ -1,5 +1,8 @@
 # TideSense A4 双目标定板与 Kalibr 标定流程
 
+电脑端命令均在工程根目录执行，采集数据和标定结果保存到 `cali/`；
+板端命令按对应章节进入设备部署目录。
+
 打印文件：[tidesense-aprilgrid-a4-6x4-32mm.pdf](tidesense-aprilgrid-a4-6x4-32mm.pdf)。
 Kalibr 配置：[tidesense-aprilgrid-a4-6x4-32mm.yaml](tidesense-aprilgrid-a4-6x4-32mm.yaml)。
 PNG 仅用于预览，请打印 PDF。
@@ -90,7 +93,6 @@ Agent 安装与可选构建说明见 [MICRO-ROS.md](../schurvins/MICRO-ROS.md)�
 如尚未构建，在 SDK 根目录执行：
 
 ```sh
-cd /home/ncer/sophpi
 SCHUR_WITH_MICRO_ROS=ON scripts/schurvins/build.sh
 ```
 
@@ -110,7 +112,7 @@ XML 适用于 **Agent、预览和录包在同一台电脑**：电脑内 DDS 使�
 
 ```sh
 export ROS_DOMAIN_ID=0
-export FASTRTPS_DEFAULT_PROFILES_FILE=/home/ncer/sophpi/scripts/schurvins/micro_ros/calibration-agent.xml
+export FASTRTPS_DEFAULT_PROFILES_FILE=scripts/schurvins/micro_ros/calibration-agent.xml
 ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 ```
 
@@ -132,7 +134,7 @@ SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
 ## 4. 本机预览、检查、录包
 
 ```sh
-source /home/ncer/sophpi/scripts/calibration/ros2-env.sh
+source scripts/calibration/ros2-env.sh
 ```
 
 终端 B 打开预览；可开两个窗口分别选择左右话题：
@@ -151,24 +153,28 @@ ros2 run rqt_image_view rqt_image_view
 和 `ros2 topic hz /tidesense/right/image_raw` 检查接收频率。确认两路持续更新、清晰后录包：
 
 ```sh
-mkdir -p /home/ncer/tidesense-calibration
-cd /home/ncer/tidesense-calibration
-ros2 bag record --storage sqlite3 -o tidesense-stereo-calib \
+mkdir -p cali
+ros2 bag record --storage sqlite3 -o cali/tidesense-stereo-calib \
   /tidesense/left/image_raw /tidesense/right/image_raw
 ```
 
 一键标定双目：
 
 ```bash
-scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-stereo-calib
+scripts/calibration/kalibr.sh cali/tidesense-stereo-calib \
+  --output cali/tidesense-stereo-calib-kalibr
 ```
 
 鱼眼镜头使用 `pinhole-equi`，两个模型参数分别对应左、右摄像头：
 
 ```bash
-scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-stereo-calib \
-  --models pinhole-equi pinhole-equi
+scripts/calibration/kalibr.sh cali/tidesense-stereo-calib \
+  --models pinhole-equi pinhole-equi \
+  --output cali/tidesense-stereo-calib-kalibr
 ```
+
+以上两种模型命令按镜头选择其一。每次录制和标定使用新的输出目录；
+更换结果目录时，同步修改下文 `--cam` 和部署命令中的路径。
 
 结果中为 `camera_model: pinhole`、`distortion_model: equidistant`。
 后续相机–IMU 联合标定的 `--cam` 应引用这次生成的 `stereo-camchain.yaml`，
@@ -188,7 +194,7 @@ scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-stereo-calib \
 ```sh
 cd /mnt/data/schurvins-gcc11-static-micro-ros
 SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
-  ./run.sh --calibrate /mnt/data/sensor_cfg.ini --fps 20 --imu auto \
+  ./run.sh --calibrate /mnt/data/sensor_cfg.ini --fps 20 --imu auto
 ```
 
 `--imu auto` 启用 IMU，也可指定 `--imu /dev/iio:device0`。不加此参数则保持纯双目模式。
@@ -197,9 +203,9 @@ SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
 主机新终端：
 
 ```sh
-source /home/ncer/sophpi/scripts/calibration/ros2-env.sh
-cd /home/ncer/tidesense-calibration
-ros2 bag record --storage sqlite3 -o tidesense-imucam \
+source scripts/calibration/ros2-env.sh
+mkdir -p cali
+ros2 bag record --storage sqlite3 -o cali/tidesense-imucam \
   /tidesense/left/image_raw /tidesense/right/image_raw /tidesense/imu
 ```
 
@@ -231,10 +237,11 @@ scripts/calibration/kalibr.sh cali/sc7u22-static --allan
 #### 使用噪声参数进行联合标定
 
 ```sh
-scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-imucam \
+scripts/calibration/kalibr.sh cali/tidesense-imucam \
   --imu-cam \
-  --cam ~/sophpi/cali/tidesense-stereo-calib-kalibr-20260922-001523/stereo-camchain.yaml \
-  --imu ~/sophpi/cali/sc7u22-imu.yaml
+  --cam cali/tidesense-stereo-calib-kalibr/stereo-camchain.yaml \
+  --imu cali/sc7u22-imu.yaml \
+  --output cali/tidesense-imucam-kalibr
 ```
 
 替换 `--cam` 为双目标定结果、`--imu` 为已填好实测噪声参数的文件。
@@ -317,7 +324,7 @@ Kalibr 原始结果仍保留，可检查 `schurvins-export.log`。转换通过�
 本机复制生成的配置到已安装的程序目录：
 
 ```bash
-scp -O cali/tidesense-imucam-kalibr-20260922-221039/schurvins.yaml \
+scp -O cali/tidesense-imucam-kalibr/schurvins.yaml \
   root@192.168.123.99:/mnt/data/schurvins-gcc11-static-micro-ros/tidesense.yaml
 ```
 

@@ -128,9 +128,9 @@ A53 首末距离改善，但本机同一方案从 1.021 m 变为 1.891 m，方�
 ## 复现
 
 所有新构建与结果位于 `install/openvins-codec-shallow/`，不覆盖此前实验。
+以下电脑端命令均在工程根目录执行。
 
 ```bash
-cd /home/ncer/sophpi
 python3 scripts/vio-compare/probes/codec-mv/shallow_run.py --prepare-manifests
 python3 scripts/vio-compare/probes/codec-mv/build_device.py \
   --out install/openvins-codec-shallow/device

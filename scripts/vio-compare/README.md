@@ -1,5 +1,8 @@
 # TideSense VIO comparison adapters
 
+Run computer-side commands from the project root. Board-side commands use
+the deployed paths on the device.
+
 This directory contains the **version-controlled TideSense code** used to
 cross compile and replay VINS-Mono, VINS-Fusion, and OpenVINS on the SG2002 A53.
 It also contains a [host-only ov_SchurVINS comparison](ov-schurvins/README.md)
@@ -211,7 +214,7 @@ difference against the original arithmetic. Build with
 ## FP32 backend experiment
 
 The separate [`backend-f32` probe](probes/backend-f32/README.md) ports the
-FP32 backend conversion from `~/fpga_vio`, retaining the original outlier
+FP32 backend conversion from the external `fpga_vio` project, retaining the original outlier
 gates. On the ordinary A53 replay, FP32 plus packed `P Hᵀ` reduced backend
 time from 34.11 to 21.70 ms and camera time from 51.25 to 44.31 ms. However,
 both full FP32 variants exited on negative covariance diagonals during the

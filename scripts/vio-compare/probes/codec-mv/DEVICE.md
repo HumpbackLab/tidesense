@@ -90,8 +90,9 @@ H.264 本次没有发现同名的可读取向量缓冲区；这不证明 H.264 �
 
 本机生成测试图并交叉编译：
 
+以下电脑端命令均在工程根目录执行。
+
 ```bash
-cd /home/ncer/sophpi
 /usr/bin/python3 -S scripts/vio-compare/probes/codec-mv/make_device_input.py
 python3 scripts/vio-compare/probes/codec-mv/build_device.py
 ```

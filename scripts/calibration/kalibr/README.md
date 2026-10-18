@@ -27,15 +27,15 @@ Ubuntu 软件包默认使用中科大镜像，Python 包使用清华镜像，ROS
 ## 一条命令：ROS 2 bag → 双目标定
 
 ```bash
-scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-stereo-calib
+scripts/calibration/kalibr.sh cali/tidesense-stereo-calib
 ```
 
 默认在 bag 同级创建 `tidesense-stereo-calib-kalibr-时间/`，原始 bag 只读挂载。
 结果目录已存在时拒绝覆盖。指定输出目录：
 
 ```bash
-scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-stereo-calib \
-  --output ~/sophpi/cali/stereo-calibration-result
+scripts/calibration/kalibr.sh cali/tidesense-stereo-calib \
+  --output cali/stereo-calibration-result
 ```
 
 默认：左话题 `/tidesense/left/image_raw`、右话题 `/tidesense/right/image_raw`，
@@ -60,7 +60,7 @@ scripts/calibration/kalibr.sh /path/to/ros2-bag \
 已完成双目标定后，对包含双目图像和 IMU 的 ROS 2 bag 执行：
 
 ```bash
-scripts/calibration/kalibr.sh ~/sophpi/cali/tidesense-imucam \
+scripts/calibration/kalibr.sh cali/tidesense-imucam \
   --imu-cam \
   --cam /path/to/stereo-camchain.yaml \
   --imu /path/to/sc7u22-imu.yaml
