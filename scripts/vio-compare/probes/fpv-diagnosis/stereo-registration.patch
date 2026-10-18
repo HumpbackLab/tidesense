@@ -1,0 +1,117 @@
+diff --git a/svo/include/svo/schur_vins.h b/svo/include/svo/schur_vins.h
+index ce8e97e..47ae93c 100644
+--- a/svo/include/svo/schur_vins.h
++++ b/svo/include/svo/schur_vins.h
+@@ -50,6 +50,9 @@ class SchurVINS {
+     void SetKeyframe(const bool _is_keyframe);
+     void Forward(const svo::FrameBundle::Ptr frame_bundle);
+     int Backward(const svo::FrameBundle::Ptr frame_bundle);
++
++    // Register landmarks created after Backward(), without cloning or solving again.
++    size_t RegisterCurrentFramePoints(const svo::FrameBundle::Ptr& frame_bundle);
+     bool StructureOptimize(const svo::PointPtr& optimize_points);
+
+    private:
+@@ -85,7 +88,7 @@ class SchurVINS {
+     // bool Chi2Check(const Eigen::MatrixXd& j, const Eigen::VectorXd& r, int dof);
+     void StateCorrection(const Eigen::MatrixXd& K, const Eigen::MatrixXd& J, const Eigen::VectorXd& dX,
+                          const Eigen::MatrixXd& R);
+-    void RegisterPoints(const svo::FrameBundle::Ptr& frame_bundle);
++    void RegisterPoints(const svo::FrameBundle::Ptr& frame_bundle, bool skip_registered = false);
+
+     void Solve3();
+     int RemoveOutliers(const svo::FrameBundle::Ptr frame_bundle);
+@@ -132,4 +135,4 @@ inline Eigen::Matrix3d SkewMatrix(const Eigen::Vector3d& w) {
+     return mat;
+ }
+ }  // namespace Utility
+-}  // namespace schur_vins
+\ No newline at end of file
++}  // namespace schur_vins
+diff --git a/svo/src/frame_handler_stereo.cpp b/svo/src/frame_handler_stereo.cpp
+index b883085..ec89466 100644
+--- a/svo/src/frame_handler_stereo.cpp
++++ b/svo/src/frame_handler_stereo.cpp
+@@ -11,6 +11,7 @@
+ // (All authors of SchurVINS are with PICO department of ByteDance Corporation)
+
+ #include <svo/frame_handler_stereo.h>
++#include <svo/schur_vins.h>
+ #include <svo/map.h>
+ #include <svo/common/frame.h>
+ #include <svo/common/point.h>
+@@ -30,6 +31,11 @@
+
+ namespace svo {
+ namespace {
++bool registerStereoPointsEnabled() {
++  const char* value = std::getenv("SCHUR_REGISTER_STEREO_POINTS");
++  return value == nullptr || std::string(value) == "1";
++}
++
+ size_t rejectStereoEpipolarOutliers(const FrameBundlePtr& bundle,
+                                    double max_error_px) {
+   const FramePtr& left = bundle->at(0);
+@@ -91,6 +97,9 @@ FrameHandlerStereo::FrameHandlerStereo(
+       base_options, reprojector_options, depth_filter_options,
+       feature_detector_options, init_options, tracker_options, stereo_camera)
+ {
++  if (options_.use_imu)
++    LOG(INFO) << "Stereo landmark registration: "
++              << (registerStereoPointsEnabled() ? "enabled" : "disabled");
+   // init initializer
+   stereo_triangulation_.reset(
+         new StereoTriangulation(
+@@ -278,6 +287,8 @@ UpdateResult FrameHandlerStereo::makeKeyframe()
+       map_->removeKeyframe(furthest_frame->id());
+     }
+   }
++  if (options_.use_imu && schur_vins_ && registerStereoPointsEnabled())
++    schur_vins_->RegisterCurrentFramePoints(new_frames_);
+   return UpdateResult::kKeyframe;
+ }
+
+diff --git a/svo/src/schur_vins.cpp b/svo/src/schur_vins.cpp
+index 78eb864..dbd1844 100644
+--- a/svo/src/schur_vins.cpp
++++ b/svo/src/schur_vins.cpp
+@@ -689,7 +689,7 @@ bool SchurVINS::KeyframeSelect() {
+     return delete_r2th;
+ }
+
+-void SchurVINS::RegisterPoints(const svo::FrameBundle::Ptr& frame_bundle) {
++void SchurVINS::RegisterPoints(const svo::FrameBundle::Ptr& frame_bundle, bool skip_registered) {
+     CHECK(!states_map.empty());
+     auto& state_ptr = states_map.rbegin()->second;
+     const int state_id = state_ptr->id;
+@@ -699,6 +699,14 @@ void SchurVINS::RegisterPoints(const svo::FrameBundle::Ptr& frame_bundle) {
+         for (size_t i = 0; i < frame->numFeatures(); ++i) {
+             svo::PointPtr point = frame->landmark_vec_[i];
+             if (point != nullptr && svo::isCorner(frame->type_vec_[i])) {
++                if (skip_registered) {
++                    const auto range = point->local_obs_.equal_range(state_id);
++                    const bool registered = std::any_of(range.first, range.second, [&](const auto& entry) {
++                        return entry.second->camera_id == camera_id && entry.second->frame.get() == frame.get();
++                    });
++                    if (registered)
++                        continue;
++                }
+                 const svo::LocalFeaturePtr ft
+                     = std::make_shared<svo::LocalFeature>(state_ptr, point, frame, frame->f_vec_.col(i), camera_id);
+                 ft->level = frame->level_vec_[i];
+@@ -857,6 +865,15 @@ void SchurVINS::Forward(const svo::FrameBundle::Ptr frame_bundle) {
+     }
+ }
+
++size_t SchurVINS::RegisterCurrentFramePoints(const svo::FrameBundle::Ptr& frame_bundle) {
++    if (states_map.empty() || states_map.rbegin()->second->frame_bundle.get() != frame_bundle.get())
++        return 0;
++
++    const size_t before = states_map.rbegin()->second->features.size();
++    RegisterPoints(frame_bundle, true);
++    return states_map.rbegin()->second->features.size() - before;
++}
++
+ int SchurVINS::Backward(const svo::FrameBundle::Ptr frame_bundle) {
+     AugmentState(frame_bundle);
+     RegisterPoints(frame_bundle);

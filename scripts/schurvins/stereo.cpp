@@ -6,6 +6,7 @@
 #include <svo/schur_vins.h>
 #include "micro_ros_bridge.hpp"
 #include "calibration.hpp"
+#include "gyro_calibration.hpp"
 #include "recording.hpp"
 #include <algorithm>
 #include <cmath>
@@ -150,6 +151,18 @@ int main(int argc, char** argv) {
     auto yaml = YAML::LoadFile(calibration);
     if (use_imu && (!yaml["imu_params"] || !yaml["imu_initialization"]))
       throw std::runtime_error("Calibration must include imu_params and imu_initialization");
+    const auto gyro_calibration = GyroCalibration::parse(yaml["imu_params"]);
+    if (live_vio && gyro_calibration.input_is_corrected)
+      throw std::runtime_error("Live IIO gyro is nominal SI; gyro_input_is_corrected must be false");
+    if (use_imu) {
+      std::cerr << "imu: gyroscope matrix correction "
+                << (gyro_calibration.applies() ? "enabled" :
+                    gyro_calibration.input_is_corrected ? "already applied to input" : "not configured")
+                << "; estimator and prediction share the same gyro input\n";
+      if (gyro_calibration.configured) for (const auto& row : gyro_calibration.matrix)
+        std::cerr << "imu: gyro_inverse_matrix " << std::setprecision(17)
+                  << row[0] << ' ' << row[1] << ' ' << row[2] << '\n';
+    }
     auto cams = svo::CameraBundle::loadFromYaml(calibration);
     if (!cams || cams->numCameras() != 2) throw std::runtime_error("Two cameras required");
     if (camera && !smoke && ((yaml["test_only"] && yaml["test_only"].as<bool>()) ||
@@ -263,7 +276,11 @@ int main(int argc, char** argv) {
         if (!live->next(warmup,interrupted)) throw std::runtime_error("Interrupted during camera startup");
         ++startup_pairs_skipped;
         live_imu.reset(new LiveImu(argv[smoke ? 3 : 4], [&](const ImuSample& sample) {
-          if (prediction) prediction->sample(sample);
+          if (prediction) {
+            auto corrected = sample;
+            corrected.gyro = gyro_calibration.apply(sample.gyro);
+            prediction->sample(corrected);
+          }
         }));
         if (recording) recording->setImuMetadata(live_imu->recordingMetadata());
         live_ready_ns = clockNs(CLOCK_MONOTONIC)+100000000ULL;
@@ -333,8 +350,9 @@ int main(int argc, char** argv) {
             if (sample.stamp_ns <= last_imu || (!last_imu && sample.stamp_ns >= t))
               throw std::runtime_error("IMU must be increasing and start before the first camera frame");
             last_imu = sample.stamp_ns;
+            const auto gyro = gyro_calibration.apply(sample.gyro);
             imu->addImuMeasurement(svo::ImuMeasurement(last_imu*1e-9,
-              Eigen::Vector3d(sample.gyro[0],sample.gyro[1],sample.gyro[2]),
+              Eigen::Vector3d(gyro[0],gyro[1],gyro[2]),
               Eigen::Vector3d(sample.accel[0],sample.accel[1],sample.accel[2])));
             ++imu_added;
           }
@@ -372,6 +390,7 @@ int main(int argc, char** argv) {
           for (int axis=0;axis<3;++axis) {
             sample.gyro[axis]=number(pending[axis+1]); sample.accel[axis]=number(pending[axis+4]);
           }
+          sample.gyro = gyro_calibration.apply(sample.gyro);
           if (prediction) prediction->sample(sample);
           imu->addImuMeasurement(svo::ImuMeasurement(it * 1e-9,
             Eigen::Vector3d(sample.gyro[0],sample.gyro[1],sample.gyro[2]),

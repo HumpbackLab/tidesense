@@ -100,7 +100,7 @@ ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 
 使用转换后的 SchurVINS YAML，不能直接传入 Kalibr camchain。
 [转换方法](../calibration/README.md#将-kalibr-结果用于-schurvins)见标定说明。
-当前已上传的配置为 `tidesense-20260922-221039.yaml`；更新标定时替换此文件名。
+本板当前部署配置为 `schurvins.yaml`，包含固定陀螺仪矩阵；更新标定时使用对应本板的参数。
 
 先停止已有 VIO、标定采集和 IMU 测试；关闭 PFC 实时预览网页，等待约 3 秒释放 IMU。
 启动前确认板端 `date` 正确，ROS 时间戳使用板端系统时间；校准时间偏移不会自动同步两台机器的时钟。
@@ -116,7 +116,7 @@ export SCHUR_MICRO_ROS_PORT=8888
 export SCHUR_MICRO_ROS_DOMAIN=0
 export SCHUR_IMU_CALIBRATION=/mnt/data/penguin-flight-console/accelerometer-calibration.json
 
-nohup ./run.sh --vio tidesense-20260922-221039.yaml \
+nohup ./run.sh --vio schurvins.yaml \
   /mnt/data/sensor_cfg.ini auto "$vio_output/poses.csv" 0 \
   >"$vio_output/vio.log" 2>&1 </dev/null &
 echo $! >/tmp/vio-micro-ros.pid
@@ -126,6 +126,21 @@ echo "VIO PID: $(cat /tmp/vio-micro-ros.pid); output: $vio_output"
 `auto` 查找 SC7U22 IIO 设备，`0` 表示持续运行。启动时保持静止，并让双目共同看向
 有纹理的场景。六面校准 JSON 在启动时加载；日志应显示 `calibration applied`、
 `Camera timestamp offset_ns=...` 和 `micro-ROS: connected ... domain=0`。
+
+本板的 `schurvins.yaml` 还包含 `imu_params.gyro_inverse_matrix`（3×3 行数组），
+来自 Kalibr 的固定陀螺仪比例和轴间补偿。配置存在时默认启用，无需环境开关；日志显示
+`gyroscope matrix correction enabled` 及三行系数。公式为
+`gyro_corrected = gyro_inverse_matrix * gyro_nominal_SI`，陀螺仪 bias 仍由估计器估计。
+VIO 与 IMU 高频预测使用同一补偿，六面加速度计修正保持原流程。
+通过 `run.sh` 启动还默认设置 `SCHUR_IMU_MIDPOINT=1`、`SCHUR_PIXEL_RESIDUAL=1`，
+分别启用中点积分和像素残差；显式设为 `0` 可独立关闭。直接运行二进制需自行设置这两项。
+[tidesense-gyro-matrix.yaml](tidesense-gyro-matrix.yaml) 保存本板系数，合并到本板现有 YAML
+即可；其他设备应使用各自的标定，无此字段时沿用输入值。
+
+`--record` 和独立数据集录制器保存标称比例转换后的陀螺仪 SI 值，保留六面修正后的加速度；
+回放时由 `replay.yaml` 中的矩阵补偿一次。已有录像需要使用包含该矩阵的回放配置。
+若外部工具已补偿 CSV，明确设置 `imu_params.gyro_input_is_corrected: true` 可避免重复补偿；
+实时 IIO 模式拒绝此标记，因为实时源提供未做矩阵补偿的数据。
 
 当前 `/mnt/data` 已取消 `sync` 挂载，日志和轨迹写入 SD 数据分区，避免持续占满 `/tmp`。
 每次启动创建新的输出目录。若使用旧镜像，先检查 `mount` 中 `/mnt/data` 是否仍含 `sync`，
@@ -239,6 +254,17 @@ OFF/ON 均正常结束，但末尾估计位移分别为 147.828/147.832 m，均�
 1 ms、3 ms 和高角速度起效配置下均未改善全程 ATE，暂不建议启用。
 各项对照、有效帧覆盖率及复现数据见
 [FPV 分阶段实验](../vio-compare/probes/fpv-diagnosis/README.md)。
+
+### 新双目点登记实验
+
+新双目点登记默认开启（`SCHUR_REGISTER_STEREO_POINTS=1`），可显式设为 `0` 关闭。
+该修正需要重新构建 SchurVINS。创建关键帧并补充双目点后，它把新增观测登记到已经存在的当前帧状态，
+供后续视觉更新使用；不会创建额外状态，也不会再次求解位姿。登记过程按地图点、
+状态、相机和图像去重，避免重复使用同一观测。当前帧尚未进入后端时不执行登记。
+回放与部署验证见 [登记修复记录](../vio-compare/probes/fpv-diagnosis/README.md#stereo-landmark-registration-2026-10-18)。
+更换场景后仍需评估精度，有效观测数增加本身不代表轨迹准确。
+针对延迟登记、重复登记和状态保持的检查位于
+`scripts/vio-compare/probes/fpv-diagnosis/tests/stereo_registration_test.cpp`。
 
 ### CSV 输入
 

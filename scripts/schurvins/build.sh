@@ -118,6 +118,7 @@ if [[ "$micro_ros" == ON ]]; then
 fi
 "${cross}strip" --strip-unneeded "$out/bin/schurvins_stereo" "$out/bin/schurvins_imu_test"
 cp "$here/prepare-imu.sh" "$out/bin/"
+cp "$here/tidesense-gyro-matrix.yaml" "$out/"
 cp "$here/tests/board-imu.sh" "$out/bin/test-imu-board.sh"
 "${cross}readelf" -lW "$out/bin/schurvins_stereo" > "$work/elf-program-headers.txt"
 "${cross}readelf" -dW "$out/bin/schurvins_stereo" > "$work/elf-dynamic.txt"

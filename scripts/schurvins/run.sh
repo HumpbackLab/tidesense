@@ -1,6 +1,10 @@
 #!/bin/sh
 set -eu
 app_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# Retained estimator fixes; explicit environment overrides remain available.
+export SCHUR_IMU_MIDPOINT="${SCHUR_IMU_MIDPOINT:-1}"
+export SCHUR_PIXEL_RESIDUAL="${SCHUR_PIXEL_RESIDUAL:-1}"
+export SCHUR_REGISTER_STEREO_POINTS="${SCHUR_REGISTER_STEREO_POINTS:-1}"
 if [ -d "$app_dir/lib" ]; then
   export LD_LIBRARY_PATH="$app_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi

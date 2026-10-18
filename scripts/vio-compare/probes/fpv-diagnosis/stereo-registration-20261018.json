@@ -1,0 +1,87 @@
+{
+  "date": "2026-10-18",
+  "scope": "Register stereo landmarks created after Backward into the existing current clone; default enabled. No extra clones or second solve.",
+  "core_base_commit": "5f30dbbcd07e134dfc11bc24be144321ecf31a05",
+  "source_sha256": {
+    "SchurVINS/svo/src/schur_vins.cpp": "41bf9d029b73a4d8f3aac97251316fd32a217c45a9ef81366021059f33bdad4f",
+    "SchurVINS/svo/src/frame_handler_stereo.cpp": "d7e78e235d99b8791a67d201a5f6a6dc2651eac07181b62d3737f5b72833fa80",
+    "SchurVINS/svo/include/svo/schur_vins.h": "6404752297c4fd8895569b50c7959dbf5704594e825942bbef56e5bbd9823e22",
+    "scripts/schurvins/run.sh": "a852fcfd69dec1c2950db786b45efc8cdc7d398740e147b419ab0bc023b58527",
+    "scripts/schurvins/stereo.cpp": "0902fd30bb81b5cdc544ef746c02eba9e2b39a3c24d0672050ba69d50b98dfdd",
+    "scripts/schurvins/live_imu.cpp": "631cf2d5f50e507a56a460fa4485449873f77a03f7db62747c7b9a60f6ee82af",
+    "scripts/schurvins/gyro_calibration.hpp": "e944dfb1f9a1da4cd18c86415be632238a7214feab5074070dbcefeb16c31eef"
+  },
+  "deployment": {
+    "device": "/mnt/data/schurvins-gcc11-static-micro-ros",
+    "backup": "/mnt/data/schurvins-gcc11-static-micro-ros/backup-before-stereo-registration-20261018",
+    "binary_sha256": "4ee215fd01d2344eae0e229cdfa63bceaf267f3129bb31a3ff4edc1f4029101d",
+    "launcher_sha256": "a852fcfd69dec1c2950db786b45efc8cdc7d398740e147b419ab0bc023b58527",
+    "calibration_sha256": "a5156dcb98083f5935df8afe7e69d598e4e0921d28e5918475e58409bdf5ed5c",
+    "registration_default": 1
+  },
+  "validation": {
+    "new_live": {
+      "processed_frames": 120,
+      "tracking_frames": 0,
+      "initialization": "failed: insufficient triangulated points"
+    },
+    "old_live_same_scene": {
+      "processed_frames": 60,
+      "tracking_frames": 0,
+      "initialization": "failed: insufficient triangulated points"
+    },
+    "device_self_test": {
+      "frames": 6,
+      "tracking_frames": 6,
+      "passed": true,
+      "scope": "synthetic pipeline test, not real-world accuracy"
+    },
+    "host_replay": {
+      "default": {
+        "frames": 801,
+        "endpoint_m": 2.612616042381651,
+        "pose_sha256": "2c48a5935670cec3275145183f555495f7b47b11e8cd503ae96ac86f9d5ef518",
+        "registration_log": [
+          "I1018 14:56:15.856814 18147 frame_handler_stereo.cpp:101] Stereo landmark registration: enabled"
+        ]
+      },
+      "enabled": {
+        "frames": 801,
+        "endpoint_m": 2.612616042381651,
+        "pose_sha256": "2c48a5935670cec3275145183f555495f7b47b11e8cd503ae96ac86f9d5ef518",
+        "registration_log": [
+          "I1018 14:56:15.856820 18148 frame_handler_stereo.cpp:101] Stereo landmark registration: enabled"
+        ]
+      },
+      "disabled": {
+        "frames": 801,
+        "endpoint_m": 6.206047040546896,
+        "pose_sha256": "7284dfb9787441058a6c5ff8a6586f4410f2cac71be6527eea34e8f81c431d29",
+        "registration_log": [
+          "I1018 14:56:34.905671 18261 frame_handler_stereo.cpp:101] Stereo landmark registration: disabled"
+        ]
+      }
+    },
+    "actual_exposure_us": [
+      494,
+      494
+    ],
+    "unchanged_camera_helper_sha256": "e996c4d581b7921c0d281a48f073d1af0862760d3b632bfe6c2b995d226b10be"
+  },
+  "limitations": [
+    "Device recordings have no external ground truth; endpoint_m is first-to-last estimated displacement, not ATE.",
+    "Real-scene live initialization failed for both new and previous binaries; synthetic self-test is pipeline validation only."
+  ],
+  "local_evidence": "install/deploy-stereo-registration-20261018/",
+  "implementation_commit": "07149fe60aa4b514ead14d687fabb024001fbed9",
+  "precommit_checks": {
+    "gyro_calibration": "passed: scale, cross-axis, duplicate-correction bypass and invalid matrices",
+    "stereo_registration": "passed: incremental insertion, duplicate prevention, state preservation and no implicit clone",
+    "midpoint_pixel": "passed with synthetic and deployed board camera calibrations",
+    "recording": "passed: images, timestamps, IMU precision, snapshots and completion/error handling",
+    "launcher": "passed: unset flags yield 1,1,1; explicit overrides yield 0,0,0",
+    "shell_syntax_and_diff_whitespace": "passed",
+    "native_adapter_build": "passed",
+    "native_adapter_self_test": "passed with midpoint, pixel residual and stereo registration enabled"
+  }
+}

@@ -65,7 +65,7 @@ VioRecording::VioRecording(const std::string& dir, const YAML::Node& calibration
   open(stereo_, dir_ + "/stereo.csv"); open(imu_, dir_ + "/imu.csv");
   open(raw_imu_, dir_ + "/imu-raw.csv"); open(frames_, dir_ + "/frames.csv");
   stereo_ << "#timestamp_ns,left_image,right_image\n";
-  imu_ << "#timestamp_ns,gx,gy,gz,ax,ay,az; calibrated estimator input, rad/s and m/s^2\n";
+  imu_ << "#timestamp_ns,gx,gy,gz,ax,ay,az; nominal gyro SI, six-face-corrected accel; replay applies configured gyro matrix\n";
   raw_imu_ << "#timestamp_ns,gx,gy,gz,ax,ay,az; SI before six-face accel correction\n";
   frames_ << "#timestamp_ns,sequence,left_ns,right_ns,left_ref,right_ref,flags,imu_count,imu_last_ns\n";
   summary(false);

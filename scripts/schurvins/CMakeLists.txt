@@ -181,6 +181,13 @@ if(SCHUR_STATIC)
   target_link_options(schurvins_accel_calibration_test PRIVATE -static)
 endif()
 
+add_executable(schurvins_gyro_calibration_test EXCLUDE_FROM_ALL tests/gyro_calibration_test.cpp)
+target_include_directories(schurvins_gyro_calibration_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(schurvins_gyro_calibration_test PRIVATE yaml-cpp)
+if(SCHUR_STATIC)
+  target_link_options(schurvins_gyro_calibration_test PRIVATE -static)
+endif()
+
 add_executable(schurvins_recording_test EXCLUDE_FROM_ALL tests/recording_test.cpp recording.cpp)
 target_include_directories(schurvins_recording_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(schurvins_recording_test PRIVATE ${OpenCV_LIBS} yaml-cpp pthread dl)

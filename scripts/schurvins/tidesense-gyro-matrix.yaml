@@ -1,0 +1,11 @@
+# This TideSense board's Kalibr result, 2026-10-17 (equi, no g-sensitivity).
+# Merge imu_params into the board's existing schurvins.yaml; keep its cameras,
+# time offset and scalar noise values. Do not copy to a different IMU/device.
+# Input: nominal SC7U22 gyro in rad/s, original chip axes. Bias is estimated.
+# Source: cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs/
+#         residual-imu-correction.yaml, gyro_inverse_matrix.
+imu_params:
+  gyro_inverse_matrix:
+    - [1.0135917376377497, 0.004511573340816782, -0.006902736844987923]
+    - [-0.005008111639293255, 0.990749732136619, 0.001297795685019781]
+    - [0.004838599232382708, 0.0011236906674843305, 0.9999786911813152]

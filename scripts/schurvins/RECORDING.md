@@ -12,7 +12,7 @@ cd /mnt/data/schurvins-gcc11-static-micro-ros
 record_dir=/mnt/data/vio-record-$(date +%Y%m%d-%H%M%S)
 export SCHUR_MICRO_ROS=0
 export SCHUR_IMU_CALIBRATION=/mnt/data/penguin-flight-console/accelerometer-calibration.json
-./run.sh --vio tidesense-20260922-221039.yaml /mnt/data/sensor_cfg.ini \
+./run.sh --vio schurvins.yaml /mnt/data/sensor_cfg.ini \
   auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
 ```
 
@@ -41,12 +41,12 @@ export SCHUR_MICRO_ROS_DOMAIN=0
 | --- | --- |
 | `left/*.pgm`、`right/*.pgm` | VIO 实际输入的 mono8 灰度原图，不旋转、不校正畸变、不缩放；不是传感器 Bayer RAW |
 | `stereo.csv` | `timestamp_ns,left_image,right_image`；图片路径相对于 CSV，时间已加左相机 cam–IMU shift |
-| `imu.csv` | `timestamp_ns,gx,gy,gz,ax,ay,az`；实际送入估计器的 IMU，rad/s、m/s²，含重力，保留六面修正后的值 |
+| `imu.csv` | `timestamp_ns,gx,gy,gz,ax,ay,az`；陀螺仪为标称比例转换的 rad/s，加速度为六面修正后的 m/s²、含重力；配置中的陀螺仪矩阵在估计器入口应用 |
 | `imu-raw.csv` | 同格式，记录六面修正前的 SI 加速度；陀螺仪和时间戳与 `imu.csv` 相同 |
 | `frames.csv` | 每帧处理时间戳、采集序号、左右原始 PTS、左右 time_ref、FSIN flags、IMU batch 数量及最后一个 IMU 时间戳 |
 | `calibration.yaml` | 运行时相机/IMU 配置快照，保留原始时间补偿 |
-| `replay.yaml` | 回放配置；时间补偿设为零，避免再修正已对齐的 CSV 时间 |
-| `imu-calibration.yaml` | LiveImu 实际加载的六面系数、IIO scale、采样率和是否启用修正，不依赖后来被替换的 JSON |
+| `replay.yaml` | 回放配置；时间补偿设为零，保留陀螺仪矩阵，回放时对保存的标称 SI 角速度补偿一次 |
+| `imu-calibration.yaml` | LiveImu 实际加载的六面系数、IIO scale、采样率；`gyro_matrix_applied: false` 表示存盘角速度尚未做矩阵补偿 |
 | `sensor_cfg.ini` | 相机 INI 快照 |
 | `metadata.yaml` | 录制版本、范围、完整性、已写帧数/IMU 数量、写盘队列水位和错误 |
 | `COMPLETE` / `INCOMPLETE` | 是否成功结束录制；异常中断保留 `INCOMPLETE` |
@@ -71,6 +71,8 @@ SCHUR_MICRO_ROS=0 ./run.sh --replay "$record_dir" "$record_dir/replay-poses.csv"
 
 回放不启动相机、不打开 IIO、不读取板端六面 JSON，直接使用目录内 `replay.yaml`、
 `stereo.csv` 和 `imu.csv`。不要改为 `imu-raw.csv`，否则输入不再与现场一致。
+`imu_params.gyro_inverse_matrix` 同现场一样在估计器和高频预测入口应用。
+若使用外部工具预先补偿过角速度，需设置 `imu_params.gyro_input_is_corrected: true`，避免再乘一次矩阵。
 不按墙钟 sleep，按处理速度顺序回放；估计器使用录下的原始时间间隔。
 相同构建、相同参数有助于复现，跨编译器/优化选项不承诺逐位一致。
 

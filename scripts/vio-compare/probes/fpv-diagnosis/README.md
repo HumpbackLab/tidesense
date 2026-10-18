@@ -1048,3 +1048,47 @@ They are historical artifacts and are not part of the active configuration.
 The retained implementation is committed in the nested SchurVINS repository
 as `5f30dbb`; its full commit ID is recorded in the retained results JSON.
 No device program was replaced.
+
+### Stereo landmark registration (2026-10-18)
+
+Stereo triangulation creates some landmarks in `makeKeyframe()` after the
+normal `Backward()` registration. Their first stereo observations were missing
+from the backend when later frames tracked those points. The fix registers
+these observations in the existing current clone after keyframe creation.
+Repeated registration is idempotent; it neither creates a clone nor solves the
+pose again. A frame that has not entered the backend is left alone.
+
+`SCHUR_REGISTER_STEREO_POINTS` now defaults to enabled in the core and launcher;
+set it to `0` for the baseline. The launcher also defaults midpoint integration
+and pixel residuals to enabled. A configured `imu_params.gyro_inverse_matrix`
+is applied once to both estimation and prediction inputs. Recorders preserve
+nominal gyro SI measurements so replay can apply that matrix once.
+
+The core implementation is committed as `07149fe` in the nested SchurVINS
+repository. The exact core delta from `5f30dbb` is saved in
+[stereo-registration.patch](stereo-registration.patch). Deployment hashes,
+source hashes and frozen validation results are in
+[stereo-registration-20261018.json](stereo-registration-20261018.json).
+On the 801-frame `dataset-19700102-085210` replay, the unset registration flag
+and explicit `1` produced identical pose hashes, with 2.612616 m first-to-last
+estimated displacement; explicit `0` produced 6.206047 m. This recording has no
+external ground truth, so these distances are not ATE.
+
+The deployed A53 program passed its synthetic self-test on all six frames.
+In the live scene, both the new program (120 frames) and the previous program
+(60 frames) failed initialization because too few points could be triangulated.
+This deployment has not passed a real-scene tracking check.
+
+The native build helper includes the gyro, midpoint/pixel and stereo
+registration checks. The registration target is available when the supplied
+core header exposes `RegisterCurrentFramePoints`, preserving historical builds:
+
+```sh
+scripts/vio-compare/probes/fpv-diagnosis/build_host.sh SchurVINS install/schur-host
+install/schur-host/schurvins_gyro_calibration_test
+install/schur-host/schurvins_stereo_registration_test
+install/schur-host/schurvins_midpoint_pixel_test scripts/schurvins/synthetic.yaml
+```
+
+The focused registration test covers late and incremental insertion, duplicate
+prevention, unchanged inertial state, and refusal to create a missing clone.

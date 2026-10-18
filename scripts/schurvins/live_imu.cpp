@@ -175,6 +175,8 @@ YAML::Node LiveImu::recordingMetadata() const {
  n["sampling_frequency_hz"]=200;
  n["source"]=calibration_path_;
  n["six_face_applied"]=calibration_path_!="none";
+  // LiveImu/recorders preserve nominal gyro; the VIO adapter applies its matrix.
+  n["gyro_matrix_applied"]=false;
  n["accel_scale_m_s2_per_lsb"]=accel_scale_;
  n["gyro_scale_rad_s_per_lsb"]=gyro_scale_;
  for (int i=0;i<3;++i) {

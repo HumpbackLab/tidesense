@@ -20,4 +20,8 @@ cmake -S "$sdk/scripts/schurvins" -B "$build_dir" \
   -DSCHUR_SOURCE="$source_dir" -DSCHUR_STATIC=OFF \
   -DSCHUR_WITH_MICRO_ROS=OFF -DSCHUR_SYNC_OUTLIER_OBSERVATIONS=OFF \
   -DWORK="$work" -DGLOG_LIBRARY="$work/stage/lib/libglog.so" -DOpenCV_DIR="$opencv"
-cmake --build "$build_dir" --target schurvins_stereo schurvins_midpoint_pixel_test -j"${JOBS:-2}"
+targets=(schurvins_stereo schurvins_midpoint_pixel_test schurvins_gyro_calibration_test)
+if grep -q 'RegisterCurrentFramePoints' "$source_dir/svo/include/svo/schur_vins.h"; then
+  targets+=(schurvins_stereo_registration_test)
+fi
+cmake --build "$build_dir" --target "${targets[@]}" -j"${JOBS:-2}"

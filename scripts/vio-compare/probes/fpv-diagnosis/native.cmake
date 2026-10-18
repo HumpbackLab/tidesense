@@ -11,5 +11,12 @@ function(add_estimator_update_test)
   add_executable(schurvins_midpoint_pixel_test
     "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/tests/midpoint_pixel_test.cpp")
   target_link_libraries(schurvins_midpoint_pixel_test PRIVATE schurvins)
+  file(STRINGS "${SCHUR_SOURCE}/svo/include/svo/schur_vins.h"
+    registration_api REGEX "RegisterCurrentFramePoints")
+  if(registration_api)
+    add_executable(schurvins_stereo_registration_test
+      "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/tests/stereo_registration_test.cpp")
+    target_link_libraries(schurvins_stereo_registration_test PRIVATE schurvins)
+  endif()
 endfunction()
 cmake_language(DEFER CALL add_estimator_update_test)
