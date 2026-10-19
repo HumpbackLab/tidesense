@@ -64,6 +64,14 @@ git clone https://github.com/HumpbackLab/tidesense.git
 ./tidesense/scripts/repo_clone.sh --gitclone tidesense/scripts/subtree.xml
 ```
 
+- 更新所有子库（在已有工程的根目录执行）：
+
+**警告：此命令会强制覆盖子库中的本地修改和未推送提交，并删除未跟踪文件（包括被 Git 忽略的文件）。执行前请备份需要保留的内容，并推送需要保留的提交。该命令仅更新 `scripts/subtree.xml` 中列出的子库，不更新根仓库。**
+
+```bash
+bash scripts/repo_clone.sh --gitpull scripts/subtree.xml
+```
+
 - 编译
 
 ``` bash
@@ -72,3 +80,11 @@ defconfig sg2002_tidesense_arm64_sd
 clean_all
 build_all
 ```
+
+`build_all` 在编译及升级包打包成功后，会自动生成可直接烧录到 SD 卡的整卡镜像；镜像生成失败时，构建也会返回失败。镜像路径为：
+
+```text
+install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img
+```
+
+镜像包含 BOOT、ROOTFS 和 DATA 三个分区，首次启动会自动将 DATA 分区扩展至 SD 卡末尾。烧录步骤和单独重新打包命令见 [SD 卡镜像与烧录说明](build/boards/cv181x/sg2002_tidesense_arm64_sd/README.md#制作并烧录-sd-卡)。
