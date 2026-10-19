@@ -41,12 +41,12 @@ perf stat -e cycles,instructions,cache-misses,branch-misses -- your_program
 perf stat -p PID -e cycles,instructions -- sleep 10
 
 # 采样与调用栈，输出到可写的数据分区
-perf record -F 99 -e cycles -g --call-graph fp \
+perf --buildid-dir /mnt/data/perf-cache record -F 99 -e cycles -g --call-graph fp \
     -o /mnt/data/perf.data -- your_program
-perf report --stdio -i /mnt/data/perf.data
+perf --buildid-dir /mnt/data/perf-cache report --stdio -i /mnt/data/perf.data
 
 # 实时热点（文本界面）
-perf top --stdio -e cycles
+perf --buildid-dir /mnt/data/perf-cache top --stdio -e cycles
 
 # 软件事件
 perf stat -e task-clock,context-switches,page-faults -- your_program
@@ -54,6 +54,9 @@ perf stat -e task-clock,context-switches,page-faults -- your_program
 
 将 `your_program`/`PID` 换成实际应用。可用
 `/mnt/data/perf/perf-smoke` 作为三秒测试负载。
+采样和符号缓存均放到 DATA 分区：只指定 `-o /mnt/data/perf.data` 时，perf 默认仍会
+把符号缓存写到 `/root/.debug`；本板一次验证约占 61 MiB。上面的 `--buildid-dir`
+避免持续占用较小的 ROOTFS，采样和报告应使用相同目录。
 应用若需要完整调用栈，应保留符号，并使用 `-fno-omit-frame-pointer`
 （ARM64 可加 `-mno-omit-leaf-frame-pointer`）；关闭尾调用优化可保留更多调用层级。
 

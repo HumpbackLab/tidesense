@@ -140,20 +140,19 @@ pinned host Agent after the micro-ROS library build. Its workspace setup is
 `install/micro-ros/agent-install/local_setup.bash`.
 
 ```sh
-source /opt/ros/humble/setup.bash
-source install/micro-ros/agent-install/local_setup.bash
-ROS_DOMAIN_ID=0 ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
+source scripts/calibration/ros2-env.sh
+export FASTRTPS_DEFAULT_PROFILES_FILE=scripts/schurvins/micro_ros/calibration-agent.xml
+ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 ```
 
 Inspect from another terminal using the same ROS domain:
 
 ```sh
-export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-export ROS_DOMAIN_ID=0
-ros2 daemon stop  # discard a CLI daemon previously started with another RMW
-ros2 node list
-ros2 topic echo /tidesense/pose geometry_msgs/msg/PoseStamped --qos-reliability best_effort
-ros2 topic echo /tidesense/tracking std_msgs/msg/Bool --qos-reliability best_effort
+source scripts/calibration/ros2-env.sh
+ros2 node list --no-daemon
+ros2 topic echo /tidesense/pose geometry_msgs/msg/PoseStamped --qos-reliability best_effort --no-daemon
+# Run in another terminal with the same environment:
+ros2 topic echo /tidesense/tracking std_msgs/msg/Bool --qos-reliability best_effort --no-daemon
 ```
 
 The transport is UDP/IP over the existing USB RNDIS connection. Allow UDP 8888

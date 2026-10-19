@@ -8,13 +8,16 @@
 ## 设备运行
 
 ```sh
-cd /mnt/data/schurvins-gcc11-static
+cd /mnt/data/schurvins-gcc11-static-micro-ros
 # 真实相机输入冒烟测试，处理 120 对；无需实际标定，不输出位姿文件
 ./run.sh --camera-smoke /mnt/data/sensor_cfg.ini 120
 
 # 安装镜头并完成标定后，运行纯视觉双目；0 表示持续运行，Ctrl-C 停止
-./run.sh --camera actual-calibration.yaml /mnt/data/sensor_cfg.ini /tmp/visual-poses.csv 0
+./run.sh --camera schurvins.yaml /mnt/data/sensor_cfg.ini /tmp/visual-poses.csv 0
 ```
+
+以上使用默认 SD 镜像的部署路径；关闭 micro-ROS 编译的独立包目录为 `/mnt/data/schurvins-gcc11-static`。
+`schurvins.yaml` 是随包的当前测试板参数，其他板卡必须替换为本板标定。
 
 `--camera` 必须使用实际的 640×400 双目标定，包含两路 `cameras`、内参/畸变和 `T_B_C`。
 此模式不需要 `imu_params` 或 `imu_initialization`，也不会产生 IMU 融合结果。
@@ -24,9 +27,9 @@ cd /mnt/data/schurvins-gcc11-static
 
 相机模式读取 INI 的两路 `hw_sync`，必须相同：
 
-- `hw_sync=1`：采集进程先准备 PWR_GPIO0/PWM8，再初始化两颗相机，最后启动 20Hz FSIN。
+- `hw_sync=1`：采集进程先准备 PWR_GPIO0 内核触发，再初始化两颗相机，最后启用 IMU INT1 每 10 次中断触发一次的 FSIN。
   正常退出、Ctrl-C、客户端断开都会停脉冲并销毁 VI/ISP。
-- `hw_sync=0`：自由运行，不操作 PWM。按到达时间近邻配对，不保证曝光同步；正式双目推荐 FSIN。
+- `hw_sync=0`：自由运行，不启用 FSIN。按到达时间近邻配对，不保证曝光同步；正式双目推荐 FSIN。
 
 使用前停止其它相机应用。新采集进程使用 `/run/tidesense-camera.lock`，拒绝多个本程序同时初始化设备。
 不要并行运行旧 `capture` 或其它 SDK sample，它们不使用此锁。
@@ -103,7 +106,7 @@ SCHUR_TEST_PROCESS_DELAY_MS=100 ./run.sh --camera-smoke /mnt/data/sensor_cfg.ini
 自由运行 30 对约 20.125Hz。VI 调度会改变到达 PTS，因此小范围帧率估计偏差不代表 PWM 频率变化。
 Ctrl-C 清理及部署后短测也通过。旧设备程序备份在主机
 `install/schurvins-gcc11-static/backup-before-live-20260918/board-app.tar`；板上空间有限，备份未放 DATA 分区。
-双目 ISP 使用自动曝光和自动增益，当前曝光上限为 **2000 µs（2 ms）**；
+双目 ISP 使用自动曝光和自动增益，当时曝光上限为 **2000 µs（2 ms）**；
 标定模式和 VIO 模式均生效。亮度补偿值 48，实际曝光按传感器行周期量化。
 采集日志定期报告实际曝光和增益。暗处 AE 可能提高增益，需同时检查噪声和特征质量。
 2026-09-25 板上 2 ms 自动曝光短测 230 对：两路实际曝光均为 1996 µs，
@@ -118,15 +121,16 @@ Ctrl-C 清理及部署后短测也通过。旧设备程序备份在主机
 
 `ov9281_isp.h` 在 ISP 初始化和参数加载之后对两路应用专用配置：
 
-- 自动曝光及自动增益；曝光上限 2 ms、亮度补偿 48。
+- 自动曝光及自动增益；当前曝光上限 0.5 ms、亮度补偿 48。历史 2 ms 测试见上节。
 - 手动白平衡 R/Gr/Gb/B 均为 1024（1×），色调增益也为 1×。
 - 关闭去马赛克、CCM 和彩色降噪，启用 Mono 输出。
 - 关闭前级/后级锐化与 TNR，避免锐化光晕和跨帧滤波影响运动特征。
 - 黑电平使用本板遮光 RAW12 实测曲线，按实际模拟增益插值更新（见复测记录）。
-- 保留前级 RGB sRGB，关闭后级 Y Gamma 和 DRC，避免重复提亮；保留 Bayer 空间降噪，YNR 强度设为 64。
+- 保留前级 RGB sRGB，关闭后级 Y Gamma 和 DRC，避免重复提亮；保留 Bayer 空间降噪，当前 YNR 强度为 192。
 
 输出仍为经过 ISP 的 Y 通道，不是传感器 RAW。关闭 TNR 会减少时间上的平滑，
-可能让静态噪声更明显；2 ms 上限允许 AE 在暗处延长曝光、降低增益，快速运动时则可能增加模糊。
+可能让静态噪声更明显；当前 0.5 ms 曝光上限在暗处需要更高增益，应加强照明。
+下文为历史调参记录，其中 2 ms 曝光和 YNR=64 不代表当前默认配置。
 
 2026-09-21 诊断发现板端 `cvi_sdr_bin` 是 IMX307 文件，但双目导入返回
 `CVI_BIN_SENSORNUM_ERROR`（0xcb000016），在应用前失败，原先实际使用 SDK 默认参数。

@@ -8,6 +8,9 @@
 默认 `num_pts=150`，双目每目补点目标约 75；16×15 LK 窗口和失败点过滤开启。
 运行时可关闭 micro-ROS，独立运行 OpenVINS。
 
+默认 SD 镜像预装 SchurVINS、独立录制器和 perf；OpenVINS 需先按本文末尾的
+“构建与更新标定”章节构建并完整部署，再执行下面的设备启动命令。
+
 ## 当前标定与传感器
 
 配置由设备上的 `/mnt/data/schurvins-gcc11-static-micro-ros/schurvins.yaml` 转换。
@@ -21,8 +24,8 @@
   一致的单级模型；入口补偿后送入 OpenVINS，内部 Tw/Ta/R 使用单位矩阵，避免重复补偿。
 - SchurVINS 的 `T_B_C` 取逆得到 `T_cam_imu`。右图旋转 180°，其内参、切向畸变
   和外参转换到相应虚拟相机；不要再在摄像头寄存器里旋转一次。
-- 相机输入保持原始左图 VI PTS。标定的 `live_camera_time_offset_ns=10797086`
-  转为 OpenVINS `timeshift_cam_imu=0.010797086`，由滤波器应用一次；IMU 读取
+- 相机输入保持原始左图 VI PTS。当前随包标定的 `live_camera_time_offset_ns=11548086`
+  转为 OpenVINS `timeshift_cam_imu=0.011548086`，由滤波器应用一次；IMU 读取
   等待覆盖这个对齐后的时刻。四个 IMU 噪声参数直接复制，不再额外乘十。
 - 相机内外参与时延固定使用标定值。开启 `try_zupt=true`、
   `zupt_chi2_multipler=1`、`zupt_only_at_beginning=true`，使启动静止时可初始化；首次运动后停止使用 ZUPT。
@@ -132,8 +135,25 @@ JOBS=2 scripts/vio-compare/probes/backend-f32/build_variant.sh a53 fp64
 python3 scripts/vio-compare/openvins/build_live.py
 
 python3 scripts/vio-compare/openvins/make_live_config.py \
-  --schur cali/tidesense-imucam-kalibr/schurvins.yaml \
+  --schur scripts/schurvins/tidesense.yaml \
   --output-dir install/openvins-live-fp64/config --num-pts 150
+```
+
+以上使用随默认镜像提供的当前测试板标定；其他板卡应将 `--schur` 换成该板的新标定。
+首次部署需创建目录，并复制启动脚本、辅助程序和全部配置。在电脑端执行：
+
+```bash
+ssh root@192.168.123.99 'mkdir -p /mnt/data/openvins-live-fp64/bin'
+scp -O install/openvins-live-fp64/run-live.sh \
+  root@192.168.123.99:/mnt/data/openvins-live-fp64/
+scp -O install/openvins-live-fp64/bin/openvins_live.stripped \
+  root@192.168.123.99:/mnt/data/openvins-live-fp64/bin/openvins_live
+scp -O install/openvins-live-fp64/bin/schurvins_camera \
+  install/openvins-live-fp64/bin/fsin.sh \
+  install/openvins-live-fp64/bin/prepare-imu.sh \
+  root@192.168.123.99:/mnt/data/openvins-live-fp64/bin/
+scp -O -r install/openvins-live-fp64/config \
+  root@192.168.123.99:/mnt/data/openvins-live-fp64/
 ```
 
 `build_live.py` 校验 FP64 核心库，复用其编译参数和静态依赖，不修改核心算法。

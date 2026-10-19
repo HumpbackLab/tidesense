@@ -6,14 +6,17 @@
 ## 设备运行
 
 ```sh
-cd /mnt/data/schurvins-gcc11-static
+cd /mnt/data/schurvins-gcc11-static-micro-ros
 # 独立检查 IMU 频率、数据递增和静止重力模长，测试时保持板子静止
 ./run.sh --imu-test auto 10
 # 真实双目 + IMU 输入测试，使用占位标定，不输出位姿
 ./run.sh --vio-smoke /mnt/data/sensor_cfg.ini auto 120
 # 安装镜头、完成实际双目/惯性标定后运行；0 表示持续运行
-./run.sh --vio actual-calibration.yaml /mnt/data/sensor_cfg.ini auto /tmp/vio-poses.csv 0
+./run.sh --vio schurvins.yaml /mnt/data/sensor_cfg.ini auto /tmp/vio-poses.csv 0
 ```
+
+以上使用默认 SD 镜像路径及随包的当前测试板参数；其他硬件需换成本板标定。
+关闭 micro-ROS 编译的独立包目录为 `/mnt/data/schurvins-gcc11-static`。
 
 `auto` 按 IIO 名称 `sc7u22` 和物理 SPI2 控制器 `0x041a0000` 查找 `/dev/iio:deviceN`。
 也可直接指定 IIO 设备节点。程序不再绑定 spidev 或在用户态访问 IMU 寄存器。
@@ -86,7 +89,7 @@ imu_params:
 ```
 
 默认偏移 0 不代表已经同步标定。入口要求 `delay_imu_cam=0`，避免重复应用时间修正。
-FSIN 只同步两颗相机，当前没有相机与 IMU 的硬件共同触发。
+FSIN 由 IMU INT1 中断分频产生，同步两颗相机；VI 到达时间与 IMU 测量时刻仍需标定对齐。
 `--vio-smoke` 使用 `camera-smoke.yaml` 占位参数，只验证输入和融合调用链；未装镜头时不能验证 VIO 精度。
 
 ## 构建、部署与回退

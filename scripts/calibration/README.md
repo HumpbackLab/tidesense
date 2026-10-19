@@ -108,10 +108,10 @@ XML 适用于 **Agent、预览和录包在同一台电脑**：电脑内 DDS 使�
 
 ## 2. 本机启动 Agent
 
-本机终端 A（先 source 已安装 Agent 的工作空间，如适用）：
+本机终端 A（端口 8888 已有 Agent 时直接复用）：
 
 ```sh
-export ROS_DOMAIN_ID=0
+source scripts/calibration/ros2-env.sh
 export FASTRTPS_DEFAULT_PROFILES_FILE=scripts/schurvins/micro_ros/calibration-agent.xml
 ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 ```

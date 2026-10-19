@@ -24,7 +24,16 @@ scripts/ov9281/build.sh
 
 输出 `install/ov9281-test/capture`、`mode_check` 和 `fsin.sh`。脚本编译当前板的 sensor component、sample common，以及测试程序；后者静态链接 SDK 库、动态链接系统 C 运行库，无需在设备额外安装整套 MPI 动态库。
 
-设备上已部署：
+默认 SD 镜像只预装 `/mnt/data/ov9281-update/fsin.sh`，下面的独立测试还需部署
+`capture` 和 `mode_check`。构建后在电脑端执行：
+
+```sh
+ssh root@192.168.123.99 'mkdir -p /mnt/data/ov9281-update'
+scp -O install/ov9281-test/capture install/ov9281-test/mode_check \
+  install/ov9281-test/fsin.sh root@192.168.123.99:/mnt/data/ov9281-update/
+```
+
+当前镜像及手动测试使用的路径（历史备份目录不会随新镜像提供）：
 
 - `/mnt/data/sensor_cfg.ini`：默认 640×400、20fps，`hw_sync=1`，等待 FSIN 触发。
 - `/mnt/data/ov9281-update/fsin.sh`：PWR_GPIO0 内核 IMU 中断分频触发工具。
