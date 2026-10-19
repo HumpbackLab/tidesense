@@ -118,7 +118,7 @@ if [[ "$micro_ros" == ON ]]; then
 fi
 "${cross}strip" --strip-unneeded "$out/bin/schurvins_stereo" "$out/bin/schurvins_imu_test"
 cp "$here/prepare-imu.sh" "$out/bin/"
-cp "$here/tidesense-gyro-matrix.yaml" "$out/"
+cp "$here/tidesense-imu-intrinsics.yaml" "$out/"
 cp "$here/tests/board-imu.sh" "$out/bin/test-imu-board.sh"
 "${cross}readelf" -lW "$out/bin/schurvins_stereo" > "$work/elf-program-headers.txt"
 "${cross}readelf" -dW "$out/bin/schurvins_stereo" > "$work/elf-dynamic.txt"
@@ -164,6 +164,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'SCHUR_OPT_ALIGN2D_HESSIAN_NEON=%s\nSCHUR_OPT_WARP_AFFINE_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_HESSIAN_NEON:-OFF}" "${SCHUR_OPT_WARP_AFFINE_NEON:-OFF}"
   printf 'SCHUR_OPT_WARP_TAIL2=%s\n' "${SCHUR_OPT_WARP_TAIL2:-OFF}"
   printf 'LIVE_CAMERA=OV9281_640x400_20fps\nLIVE_IMU=SC7U22_IIO_INT1_200Hz\nCAMERA_HELPER=GCC6_MPI_static_system_libc_dynamic\n'
+  printf 'IMU_INPUT_DOMAIN=raw_si\nIMU_INTRINSICS=single_stage\n'
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
   printf 'SCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$micro_ros"
 } > "$out/BUILD-INFO"

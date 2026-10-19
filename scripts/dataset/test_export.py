@@ -20,16 +20,17 @@ class ExportTest(unittest.TestCase):
         self.src = self.root/'capture'
         self.src.mkdir()
         (self.src/'COMPLETE').touch()
-        (self.src/'metadata.yaml').write_text(yaml.safe_dump(dict(schema='tidesense-dataset-v1', complete=True, pairs=3, imu_samples=41)))
+        (self.src/'metadata.yaml').write_text(yaml.safe_dump(dict(schema='tidesense-dataset-v2', complete=True, pairs=3, imu_samples=41)))
         with (self.src/'frames.bin').open('wb') as f:
             f.write(e.MAGIC)
             for i in range(3):
                 t = 1000000000+i*50000000
                 f.write(e.HEADER.pack(0x54444341, 1, 640, 400, i+1, t, t+2000000, i+10, i+10, 1, 0))
                 f.write(bytes([i])*e.PIXELS + bytes([255-i])*e.PIXELS)
-        (self.src/'imu.csv').write_text('#timestamp_ns,gx,gy,gz,ax,ay,az,raw_ax,raw_ay,raw_az\n'+''.join(
-            f'{950000000+i*5000000},0.1,0.2,0.3,1,2,9.8,1.1,2.2,9.1\n' for i in range(41)))
-        (self.src/'calibration.yaml').write_text(yaml.safe_dump(dict(cameras=[{}, {}], live_camera_time_offset_ns=10000000)))
+        (self.src/'imu.csv').write_text('#timestamp_ns,gx,gy,gz,ax,ay,az\n'+''.join(
+            f'{950000000+i*5000000},0.1,0.2,0.3,1,2,9.8\n' for i in range(41)))
+        (self.src/'calibration.yaml').write_text(yaml.safe_dump(dict(cameras=[{}, {}], live_camera_time_offset_ns=10000000,
+                                                                  imu_params={'input_domain':'raw_si'})))
 
     def test_roundtrip_bag_and_png(self):
         out = self.root/'export'
@@ -56,6 +57,13 @@ class ExportTest(unittest.TestCase):
                     self.assertEqual(msg.encoding, 'mono8')
                     self.assertEqual(len(msg.data), e.PIXELS)
             self.assertEqual(counts, {'/cam0/image_raw': 3, '/cam1/image_raw': 3, '/imu0': 41})
+
+    def test_legacy_raw_columns_are_used_for_all_exports(self):
+        path = self.src/'imu.csv'
+        path.write_text(path.read_text().replace(',1,2,9.8\n', ',9,8,7,1,2,9.8\n'))
+        self.test_roundtrip_bag_and_png()
+        rows = (self.root/'export/imu.csv').read_text().splitlines()
+        self.assertEqual(rows[1].split(',')[4:], ['1','2','9.8000000000000007'])
 
     def compress_capture(self):
         import numpy as np
@@ -115,6 +123,19 @@ class ExportTest(unittest.TestCase):
     def test_offset_requires_imu_coverage(self):
         with self.assertRaisesRegex(ValueError, 'bracket'):
             e.export(self.src, self.root/'bad', offset_override=100000000)
+
+    def test_legacy_configuration_requires_explicit_migration(self):
+        path=self.src/'calibration.yaml'
+        config=yaml.safe_load(path.read_text())
+        del config['imu_params']['input_domain']
+        path.write_text(yaml.safe_dump(config))
+        with self.assertRaisesRegex(ValueError, 'input domain'):
+            e.export(self.src,self.root/'bad')
+        self.assertFalse((self.root/'bad').exists())
+        report=e.export(self.src,self.root/'recalibration',offset_override=0,write_bag=True)
+        self.assertFalse(report['schur_replay_ready'])
+        self.assertTrue((self.root/'recalibration/dataset.bag').exists())
+        self.assertFalse((self.root/'recalibration/replay.yaml').exists())
 
 if __name__ == '__main__':
     unittest.main()

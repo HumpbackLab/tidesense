@@ -17,8 +17,8 @@
 - OV9281 双目 640×400、20 Hz；SC7U22 IIO 200 Hz，沿用 INT1 中断时间戳与
   每 10 次中断触发一次 FSIN 的内核实现。
 - 复用 SchurVINS 的相机辅助进程和 IIO 读取层；自动曝光上限为 0.5 ms，单帧空间降噪 YNR 默认 192。锐化和跨帧 TNR 关闭，启动日志报告实际 YNR 设置；调参静止结果不代表运动精度已验证。
-- 六面加速度校准从 `/mnt/data/penguin-flight-console/accelerometer-calibration.json`
-  加载，在 IMU 输入端应用一次。日志应显示 `six-face accelerometer calibration applied`。
+- 共用 IMU 读取层只做标称 SI 单位换算。`config/imu_intrinsics.yaml` 保存与 SchurVINS
+  一致的单级模型；入口补偿后送入 OpenVINS，内部 Tw/Ta/R 使用单位矩阵，避免重复补偿。
 - SchurVINS 的 `T_B_C` 取逆得到 `T_cam_imu`。右图旋转 180°，其内参、切向畸变
   和外参转换到相应虚拟相机；不要再在摄像头寄存器里旋转一次。
 - 相机输入保持原始左图 VI PTS。标定的 `live_camera_time_offset_ns=10797086`
@@ -62,7 +62,6 @@ export OPENVINS_MICRO_ROS=1
 export OPENVINS_MICRO_ROS_AGENT=192.168.123.2
 export OPENVINS_MICRO_ROS_PORT=8888
 export OPENVINS_MICRO_ROS_DOMAIN=0
-export OPENVINS_IMU_CALIBRATION=/mnt/data/penguin-flight-console/accelerometer-calibration.json
 
 nohup ./run-live.sh config/estimator_config.yaml /mnt/data/sensor_cfg.ini \
   auto "$output/poses.csv" 0 >"$output/vio.log" 2>&1 </dev/null &
@@ -125,24 +124,22 @@ CSV 记录原始相机与对齐后 IMU 时刻、帧序号、初始化/更新状�
 
 ## 构建与更新标定
 
-在 SDK 本机执行；需要现有 GCC11、OpenCV/yaml-cpp、micro-ROS 静态库：
+在 SDK 本机执行；需要现有 GCC11、OpenCV/yaml-cpp、micro-ROS 静态库。
+输入配置必须由新标定导出或完成原始 SI 域迁移，包含 `input_domain: raw_si`：
 
 ```bash
 JOBS=2 scripts/vio-compare/probes/backend-f32/build_variant.sh a53 fp64
 python3 scripts/vio-compare/openvins/build_live.py
 
-sshpass -p cvitek scp -O \
-  root@192.168.123.99:/mnt/data/schurvins-gcc11-static-micro-ros/schurvins.yaml \
-  install/openvins-live-fp64/schurvins-device.yaml
 python3 scripts/vio-compare/openvins/make_live_config.py \
-  --schur install/openvins-live-fp64/schurvins-device.yaml \
+  --schur cali/tidesense-imucam-kalibr/schurvins.yaml \
   --output-dir install/openvins-live-fp64/config --num-pts 150
 ```
 
 `build_live.py` 校验 FP64 核心库，复用其编译参数和静态依赖，不修改核心算法。
 输出 `bin/openvins_live.stripped`，部署时命名为 `bin/openvins_live`；
 保持 `schurvins_camera`、`fsin.sh`、`prepare-imu.sh` 在同一 `bin/` 目录。
-配置目录三个 YAML 必须一起上传。更新配置或二进制前正常停止设备上的本程序。
+配置目录四个 YAML（包括 `imu_intrinsics.yaml`）必须一起上传。更新配置或二进制前正常停止设备上的本程序。
 
 ```bash
 scp -O install/openvins-live-fp64/bin/openvins_live.stripped \

@@ -111,7 +111,7 @@ def main():
     corrected_gyro = values[:, :3] @ gw.T
     summary = dict(calibration=str(args.calibration), recording=str(args.recording),
                    correction='a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction',
-                   source_input='Recorded IMU already has six-face correction; it is not applied again.',
+                   source_input='Historical recorded IMU preprocessing is preserved; no additional input preprocessing.',
                    noise='Original device continuous-time scalar noise coefficients held fixed.',
                    new_camera_offset_ns=offset, old_export_offset_ns=previous_offset,
                    imu_rows=len(imu), stereo_rows=len(stereo),

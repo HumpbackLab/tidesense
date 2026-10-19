@@ -248,11 +248,13 @@ scripts/calibration/kalibr.sh cali/tidesense-imucam \
 相机话题、模型和分辨率从 camchain 读取，IMU 话题从 IMU YAML 的 `rostopic` 读取；
 联合模式不再传 `--topics` / `--models`。可用 `--target` 指定实际打印的标定板。
 
-脚本自动校验并转换 ROS 2 bag，再运行 `kalibr_calibrate_imu_camera --imu-models calibrated`。
+脚本自动校验并转换 ROS 2 bag，再运行 `kalibr_calibrate_imu_camera --imu-models scale-misalignment`。
+默认固定陀螺加速度敏感项 A 为零；加 `--estimate-g-sensitivity` 可进行对照。
+`--imu-models calibrated` 仅用于内参已校准的输入。所有新采集均保存标称 SI 数据。
 转换保留所有 IMU 样本及 header 时间戳；图像仅保留时间戳精确匹配的左右帧对，
 bag 索引时间取各自 header 时间，不取网络接收时间。检查分辨率与已有内参是否一致、
 IMU 时间戳递增且与图像重叠，拒绝噪声参数为 null 或非正数的模板。
-不会自动校正 IMU 零偏/尺度，也不旋转图像或 IMU 坐标轴。
+采集和转换保持 IMU SI 原值；联合拟合估计内参，运行配置在估计器入口应用逆模型。
 
 ## 将 Kalibr 结果用于 SchurVINS
 
@@ -310,7 +312,7 @@ SC7U22 实际测量频率可略低于 200 Hz，转换允许 190–210 Hz，运�
 转换日志列出左右相机各自的 shift；差异超过 1 ms 时提示检查同步与标定，
 不会分别移动两颗相机的图像。未输出时间标定字段时补偿为零。
 
-转换支持当前 TideSense 的 **640×400、双 pinhole-radtan、单 calibrated IMU**。
+转换支持当前 TideSense 的 **640×400、双 pinhole-radtan 或 pinhole-equidistant、单 calibrated 或 scale-misalignment IMU**。
 它检查旋转矩阵、非零基线、双目/IMU 外参一致性、IMU 坐标系和噪声参数。
 非有限数、非正噪声、不支持的模型或分辨率会报错；自动转换失败时，已完成的
 Kalibr 原始结果仍保留，可检查 `schurvins-export.log`。转换通过只说明配置符合入口要求，
@@ -334,18 +336,15 @@ scp -O cali/tidesense-imucam-kalibr/schurvins.yaml \
 ```sh
 cd /mnt/data/schurvins-gcc11-static-micro-ros
 export SCHUR_MICRO_ROS=0
-export SCHUR_IMU_CALIBRATION=/mnt/data/penguin-flight-console/accelerometer-calibration.json
 ./run.sh --vio tidesense.yaml /mnt/data/sensor_cfg.ini auto /tmp/vio-poses.csv 0
 ```
 
 `0` 表示持续运行，Ctrl-C 停止。开始时保持静止，两颗镜头共同看向有纹理的场景。
 位姿先写 `/tmp`，避免当前 SD 同步写盘影响实时性能；需要保留时在结束后复制出来。
 
-六面校准 JSON **单独加载**，不合并进 `schurvins.yaml`。LiveImu 启动时读取一次，执行
-`(raw_si - bias) * correction_scale`；启动日志打印文件路径及系数。
-`imu_initialization.acc_bias` 表示修正后的残余偏置，不要再填六面零偏重复扣除。
-采集 cam–IMU 标定数据和运行 VIO 应使用同一份六面系数；旧 bag 不会因更换 JSON
-自动修正。完成新的六面校准后，应重新评估相机–IMU 标定并重启 SchurVINS。
+LiveImu 采集标称 SI 数据，运行时仅加载 `schurvins.yaml` 中的一套 IMU 内参，
+不需要额外校准文件或校准环境变量。`imu_initialization.acc_bias` 和 `omega_bias`
+表示当前运行的残余零偏；导出器不把标定 bag 中拟合的零偏固定为长期偏移。
 
 转换回归测试：
 

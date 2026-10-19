@@ -79,7 +79,6 @@ class Writer {
      imu_ << s.stamp_ns;
      for (double v:s.gyro) imu_ << ',' << v;
      for (double v:s.accel) imu_ << ',' << v;
-     for (double v:s.raw_accel) imu_ << ',' << v;
      imu_ << '\n';
      if (!samples_) imu_first_=s.stamp_ns;
      if (imu_last_) max_imu_gap_=std::max(max_imu_gap_,s.stamp_ns-imu_last_);
@@ -119,7 +118,8 @@ class Writer {
  }
  void metadata(bool complete) {
   YAML::Node n;
-  n["schema"]="tidesense-dataset-v1"; n["complete"]=complete;
+  n["schema"]="tidesense-dataset-v2"; n["complete"]=complete;
+  n["imu_value_domain"]="raw_si";
   n["clock"]="CLOCK_MONOTONIC nanoseconds";
   n["camera_timestamp"]="raw VI arrival PTS; not exposure time; no time offset applied";
   n["stereo"]="FSIN paired, original sensor orientation, mono8 640x400";
@@ -144,7 +144,7 @@ class Writer {
   { std::ofstream f; open(f,dir+"/INCOMPLETE"); f << "Capture not finalized\n"; }
   space(); open(images_,dir+"/frames.bin"); open(imu_,dir+"/imu.csv");
   images_ << "TIDESENSE_ZST_V1\n";
-  imu_ << "#timestamp_ns,gx,gy,gz,ax,ay,az,raw_ax,raw_ay,raw_az\n";
+  imu_ << "#timestamp_ns,gx,gy,gz,ax,ay,az\n";
   metadata(false); thread_=std::thread(&Writer::work,this);
  }
  ~Writer() { join(); }
@@ -223,7 +223,7 @@ int main(int argc,char** argv) {
   LivePair pair;
   if (!camera.next(pair,interrupted)) throw std::runtime_error("Interrupted during camera startup");
   LiveImu imu(device);
-  yaml(dir+"/imu-calibration.yaml",imu.recordingMetadata());
+  yaml(dir+"/imu-source.yaml",imu.recordingMetadata());
   const uint64_t ready=now()+100000000ULL;
   uint64_t first=0,last=0,previous_imu=0,count=0,sequence=0;
   uint32_t left_ref=0,right_ref=0;

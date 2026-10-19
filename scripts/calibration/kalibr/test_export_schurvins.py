@@ -71,13 +71,55 @@ class ExportTest(unittest.TestCase):
 
     def test_bad_imu_rejected(self):
         chain, imu = fixture()
-        for key, value in [('model', 'scale-misalignment'), ('update_rate', 100),
+        for key, value in [('model', 'scale-misalignment-size-effect'), ('update_rate', 100),
                            ('gyroscope_random_walk', 0), ('accelerometer_noise_density', float('nan')),
                            ('time_offset', .1), ('T_i_b', np.diag([-1, -1, 1, 1]).tolist())]:
             bad = copy.deepcopy(imu)
             bad['imu0'][key] = value
             with self.subTest(key=key), self.assertRaises(ValueError):
                 convert(chain, bad)
+
+    def test_full_intrinsic_forward_inverse(self):
+        chain, document = fixture()
+        imu = document['imu0']
+        ma = np.array([[1.02,0,0],[.01,.98,0],[-.02,.03,1.01]])
+        mw = np.array([[.99,0,0],[.02,1.03,0],[.01,-.01,1.02]])
+        angle = .12
+        c = np.array([[np.cos(angle),-np.sin(angle),0],[np.sin(angle),np.cos(angle),0],[0,0,1.]])
+        a = np.array([[.001,.002,0],[0,-.003,.001],[.002,0,.001]])
+        imu.update(model='scale-misalignment', accelerometers={'M':ma.tolist()},
+                   gyroscopes={'M':mw.tolist(),'C_gyro_i':c.tolist(),'A':a.tolist()})
+        result, _ = convert(chain, document)
+        p = result['imu_params']
+        self.assertEqual(p['input_domain'], 'raw_si')
+        rng = np.random.default_rng(42)
+        acceleration, omega = rng.normal(size=(2,100,3))
+        measured_a = acceleration @ ma.T
+        measured_w = omega @ c.T @ mw.T + acceleration @ c.T @ a.T
+        recovered_a = measured_a @ np.asarray(p['accel_inverse_matrix']).T
+        recovered_w = measured_w @ np.asarray(p['gyro_inverse_matrix']).T + recovered_a @ np.asarray(p['gyro_accel_matrix']).T
+        np.testing.assert_allclose(recovered_a, acceleration, atol=1e-12)
+        np.testing.assert_allclose(recovered_w, omega, atol=1e-12)
+        # A new session's bias remains in the corrected coordinates for VIO to estimate.
+        ba, bg = np.array([.1,-.2,.3]), np.array([.01,.02,-.01])
+        biased_a = (measured_a+ba) @ np.asarray(p['accel_inverse_matrix']).T
+        biased_w = (measured_w+bg) @ np.asarray(p['gyro_inverse_matrix']).T + biased_a @ np.asarray(p['gyro_accel_matrix']).T
+        expected_ba = np.linalg.solve(ma,ba)
+        expected_bg = c.T @ np.linalg.solve(mw,bg) + np.asarray(p['gyro_accel_matrix']) @ expected_ba
+        np.testing.assert_allclose(biased_a-acceleration, np.tile(expected_ba,(100,1)), atol=1e-12)
+        np.testing.assert_allclose(biased_w-omega, np.tile(expected_bg,(100,1)), atol=1e-12)
+        for key, bad in [('M',np.zeros((3,3)).tolist()),('M',[[float('nan')]*3]*3),('C_gyro_i',np.diag([1,1,-1]).tolist())]:
+            invalid = copy.deepcopy(document)
+            invalid['imu0']['gyroscopes'][key] = bad
+            with self.assertRaises(ValueError):
+                convert(chain,invalid)
+
+    def test_equidistant_camera(self):
+        chain, imu = fixture()
+        for camera in chain.values():
+            camera['distortion_model']='equidistant'
+        result, _ = convert(chain,imu)
+        self.assertEqual(result['cameras'][0]['camera']['distortion']['type'],'equidistant')
 
     def test_no_time_calibration_defaults_to_zero(self):
         chain, imu = fixture()
@@ -102,6 +144,9 @@ class ExportTest(unittest.TestCase):
             fake.write_text("""#!/usr/bin/env python3
 import os, pathlib, shutil, subprocess, sys
 args = sys.argv[1:]
+if 'cat' in args:
+    print('self.M_accel_gyro_Dv.setActive(True)')
+    sys.exit(0)
 if args[0] == 'image':
     print('{}')
     sys.exit(0)
@@ -115,23 +160,37 @@ if 'kalibr_calibrate_imu_camera' in args:
     shutil.copyfile(source/'imu.yaml', out/'imucam-imu.yaml')
     for name in ('imucam-results-imucam.txt', 'imucam-report-imucam.pdf'):
         (out/name).write_text('fixture')
+elif '/output/convert.py' in args:
+    (out/'imucam.bag').write_text('fixture')
 elif '/output/export_schurvins.py' in args:
     sys.exit(subprocess.call([sys.executable, str(out/'export_schurvins.py'), str(out)]))
 """)
             fake.chmod(0o755)
             env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
                        EXPORT_FIXTURES=str(root))
-            for only in (False, True):
-                output = root / ('convert only' if only else 'full')
+            for model, only, estimate_g in (("calibrated", False, False), ("calibrated", True, False), ("scale-misalignment", False, False), ("scale-misalignment", False, True)):
+                output = root / (model + (' convert only' if only else ' full') + (' g' if estimate_g else ''))
                 command = ['bash', str(script), str(bag), '--imu-cam',
                            '--cam', str(root/'camera.yaml'), '--imu', str(root/'imu.yaml'),
                            '--output', str(output)]
+                if model == 'calibrated':
+                    command += ['--imu-models', model]
+                if estimate_g:
+                    command.append('--estimate-g-sensitivity')
                 if only:
                     command.append('--convert-only')
                 subprocess.run(command, env=env, check=True, capture_output=True)
                 self.assertEqual((output/'schurvins.yaml').exists(), not only)
                 if not only:
                     self.assertIn('SchurVINS configuration', (output/'schurvins-export.log').read_text())
+                    if model == 'scale-misalignment':
+                        import json
+                        run = json.loads((output/'run.json').read_text())
+                        self.assertEqual(run['model'], model)
+                        self.assertEqual(run['gyro_g_sensitivity_estimated'], estimate_g)
+                        self.assertEqual('python_override' in run, not estimate_g)
+                        self.assertTrue(run['source_inputs_unchanged'])
+                        self.assertIn('--imu-models', run['command'])
 
     def test_one_click_existing_results_and_no_overwrite(self):
         chain, imu = fixture()

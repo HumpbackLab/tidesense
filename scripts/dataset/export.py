@@ -62,19 +62,20 @@ def frames(source):
 def imu_rows(source):
     with (source / 'imu.csv').open() as f:
         for row in csv.reader(line for line in f if not line.startswith('#')):
-            if len(row) != 10:
-                raise ValueError('IMU CSV requires timestamp + 9 SI values')
+            if len(row) not in (7, 10):
+                raise ValueError('IMU CSV requires timestamp + 6 SI values (or legacy 9-value rows)')
             t, values = int(row[0]), [float(v) for v in row[1:]]
             if t <= 0 or not all(math.isfinite(v) for v in values):
                 raise ValueError('Invalid IMU timestamp/value')
-            yield t, values
+            # Legacy archives carry the original accelerometer in the last three columns.
+            yield t, values if len(values)==6 else values[:3]+values[6:]
 
 
 def validate(source, offset):
     if not (source / 'COMPLETE').is_file() or (source / 'INCOMPLETE').exists():
         raise ValueError('Dataset is incomplete; refuse to present it as a valid dataset')
     meta = yaml.safe_load((source / 'metadata.yaml').read_text())
-    if meta.get('schema') != 'tidesense-dataset-v1' or not meta.get('complete'):
+    if meta.get('schema') not in ('tidesense-dataset-v1', 'tidesense-dataset-v2') or not meta.get('complete'):
         raise ValueError('Invalid metadata schema/completion')
     first = last = previous = None
     count = 0
@@ -165,6 +166,9 @@ def export(source, output, calibration_path=None, offset_override=None, write_ba
     calibration = yaml.safe_load(calibration_path.read_text()) if calibration_path.exists() else None
     if calibration is not None and (not isinstance(calibration, dict) or len(calibration.get('cameras', [])) != 2):
         raise ValueError('Expected stereo SchurVINS calibration')
+    replay_ready = calibration is not None and calibration.get('imu_params', {}).get('input_domain') == 'raw_si'
+    if calibration is not None and not replay_ready and offset_override != 0:
+        raise ValueError('Calibration input domain must be raw_si; use --calibration with a newly exported or migrated configuration')
     offset = int(calibration.get('live_camera_time_offset_ns', 0)) if calibration else 0
     if offset_override is not None:
         offset = offset_override
@@ -198,26 +202,25 @@ def export(source, output, calibration_path=None, offset_override=None, write_ba
             for f in (c0, c1):
                 f.write(f'{t},{t}.png\n')
             raw.write(','.join(map(str, (t, *h[4:10])))+'\n')
-    with (output / 'imu.csv').open('w') as imu, (output / 'imu-raw.csv').open('w') as raw:
-        imu.write('#timestamp_ns,gx,gy,gz,ax,ay,az\n')
-        raw.write('#timestamp_ns,gx,gy,gz,ax,ay,az; before six-face correction\n')
+    with (output / 'imu.csv').open('w') as imu:
+        imu.write('#timestamp_ns,gx,gy,gz,ax,ay,az; nominal raw SI\n')
         for t, values in imu_rows(source):
-            imu.write(str(t)+','+','.join(format(v, '.17g') for v in values[:6])+'\n')
-            raw.write(str(t)+','+','.join(format(v, '.17g') for v in values[:3]+values[6:])+'\n')
+            imu.write(str(t)+','+','.join(format(v, '.17g') for v in values)+'\n')
     shutil.copyfile(output / 'imu.csv', output / 'mav0/imu0/data.csv')
     if calibration:
         shutil.copyfile(calibration_path, output / 'calibration.yaml')
+    if replay_ready:
         calibration['live_camera_time_offset_ns'] = 0
         calibration.setdefault('imu_params', {})['delay_imu_cam'] = 0.0
         (output / 'replay.yaml').write_text(yaml.safe_dump(calibration, sort_keys=False))
-    for name in ('imu-calibration.yaml', 'sensor_cfg.ini', 'metadata.yaml'):
+    for name in ('imu-source.yaml', 'sensor_cfg.ini', 'metadata.yaml'):
         if (source / name).exists():
             shutil.copyfile(source / name, output / ('capture-'+name if name == 'metadata.yaml' else name))
     if write_bag:
         bag(source, output / 'dataset.bag', offset)
-    report.update(schur_replay_ready=bool(calibration), image_orientation='original, not rectified or rotated',
+    report.update(schur_replay_ready=replay_ready, image_orientation='original, not rectified or rotated',
                   stereo_timestamps='both use cam0 PTS plus offset; raw left/right PTS in frames.csv',
-                  imu='SI, six-face applied as specified in imu-calibration.yaml; never apply twice',
+                  imu='nominal raw SI; replay applies configured intrinsics once', imu_value_domain='raw_si',
                   bag_topics=['/cam0/image_raw', '/cam1/image_raw', '/imu0'] if write_bag else [])
     (output / 'export.json').write_text(json.dumps(report, indent=2)+'\n')
     (output / 'INCOMPLETE').rename(output / 'COMPLETE')

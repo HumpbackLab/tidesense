@@ -67,7 +67,7 @@ python3 "$work/openvins/make_config.py" --kalibr-dir "$kalibr"
 The TideSense right camera is rotated 180 degrees. VINS-Fusion and OpenVINS
 rotate its PGM input and use a matching virtual-camera calibration. The
 recording's stereo timestamps already include the cam0/IMU time offset, and
-its IMU data already has six-face correction; neither is applied again.
+its historical IMU preprocessing is retained for that comparison. New captures contain nominal raw SI and use one configured intrinsic model.
 VINS-Mono reads only the left camera.
 
 ## Replay artifact

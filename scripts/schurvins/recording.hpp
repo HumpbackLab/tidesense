@@ -22,7 +22,7 @@ class VioRecording {
   void checkSpace() const;
   void summary(bool complete);
   std::string dir_, error_;
-  std::ofstream stereo_, imu_, raw_imu_, frames_;
+  std::ofstream stereo_, imu_, frames_;
   std::mutex mutex_;
   std::condition_variable ready_;
   std::deque<Batch> queue_;

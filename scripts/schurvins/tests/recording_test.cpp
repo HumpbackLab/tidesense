@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
     std::vector<ImuSample> samples;
     uint64_t last=95000000;
     VioRecording recorder(dir,calibration,argv[1]);
-    YAML::Node meta; meta["six_face_applied"]=true; recorder.setImuMetadata(meta);
+    YAML::Node meta; meta["imu_value_domain"]="raw_si"; recorder.setImuMetadata(meta);
     for (uint64_t i=0;i<6;++i) {
       uint64_t t=1000000000+i*50000000;
       samples.clear();
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
         last+=5000000;
         ImuSample s{}; s.stamp_ns=last;
         s.accel[2]=calibration["imu_params"]["g"].as<double>();
-        s.raw_accel[2]=9.123456789012345;
+        s.accel[2]=9.123456789012345;
         samples.push_back(s);
       }
       pair.header.sequence=i;
@@ -51,8 +51,9 @@ int main(int argc, char** argv) {
     auto imu=rows(dir+"/imu.csv");
     require(imu.front().find("100000000,")==0,"Missing IMU startup history");
     require(imu.back().find("1255000000,")==0,"Missing final IMU interpolation edge");
-    auto raw=rows(dir+"/imu-raw.csv");
-    require(std::stod(raw[0].substr(raw[0].find_last_of(',')+1))==9.123456789012345,"Raw IMU precision lost");
+    require(std::stod(imu[0].substr(imu[0].find_last_of(',')+1))==9.123456789012345,"Nominal SI precision lost");
+    require(YAML::LoadFile(dir+"/imu-source.yaml")["imu_value_domain"].as<std::string>()=="raw_si","Input domain lost");
+    require(access((dir+"/imu-raw.csv").c_str(),F_OK)!=0,"Redundant IMU stream created");
     require(cv::norm(texture,cv::imread(dir+"/left/1000000000.pgm",cv::IMREAD_GRAYSCALE),cv::NORM_INF)==0,"Left image changed");
     require(cv::norm(right,cv::imread(dir+"/right/1000000000.pgm",cv::IMREAD_GRAYSCALE),cv::NORM_INF)==0,"Right image changed");
     require(YAML::LoadFile(dir+"/calibration.yaml")["live_camera_time_offset_ns"].as<int>()==10461667,"Original time shift lost");

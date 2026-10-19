@@ -12,6 +12,8 @@ Usage: scripts/calibration/kalibr.sh ROS2_BAG_DIR [options]
   --imu-cam          Calibrate camera-IMU and automatically export schurvins.yaml
   --cam YAML         Existing stereo camchain (required with --imu-cam)
   --imu YAML         Measured IMU noise/rate/topic configuration (required with --imu-cam)
+  --imu-models MODEL  calibrated or scale-misalignment (default: scale-misalignment)
+  --estimate-g-sensitivity  Also fit gyro acceleration sensitivity (default: fixed zero)
   --allan            Analyze a stationary ROS 2 IMU bag; write curves and noise YAML
   --imu-topic TOPIC  Allan IMU topic (default: /tidesense/imu)
   --skip-seconds N   Allan: skip N seconds from first header stamp (default: 0)
@@ -39,6 +41,9 @@ convert_only=0
 imu_cam=0
 cam=
 imu=
+imu_model=scale-misalignment
+imu_model_set=0
+estimate_g_sensitivity=0
 stereo_options=0
 allan=0
 allan_options=()
@@ -49,6 +54,9 @@ while [[ $# -gt 0 ]]; do
     --cam|--imu) [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       if [[ $1 == --cam ]]; then cam=$2; else imu=$2; fi; shift 2 ;;
     --imu-cam) imu_cam=1; shift ;;
+    --imu-models) [[ $# -ge 2 ]] || { usage >&2; exit 2; }
+      imu_model=$2; imu_model_set=1; shift 2 ;;
+    --estimate-g-sensitivity) estimate_g_sensitivity=1; shift ;;
     --allan) allan=1; shift ;;
     --imu-topic|--skip-seconds|--duration) [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       allan_options+=("$1" "$2"); shift 2 ;;
@@ -59,6 +67,16 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
+case "$imu_model" in
+  calibrated|scale-misalignment) ;;
+  *) echo 'Supported --imu-models: calibrated, scale-misalignment' >&2; exit 2 ;;
+esac
+if [[ $imu_cam == 0 && ( $imu_model_set == 1 || $estimate_g_sensitivity == 1 ) ]]; then
+  echo 'IMU model options require --imu-cam' >&2; exit 2
+fi
+if [[ $imu_model == calibrated && $estimate_g_sensitivity == 1 ]]; then
+  echo '--estimate-g-sensitivity requires scale-misalignment' >&2; exit 2
+fi
 if [[ $allan == 1 ]]; then
   [[ $imu_cam == 0 && -z $cam && -z $imu && $stereo_options == 0 && $convert_only == 0 ]] || {
     echo '--allan cannot be combined with camera calibration or --convert-only options' >&2; exit 2;
@@ -122,10 +140,17 @@ fi
 if [[ $convert_only == 0 ]]; then
   # Virtual X server also handles Kalibr's GUI imports; no host display/mount needed.
   if [[ $imu_cam == 1 ]]; then
-    "${run[@]}" xvfb-run -a rosrun kalibr kalibr_calibrate_imu_camera \
-      --bag /output/imucam.bag --target /output/target.yaml \
-      --cam /output/camchain-input.yaml --imu /output/imu-input.yaml \
-      --imu-models calibrated --dont-show-report 2>&1 | tee "$output/kalibr.log"
+    if [[ $imu_model == scale-misalignment ]]; then
+      intrinsic_options=()
+      [[ $estimate_g_sensitivity == 1 ]] || intrinsic_options+=(--disable-g-sensitivity)
+      python3 "$here/kalibr/calibrate_intrinsics.py" --source "$output" --output "$output" \
+        --in-place --image "$image" "${intrinsic_options[@]}"
+    else
+      "${run[@]}" xvfb-run -a rosrun kalibr kalibr_calibrate_imu_camera \
+        --bag /output/imucam.bag --target /output/target.yaml \
+        --cam /output/camchain-input.yaml --imu /output/imu-input.yaml \
+        --imu-models calibrated --dont-show-report 2>&1 | tee "$output/kalibr.log"
+    fi
     results=(imucam-camchain-imucam.yaml imucam-imu.yaml imucam-results-imucam.txt imucam-report-imucam.pdf)
   else
     "${run[@]}" xvfb-run -a rosrun kalibr kalibr_calibrate_cameras \

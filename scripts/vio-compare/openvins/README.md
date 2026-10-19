@@ -76,7 +76,7 @@ python3 install/vio-compare-20260924-121320/openvins/make_config.py \
   --output-dir /path/to/openvins-config
 ```
 
-此脚本需要 PyYAML，并假定先运行过 `scripts/vio-compare/sync.sh`，把脚本和 OpenVINS 上游源码同步到同一个 `install/vio-compare-20260924-121320/openvins/` 目录。它**专用于 640×400 TideSense**：把右图旋转对应的虚拟相机参数写入标定，将 `timeshift_cam_imu` 置零。上述示例数据的相机时间戳已加过标定的相机／IMU 时间偏移，回放时不能再加一次；其他数据集应按自己的时间戳处理方式配置。TideSense 录制数据中的加速度已做六面校准，回放时不要重复校准。
+此脚本需要 PyYAML，并假定先运行过 `scripts/vio-compare/sync.sh`，把脚本和 OpenVINS 上游源码同步到同一个 `install/vio-compare-20260924-121320/openvins/` 目录。它**专用于 640×400 TideSense**：把右图旋转对应的虚拟相机参数写入标定，将 `timeshift_cam_imu` 置零。上述示例数据的相机时间戳已加过标定的相机／IMU 时间偏移，回放时不能再加一次；其他数据集应按自己的时间戳处理方式配置。新 TideSense 录制数据保存标称 SI，回放须使用匹配的完整 IMU 内参；历史录像需按其输入域迁移。
 
 ## 读取结果
 

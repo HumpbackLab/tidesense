@@ -751,7 +751,7 @@ All device results below use the **same fixed, offline equidistant calibration
 with gyro acceleration sensitivity refitted to zero**, new camera timestamps,
 and IMU correction from
 `cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs`.
-Recorded six-face compensation remains applied exactly once. Online IMU
+Historical recorded input preprocessing is retained. Online IMU
 calibration is off. Original scalar IMU noise values remain fixed.
 
 The table is from one diagnostic executable/library, with detailed CSV logging
@@ -841,7 +841,7 @@ saved with the command.
 |---|---:|---:|
 | Original SchurVINS | 37.670114 | 792.056087 |
 | Two lifecycle fixes, same fixed IMU calibration | 3.389314 | 1.099911 |
-| Two lifecycle fixes, six-face-only IMU / same new cameras | 14.134248 | 17.175197 |
+| Two lifecycle fixes, historical preprocessed IMU / same new cameras | 14.134248 | 17.175197 |
 
 Each entry in this final device comparison has two identical pose replays.
 The corresponding UZH original/control versus actual fixed-main builds give
@@ -1060,9 +1060,9 @@ pose again. A frame that has not entered the backend is left alone.
 
 `SCHUR_REGISTER_STEREO_POINTS` now defaults to enabled in the core and launcher;
 set it to `0` for the baseline. The launcher also defaults midpoint integration
-and pixel residuals to enabled. A configured `imu_params.gyro_inverse_matrix`
+and pixel residuals to enabled. The current unified `imu_params` model
 is applied once to both estimation and prediction inputs. Recorders preserve
-nominal gyro SI measurements so replay can apply that matrix once.
+nominal raw SI for both accelerometer and gyro so replay can apply that model once.
 
 The core implementation is committed as `07149fe` in the nested SchurVINS
 repository. The exact core delta from `5f30dbb` is saved in
@@ -1085,7 +1085,7 @@ core header exposes `RegisterCurrentFramePoints`, preserving historical builds:
 
 ```sh
 scripts/vio-compare/probes/fpv-diagnosis/build_host.sh SchurVINS install/schur-host
-install/schur-host/schurvins_gyro_calibration_test
+install/schur-host/schurvins_imu_intrinsics_test
 install/schur-host/schurvins_stereo_registration_test
 install/schur-host/schurvins_midpoint_pixel_test scripts/schurvins/synthetic.yaml
 ```

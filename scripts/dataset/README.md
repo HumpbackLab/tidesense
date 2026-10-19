@@ -40,9 +40,9 @@ record_dir=/mnt/data/dataset-$(date +%Y%m%d-%H%M%S)
 输出目录必须不存在。`--sensor-ini` 默认 `/mnt/data/sensor_cfg.ini`，要求两路 `hw_sync=1`。
 `--imu` 默认 auto。`--calibration` 可省略；它仅保存参数和保证 IMU 覆盖时间偏移，录制时不运行估计器。
 
-默认读取 `/mnt/data/penguin-flight-console/accelerometer-calibration.json` 应用六面校准。
-可用 `SCHUR_IMU_CALIBRATION=/path/file.json` 指定；有意录制未校准数据时设为 `none`。
-同时保存校准前的 SI 加速度，`imu-calibration.yaml` 记录实际系数。回放勿再应用六面系数。
+IMU 只做标称 SI 单位换算，不读取外部校准文件，也不应用 VIO 内参。
+`imu-source.yaml` 保存 IIO scale、采样率和 `imu_value_domain: raw_si`。
+运行或回放 VIO 时，从匹配的算法配置加载单级 IMU 内参并应用一次。
 
 ## 写盘与完整性
 
@@ -60,8 +60,8 @@ record_dir=/mnt/data/dataset-$(date +%Y%m%d-%H%M%S)
 `<IIIIQQQIIII` CameraHeader（magic/version/width/height/sequence/left_ns/right_ns/left_ref/right_ref/flags/reserved），
 紧接左图 256000 字节、右图 256000 字节，无行填充。图像字节是逐行差分：
 首列原值，其余 `uint8(pixel[x]-pixel[x-1])`，按行累加模 256 还原。头部不做差分。
-导出工具亦可读取早期 `TIDESENSE_RAW_V1\n` 未压缩格式。
-IMU CSV：timestamp_ns,gx,gy,gz,ax,ay,az,raw_ax,raw_ay,raw_az，单位 rad/s、m/s²。
+数据集元数据为 `tidesense-dataset-v2`。导出工具亦可读取早期 `TIDESENSE_RAW_V1\n` 未压缩格式。
+IMU CSV：timestamp_ns,gx,gy,gz,ax,ay,az，单位 rad/s、m/s²。
 
 ## 电脑端导出与回放
 
@@ -76,7 +76,7 @@ scp -O -r root@192.168.123.99:/mnt/data/dataset-YYYYMMDD-HHMMSS ./
 同一次导出同时产生：
 
 - `mav0/cam{0,1}/data/*.png` 和 `data.csv`：EuRoC 风格目录，无损 PNG，左右同步编号。
-- `mav0/imu0/data.csv`：时间戳、角速度、已校准加速度。
+- `mav0/imu0/data.csv`：时间戳、标称 SI 角速度与加速度。
 - `stereo.csv`、`imu.csv`、`replay.yaml`：直接供本 SDK SchurVINS `--replay`。
 - `dataset.bag`（`--bag`）：ROS1 原始 `sensor_msgs/Image` mono8 和 `sensor_msgs/Imu`，按时间排序。
 
@@ -87,6 +87,7 @@ scp -O -r root@192.168.123.99:/mnt/data/dataset-YYYYMMDD-HHMMSS ./
 原始左右 PTS 另外保存到 `frames.csv`。`replay.yaml` 清零时间偏移，避免重复应用。
 OpenVINS/VINS-Fusion 配置也须设置与导出一致的偏移（已经平移的 bag 应从 0 开始）。
 如需重做 Kalibr，使用 `--time-offset-ns 0` 导出未平移时间戳，避免使用旧标定偏移。
+旧配置尚未迁移到原始 SI 域时，这种导出仍可生成标定 bag，但不会生成 VIO 回放配置。
 右摄像头旋转 180° 已由真实外参表达，程序不会转图。
 
 ### SchurVINS
@@ -113,3 +114,5 @@ rosbag play --clock dataset-export/dataset.bag
 时间戳保留设备 monotonic 纳秒，不伪装成日历时间。无 IMU 姿态估计，orientation_covariance[0]=-1。
 
 板端实测与错误路径检查见 [VALIDATION.md](VALIDATION.md)。
+
+旧版十列 IMU CSV 导出时，使用最后三列保存的原始 SI 加速度，统一输出未补偿数据；需配套使用原始 SI 标定。

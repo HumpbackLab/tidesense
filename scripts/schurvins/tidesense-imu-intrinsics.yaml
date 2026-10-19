@@ -1,0 +1,43 @@
+# This SC7U22 board only: one affine inverse model for nominal raw SI input.
+# Equivalent consolidation of the previous deployed input transform; not a new calibration.
+# Keep the matching cameras and timing in the full schurvins.yaml.
+imu_params:
+  input_domain: raw_si
+  accel_inverse_matrix:
+  - - 0.9977862286984542
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.9975905220776843
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.9875934244981269
+  accel_offset:
+  - 0.44757817443459913
+  - -0.20284481441313088
+  - 0.6832263273678368
+  gyro_inverse_matrix:
+  - - 1.0135917376377497
+    - 0.004511573340816782
+    - -0.006902736844987923
+  - - -0.005008111639293255
+    - 0.990749732136619
+    - 0.001297795685019781
+  - - 0.004838599232382708
+    - 0.0011236906674843305
+    - 0.9999786911813152
+  gyro_accel_matrix:
+  - - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+  gyro_offset:
+  - 0.0
+  - 0.0
+  - 0.0

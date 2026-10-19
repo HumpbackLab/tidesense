@@ -63,10 +63,9 @@ VioRecording::VioRecording(const std::string& dir, const YAML::Node& calibration
   std::ofstream sensor_copy; open(sensor_copy, dir_ + "/sensor_cfg.ini", true);
   sensor_copy << sensor.rdbuf(); sensor_copy.close();
   open(stereo_, dir_ + "/stereo.csv"); open(imu_, dir_ + "/imu.csv");
-  open(raw_imu_, dir_ + "/imu-raw.csv"); open(frames_, dir_ + "/frames.csv");
+  open(frames_, dir_ + "/frames.csv");
   stereo_ << "#timestamp_ns,left_image,right_image\n";
-  imu_ << "#timestamp_ns,gx,gy,gz,ax,ay,az; nominal gyro SI, six-face-corrected accel; replay applies configured gyro matrix\n";
-  raw_imu_ << "#timestamp_ns,gx,gy,gz,ax,ay,az; SI before six-face accel correction\n";
+  imu_ << "#timestamp_ns,gx,gy,gz,ax,ay,az; nominal raw SI; replay applies IMU intrinsics once\n";
   frames_ << "#timestamp_ns,sequence,left_ns,right_ns,left_ref,right_ref,flags,imu_count,imu_last_ns\n";
   summary(false);
   std::cerr << "recording: queue_capacity=" << capacity_ << " pairs\n";
@@ -80,7 +79,7 @@ VioRecording::~VioRecording() {
   }
 }
 void VioRecording::setImuMetadata(const YAML::Node& metadata) {
-  yamlFile(dir_ + "/imu-calibration.yaml", metadata);
+  yamlFile(dir_ + "/imu-source.yaml", metadata);
 }
 void VioRecording::checkSpace() const {
   struct statvfs fs{};
@@ -131,13 +130,12 @@ void VioRecording::write(const Batch& b) {
   const std::string right = "right/" + std::to_string(b.timestamp) + ".pgm";
   pgm(dir_ + "/" + left, b.pair.left); pgm(dir_ + "/" + right, b.pair.right);
   for (const auto& s : b.imu) {
-    imu_ << s.stamp_ns; raw_imu_ << s.stamp_ns;
-    for (double v : s.gyro) { imu_ << ',' << v; raw_imu_ << ',' << v; }
+    imu_ << s.stamp_ns;
+    for (double v : s.gyro) imu_ << ',' << v;
     for (double v : s.accel) imu_ << ',' << v;
-    for (double v : s.raw_accel) raw_imu_ << ',' << v;
-    imu_ << '\n'; raw_imu_ << '\n';
+    imu_ << '\n';
   }
-  imu_.flush(); raw_imu_.flush();
+  imu_.flush();
   const auto& h = b.pair.header;
   frames_ << b.timestamp << ',' << h.sequence << ',' << h.left_ns << ',' << h.right_ns
           << ',' << h.left_ref << ',' << h.right_ref << ',' << h.flags << ',' << b.imu.size()
@@ -154,11 +152,12 @@ void VioRecording::join() {
 }
 void VioRecording::summary(bool complete) {
   YAML::Node n;
-  n["schema_version"] = 1; n["complete"] = complete;
+  n["schema_version"] = 2; n["complete"] = complete;
   n["scope"] = "VIO-consumed pairs and IMU, excluding startup/replaced camera frames and IMU after last pair";
   n["clock"] = "CLOCK_MONOTONIC nanoseconds; stereo.csv includes cam0 time offset";
   n["images"] = "mono8 PGM, original orientation, no rectification";
-  n["imu"] = "imu.csv: estimator SI values, six-face correction already applied unless explicitly disabled";
+  n["imu_value_domain"] = "raw_si";
+  n["imu"] = "imu.csv: nominal raw SI; intrinsics are stored in replay.yaml and applied once";
   n["pairs"] = pairs_; n["imu_samples"] = samples_;
   n["first_timestamp_ns"] = first_; n["last_timestamp_ns"] = last_;
   n["queue_capacity"] = capacity_; n["queue_high_water"] = high_water_;
@@ -169,7 +168,7 @@ void VioRecording::finish() {
   join();
   if (!error_.empty()) throw std::runtime_error("Recording: " + error_);
   if (!pairs_) throw std::runtime_error("Recording contains no frames");
-  stereo_.close(); imu_.close(); raw_imu_.close(); frames_.close();
+  stereo_.close(); imu_.close(); frames_.close();
   summary(true);
   { std::ofstream flag; open(flag, dir_ + "/INCOMPLETE"); flag << "Recording closed successfully\n"; flag.close(); }
   if (::rename((dir_ + "/INCOMPLETE").c_str(), (dir_ + "/COMPLETE").c_str()))

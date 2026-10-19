@@ -64,23 +64,7 @@ LiveImu::LiveImu(const std::string& requested, std::function<void(const ImuSampl
    throw std::runtime_error("SC7U22 must sample at 200 Hz");
   accel_scale_=std::stod(value(sysfs_+"/in_accel_scale"));
   gyro_scale_=std::stod(value(sysfs_+"/in_anglvel_scale"));
-  const char* configured=std::getenv("SCHUR_IMU_CALIBRATION");
-  const std::string calibration=configured ? configured :
-    "/mnt/data/penguin-flight-console/accelerometer-calibration.json";
-  calibration_path_=calibration;
-  if (calibration == "none") {
-   std::cerr << "imu: accelerometer calibration explicitly DISABLED; raw SI values\n";
-  } else {
-   try {
-    accel_calibration_=AccelCalibration::parse(YAML::LoadFile(calibration),accel_scale_);
-   } catch (const std::exception& e) {
-    throw std::runtime_error("Cannot load accelerometer calibration " + calibration + ": " + e.what());
-   }
-   std::cerr << "imu: six-face accelerometer calibration applied: " << calibration << '\n';
-   for (int i=0;i<3;++i)
-    std::cerr << "imu: axis=" << i << " bias_m_s2=" << accel_calibration_.bias[i]
-              << " correction_scale=" << accel_calibration_.scale[i] << '\n';
-  }
+  std::cerr << "imu: nominal SI input; intrinsics are applied only by the estimator adapter\n";
   setting("buffer/length","512"); setting("buffer/watermark","1");
   setting("buffer/enable","1"); enabled_=true;
   std::cerr << "imu: SC7U22 " << device << " IIO 200Hz, INT1 hard-IRQ CLOCK_MONOTONIC timestamps\n";
@@ -106,8 +90,7 @@ void LiveImu::acquire() {
      const int16_t a=le16(scans+n+axis*2),g=le16(scans+n+6+axis*2);
      if (a>=32760 || a<=-32760 || g>=32760 || g<=-32760)
       throw std::runtime_error("IMU raw sample saturated");
-     sample.raw_accel[axis]=a*accel_scale_;
-     sample.accel[axis]=accel_calibration_.apply(axis,sample.raw_accel[axis]);
+     sample.accel[axis]=a*accel_scale_;
      sample.gyro[axis]=g*gyro_scale_;
     }
     // Queue prediction before making this sample visible to the visual consumer.
@@ -173,15 +156,9 @@ YAML::Node LiveImu::recordingMetadata() const {
  YAML::Node n;
  n["sensor"]="sc7u22"; n["frame"]="imu_chip_xyz";
  n["sampling_frequency_hz"]=200;
- n["source"]=calibration_path_;
- n["six_face_applied"]=calibration_path_!="none";
-  // LiveImu/recorders preserve nominal gyro; the VIO adapter applies its matrix.
-  n["gyro_matrix_applied"]=false;
+ n["imu_value_domain"]="raw_si";
+ n["intrinsics_applied"]=false;
  n["accel_scale_m_s2_per_lsb"]=accel_scale_;
  n["gyro_scale_rad_s_per_lsb"]=gyro_scale_;
- for (int i=0;i<3;++i) {
-  n["bias_m_s2"].push_back(accel_calibration_.bias[i]);
-  n["correction_scale"].push_back(accel_calibration_.scale[i]);
- }
  return n;
 }

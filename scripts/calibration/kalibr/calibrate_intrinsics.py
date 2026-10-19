@@ -29,6 +29,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True, help='New result directory')
     parser.add_argument('--image', default='localhost/tidesense-kalibr:noetic')
     parser.add_argument('--max-iter', type=int, default=30)
+    parser.add_argument('--in-place', action='store_true',
+                        help='Use the existing converted directory; refuse to overwrite calibration outputs')
     parser.add_argument('--disable-g-sensitivity', action='store_true',
                         help='Controlled Python-source override: fix the gyro acceleration-sensitivity matrix to zero')
     args = parser.parse_args()
@@ -40,16 +42,23 @@ def main():
     for name in names:
         if not (source / name).is_file():
             parser.error(f'Missing input: {source / name}')
-    output.mkdir(parents=True, exist_ok=False)
+    if args.in_place:
+        if output != source:
+            parser.error('--in-place requires source and output to be the same directory')
+        if any((output / name).exists() for name in ('run.json', 'imucam-imu.yaml', 'imucam-camchain-imucam.yaml')):
+            parser.error('Calibration output already exists')
+    else:
+        output.mkdir(parents=True, exist_ok=False)
     manifest = dict(source=str(source), output=str(output), status='preparing',
                     model='scale-misalignment', input_values_changed=False,
                     gyro_g_sensitivity_estimated=not args.disable_g_sensitivity,
-                    six_face_policy='Preserve bag IMU values exactly; estimate residual intrinsics for this input stream.',
+                    input_policy='Values are unchanged; runtime export requires nominal raw SI measurements.',
                     input_sha256={n: sha256(source / n) for n in names})
     save(output / 'run.json', manifest)
-    subprocess.run(['cp', '--reflink=auto', str(source / 'imucam.bag'), str(output / 'imucam.bag')], check=True)
-    for name in names[1:]:
-        shutil.copy2(source / name, output / name)
+    if not args.in_place:
+        subprocess.run(['cp', '--reflink=auto', str(source / 'imucam.bag'), str(output / 'imucam.bag')], check=True)
+        for name in names[1:]:
+            shutil.copy2(source / name, output / name)
     if {n: sha256(output / n) for n in names} != manifest['input_sha256']:
         raise RuntimeError('Copied input hashes differ')
     inspect = subprocess.check_output(['podman', 'image', 'inspect', args.image], text=True)

@@ -32,7 +32,7 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--records', nargs='+', default=['084638', '003648'])
     parser.add_argument('--imu-variant', choices=['full', 'new-geometry', 'gyro-only'], default='full',
-                        help='Use fixed IMU correction, recorded six-face-only IMU, or gyro-only correction')
+                        help='Use fixed IMU correction, historical recorded IMU, or gyro-only correction')
     parser.add_argument('--variants', nargs='+', choices=VARIANTS,
                         default=['baseline', 'id-reset', 'id-reset-midpoint-order'])
     parser.add_argument('--repeats', type=int, default=2)

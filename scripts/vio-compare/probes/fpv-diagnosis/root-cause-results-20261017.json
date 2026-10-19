@@ -1,6 +1,6 @@
 {
   "metric": "Device recordings have no external GT. Distances are first-to-last displacement, not ATE.",
-  "calibration": "cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs; fixed offline IMU correction; original six-face correction retained",
+  "calibration": "cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs; fixed offline IMU correction; original historical input preprocessing retained",
   "fingerprint": {
     "worktree_base": "fefa113",
     "patches": {
@@ -2244,5 +2244,6 @@
     "source_sha256": "81a6aa1b59578f5f493738ec69778b547aacda1ae542073af7ee43d3a773f4fd",
     "note": "Identical core-build objects and header layout; only the SchurVINS translation unit is replaced by original fefa113 source. __FILE__ path mapped to original path."
   },
-  "production_patch_sha256": "2e2780e284cd67066ee6fc107608714afa8967fea447cd81240e32dd22cf46b3"
+  "production_patch_sha256": "2e2780e284cd67066ee6fc107608714afa8967fea447cd81240e32dd22cf46b3",
+  "historical_input_metadata_archive": "install/single-stage-imu-20261019/historical-metadata/root-cause-results-20261017.json"
 }

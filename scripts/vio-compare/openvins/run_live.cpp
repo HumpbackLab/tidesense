@@ -23,6 +23,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include "live_camera.hpp"
 #include "live_imu.hpp"
+#include "imu_intrinsics.hpp"
 #include "micro_ros_bridge.hpp"
 
 static_assert(std::is_same<decltype(ov_msckf::StateHelper::get_full_covariance(
@@ -66,8 +67,6 @@ void bridge_environment() {
     if (value) setenv(shared.c_str(), value, 1);
     else if (!*suffix) setenv(shared.c_str(), "0", 1);
   }
-  if (const char* calibration = std::getenv("OPENVINS_IMU_CALIBRATION"))
-    setenv("SCHUR_IMU_CALIBRATION", calibration, 1);
 }
 }
 
@@ -90,6 +89,11 @@ int main(int argc, char** argv) {
       throw std::runtime_error("Live runner requires OPENVINS_EKF_MA_MODE=original (FP64)");
     setenv("OPENVINS_EKF_MA_MODE", "original", 1);
     bridge_environment();
+    const std::string config_path=argv[1];
+    const auto slash=config_path.find_last_of('/');
+    const std::string directory=slash==std::string::npos ? "." : config_path.substr(0,slash);
+    const auto intrinsics=ImuIntrinsics::parse(YAML::LoadFile(directory+"/imu_intrinsics.yaml")["imu_params"]);
+    if (intrinsics.input_is_corrected) throw std::runtime_error("Live IIO requires nominal raw SI IMU input");
     auto parser = std::make_shared<ov_core::YamlParser>(argv[1]);
     ov_core::Printer::setPrintLevel("WARNING");
     ov_msckf::VioManagerOptions options;
@@ -153,8 +157,9 @@ int main(int argc, char** argv) {
           throw std::runtime_error("IMU must increase and start before the first aligned camera frame");
         ov_core::ImuData data;
         data.timestamp = sample.stamp_ns * 1e-9;
-        data.wm = Eigen::Vector3d(sample.gyro[0], sample.gyro[1], sample.gyro[2]);
-        data.am = Eigen::Vector3d(sample.accel[0], sample.accel[1], sample.accel[2]);
+        const auto corrected=intrinsics.apply(sample);
+        data.wm = Eigen::Vector3d(corrected.gyro[0], corrected.gyro[1], corrected.gyro[2]);
+        data.am = Eigen::Vector3d(corrected.accel[0], corrected.accel[1], corrected.accel[2]);
         system.feed_measurement_imu(data);
         last_imu = sample.stamp_ns;
         ++imu_count;

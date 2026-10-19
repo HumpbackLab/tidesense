@@ -54,8 +54,8 @@ def main():
     for index, item in enumerate(source["cameras"]):
         camera = item["camera"]
         width, height = int(camera["image_width"]), int(camera["image_height"])
-        if (width, height) != (640, 400) or camera["type"] != "pinhole" or camera["distortion"]["type"] != "radial-tangential":
-            raise ValueError("Live TideSense expects 640x400 pinhole/radtan cameras")
+        if (width, height) != (640, 400) or camera["type"] != "pinhole" or camera["distortion"]["type"] not in ("radial-tangential", "equidistant"):
+            raise ValueError("Live TideSense expects 640x400 pinhole/radtan or pinhole/equidistant cameras")
         intrinsics = np.asarray(camera["intrinsics"]["data"], dtype=float)
         distortion = np.asarray(camera["distortion"]["parameters"]["data"], dtype=float)
         if intrinsics.shape != (4,) or distortion.shape != (4,) or not np.isfinite(np.r_[intrinsics, distortion]).all() or np.any(intrinsics[:2] <= 0):
@@ -66,9 +66,10 @@ def main():
         if index == 1:
             camera_imu = np.diag([-1., -1., 1., 1.]) @ camera_imu
             intrinsics[2:] = [width - 1 - intrinsics[2], height - 1 - intrinsics[3]]
-            distortion[2:] *= -1
+            if camera["distortion"]["type"] == "radial-tangential":
+                distortion[2:] *= -1
         chain[f"cam{index}"] = dict(T_cam_imu=camera_imu.tolist(), camera_model="pinhole",
-                                    distortion_model="radtan", intrinsics=intrinsics.tolist(),
+                                    distortion_model="radtan" if camera["distortion"]["type"]=="radial-tangential" else "equidistant", intrinsics=intrinsics.tolist(),
                                     distortion_coeffs=distortion.tolist(), resolution=[width, height],
                                     timeshift_cam_imu=offset_ns * 1e-9)
     imu = source["imu_params"]
@@ -98,9 +99,14 @@ def main():
         options, count = re.subn(rf"^{re.escape(name)}:.*$", f"{name}: {value}", options, flags=re.M)
         if count != 1:
             raise ValueError(f"Template must contain {name} exactly once")
+    if imu.get("input_domain") != "raw_si":
+        raise ValueError("Calibration must describe nominal raw SI IMU input; regenerate the configuration")
+    if imu.get("imu_input_is_corrected", False):
+        raise ValueError("Live IMU input cannot be marked corrected")
     out = args.output_dir
     out.mkdir(parents=True, exist_ok=True)
     (out / "estimator_config.yaml").write_text(options)
+    (out / "imu_intrinsics.yaml").write_text(yaml.safe_dump({"imu_params": imu}, sort_keys=False))
     opencv_yaml(out / "kalibr_imucam_chain.yaml", chain)
     opencv_yaml(out / "kalibr_imu_chain.yaml", {"imu0": imu_config})
     manifest = dict(source=str(args.schur.resolve()), source_sha256=hashlib.sha256(args.schur.read_bytes()).hexdigest(),
@@ -109,7 +115,8 @@ def main():
                     timestamp_policy="raw left VI PTS; OpenVINS applies timeshift once; IMU samples bracket shifted time",
                     baseline_m=float(np.linalg.norm(body_cameras[1][:3, 3] - body_cameras[0][:3, 3])),
                     initialization="stationary startup with ZUPT only before first motion",
-                    imu_noise_policy="copied directly, no additional multiplier", imu_noise=imu_config)
+                    imu_noise_policy="copied directly, no additional multiplier", imu_noise=imu_config,
+                    imu_input_domain="raw_si", imu_intrinsics="single external inverse model; OpenVINS Tw/Ta/R remain identity")
     (out / "calibration-source.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(json.dumps({key: value for key, value in manifest.items() if key != "imu_noise"}, indent=2))
 

@@ -2,9 +2,8 @@
 
 电脑端命令均在工程根目录执行；板端命令在解压后的程序目录执行。
 
-IMU 发布现默认应用网页保存的六面加速度计校准，使用共用 LiveImu 读取层。
-启动日志应包含 `six-face accelerometer calibration applied`；历史 bag 不自动改变。
-校准文件路径与显式原始数据模式见 [IMU.md](IMU.md#六面加速度计校准)。
+IMU 发布为 SC7U22 标称 SI 数据，不应用运行时内参。
+Kalibr 直接拟合这条输入流，生成用于 VIO 的单级模型，见 [IMU.md](IMU.md#单级-imu-内参)。
 
 实测结果与当前 WSL 环境限制见 [CALIBRATION-VALIDATION.md](CALIBRATION-VALIDATION.md)。
 

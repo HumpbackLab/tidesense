@@ -101,7 +101,7 @@ ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 
 使用转换后的 SchurVINS YAML，不能直接传入 Kalibr camchain。
 [转换方法](../calibration/README.md#将-kalibr-结果用于-schurvins)见标定说明。
-本板当前部署配置为 `schurvins.yaml`，包含固定陀螺仪矩阵；更新标定时使用对应本板的参数。
+运行配置使用完整的 `schurvins.yaml`，包含相机参数和统一 IMU 内参；更新时使用对应本板的新标定或迁移配置。
 
 先停止已有 VIO、标定采集和 IMU 测试；关闭 PFC 实时预览网页，等待约 3 秒释放 IMU。
 启动前确认板端 `date` 正确，ROS 时间戳使用板端系统时间；校准时间偏移不会自动同步两台机器的时钟。
@@ -115,7 +115,6 @@ export SCHUR_MICRO_ROS=1
 export SCHUR_MICRO_ROS_AGENT=192.168.123.2
 export SCHUR_MICRO_ROS_PORT=8888
 export SCHUR_MICRO_ROS_DOMAIN=0
-export SCHUR_IMU_CALIBRATION=/mnt/data/penguin-flight-console/accelerometer-calibration.json
 
 nohup ./run.sh --vio schurvins.yaml \
   /mnt/data/sensor_cfg.ini auto "$vio_output/poses.csv" 0 \
@@ -125,23 +124,30 @@ echo "VIO PID: $(cat /tmp/vio-micro-ros.pid); output: $vio_output"
 ```
 
 `auto` 查找 SC7U22 IIO 设备，`0` 表示持续运行。启动时保持静止，并让双目共同看向
-有纹理的场景。六面校准 JSON 在启动时加载；日志应显示 `calibration applied`、
+有纹理的场景。启动日志应显示 `single-stage accel/gyro intrinsics enabled`、
 `Camera timestamp offset_ns=...` 和 `micro-ROS: connected ... domain=0`。
 
-本板的 `schurvins.yaml` 还包含 `imu_params.gyro_inverse_matrix`（3×3 行数组），
-来自 Kalibr 的固定陀螺仪比例和轴间补偿。配置存在时默认启用，无需环境开关；日志显示
-`gyroscope matrix correction enabled` 及三行系数。公式为
-`gyro_corrected = gyro_inverse_matrix * gyro_nominal_SI`，陀螺仪 bias 仍由估计器估计。
-VIO 与 IMU 高频预测使用同一补偿，六面加速度计修正保持原流程。
-通过 `run.sh` 启动还默认设置 `SCHUR_IMU_MIDPOINT=1`、`SCHUR_PIXEL_RESIDUAL=1`，
-分别启用中点积分和像素残差；显式设为 `0` 可独立关闭。直接运行二进制需自行设置这两项。
-[tidesense-gyro-matrix.yaml](tidesense-gyro-matrix.yaml) 保存本板系数，合并到本板现有 YAML
-即可；其他设备应使用各自的标定，无此字段时沿用输入值。
+IMU 读取层只做标称 SI 单位换算。`schurvins.yaml` 的 `imu_params` 保存统一内参，
+`input_domain: raw_si` 明确输入域。加速度计和陀螺仪在估计器入口各补偿一次：
 
-`--record` 和独立数据集录制器保存标称比例转换后的陀螺仪 SI 值，保留六面修正后的加速度；
-回放时由 `replay.yaml` 中的矩阵补偿一次。已有录像需要使用包含该矩阵的回放配置。
-若外部工具已补偿 CSV，明确设置 `imu_params.gyro_input_is_corrected: true` 可避免重复补偿；
-实时 IIO 模式拒绝此标记，因为实时源提供未做矩阵补偿的数据。
+```text
+a = accel_inverse_matrix * am + accel_offset
+w = gyro_inverse_matrix * wm + gyro_accel_matrix * a + gyro_offset
+```
+
+VIO 和 IMU 高频预测共用同一个模型，残余零偏由估计器估计。
+[tidesense-imu-intrinsics.yaml](tidesense-imu-intrinsics.yaml) 保存本板单级参数，
+合并到匹配的完整配置中使用；其他设备应使用各自的标定。
+标定转换器可从 Kalibr `scale-misalignment` 结果生成两套逆矩阵和交叉敏感项，
+无需外部校准 JSON 或校准环境变量。旧配置需重新导出或迁移，不能直接当作原始 SI 配置。
+
+通过 `run.sh` 启动默认设置 `SCHUR_IMU_MIDPOINT=1`、`SCHUR_PIXEL_RESIDUAL=1`，
+分别启用中点积分和像素残差；显式设为 `0` 可独立关闭。直接运行二进制需自行设置这两项。
+
+`--calibrate --imu auto`、`--record` 和独立录制器保存标称 SI 数据，
+标定数据不预先应用内参，回放由 `replay.yaml` 中的内参补偿一次。
+外部工具已完整补偿六轴 CSV 时，设置 `imu_params.imu_input_is_corrected: true` 跳过整个模型；
+实时 IIO 模式拒绝此标记，因为实时源提供标称 SI 数据。
 
 当前 `/mnt/data` 已取消 `sync` 挂载，日志和轨迹写入 SD 数据分区，避免持续占满 `/tmp`。
 每次启动创建新的输出目录。若使用旧镜像，先检查 `mount` 中 `/mnt/data` 是否仍含 `sync`，
@@ -203,14 +209,14 @@ scripts/visualization/run.sh
 ```sh
 cd /mnt/data/schurvins-gcc11-static-micro-ros
 record_dir=/mnt/data/vio-record-$(date +%Y%m%d-%H%M%S)
-SCHUR_MICRO_ROS=0 ./run.sh --vio tidesense-20260922-221039.yaml /mnt/data/sensor_cfg.ini auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
+SCHUR_MICRO_ROS=0 ./run.sh --vio schurvins.yaml /mnt/data/sensor_cfg.ini auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
 # Ctrl-C 正常结束录制后：
 SCHUR_MICRO_ROS=0 ./run.sh --replay "$record_dir" "$record_dir/replay-poses.csv"
 ```
 
 不要提前创建录制目录；父目录需存在。录制默认关闭，micro-ROS 可独立开启。
 保存 VIO 实际消费的双目灰度图、连续 IMU、左右原始时间戳、帧序号和标定快照。
-回放不会再次应用六面系数或时间偏移。相机消费队列中已被替换的帧不包含在录制中。
+回放只应用配置中的单级 IMU 内参，时间偏移不重复应用。相机消费队列中已被替换的帧不包含在录制中。
 20 Hz 约 614 MB/分钟；写盘跟不上或空间不足会明确报错，异常录制需显式
 `--allow-incomplete` 才尝试回放。详见 [录制和回放说明](RECORDING.md)。
 

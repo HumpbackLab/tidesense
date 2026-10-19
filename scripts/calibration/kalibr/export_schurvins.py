@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert Kalibr's calibrated stereo/IMU result to TideSense native SchurVINS YAML."""
+"""Convert Kalibr stereo/IMU results to one raw-SI inverse model for SchurVINS."""
 import argparse
 from pathlib import Path
 import sys
@@ -52,8 +52,9 @@ def convert(chain, imu_document):
         imu = imu_document
     if not isinstance(imu, dict):
         raise ValueError('Expected imu0 mapping')
-    if imu.get('model', 'calibrated') != 'calibrated':
-        raise ValueError('Only Kalibr calibrated IMU model is supported')
+    model = imu.get('model', 'calibrated')
+    if model not in ('calibrated', 'scale-misalignment'):
+        raise ValueError('Supported IMU models: calibrated, scale-misalignment')
     if not np.allclose(transform(imu.get('T_i_b', np.eye(4)), 'T_i_b'),
                        np.eye(4), atol=1e-8, rtol=0):
         raise ValueError('T_i_b must be identity: body axes must be SC7U22 chip axes')
@@ -68,8 +69,8 @@ def convert(chain, imu_document):
         cam = chain[name]
         if not isinstance(cam, dict):
             raise ValueError(f'{name}: expected camera mapping')
-        if cam['camera_model'] != 'pinhole' or cam['distortion_model'] != 'radtan':
-            raise ValueError(f'{name}: only pinhole-radtan is supported')
+        if cam['camera_model'] != 'pinhole' or cam['distortion_model'] not in ('radtan', 'equidistant'):
+            raise ValueError(f'{name}: expected pinhole with radtan or equidistant distortion')
         if cam['resolution'] != [640, 400]:
             raise ValueError(f'{name}: live TideSense requires 640x400')
         intrinsics = vector(cam['intrinsics'], 4, f'{name}.intrinsics')
@@ -88,7 +89,7 @@ def convert(chain, imu_document):
                        'line-delay-nanoseconds': 0, 'image_width': 640,
                        'image_height': 400, 'type': 'pinhole',
                        'intrinsics': matrix(intrinsics[:, None]),
-                       'distortion': {'type': 'radial-tangential',
+                       'distortion': {'type': 'radial-tangential' if cam['distortion_model']=='radtan' else 'equidistant',
                                       'parameters': matrix(distortion[:, None])}},
             'T_B_C': matrix(np.linalg.inv(t_cam_imu)),
         })
@@ -102,6 +103,26 @@ def convert(chain, imu_document):
     parameters = {'delay_imu_cam': 0.0, 'max_imu_delta_t': 0.01,
                   'acc_max': 16 * 9.80665, 'omega_max': float(np.deg2rad(2000)),
                   'sigma_integration': 0.0, 'g': 9.80665, 'imu_rate': 200}
+    da, dw, h = np.eye(3), np.eye(3), np.zeros((3,3))
+    if model == 'scale-misalignment':
+        ma = np.asarray(imu['accelerometers']['M'], dtype=float)
+        mw = np.asarray(imu['gyroscopes']['M'], dtype=float)
+        c = np.asarray(imu['gyroscopes']['C_gyro_i'], dtype=float)
+        a = np.asarray(imu['gyroscopes']['A'], dtype=float)
+        for name, value in [('Ma',ma),('Mw',mw),('C_gyro_i',c),('A',a)]:
+            if value.shape != (3,3) or not np.isfinite(value).all():
+                raise ValueError(f'{name}: expected a finite 3x3 matrix')
+        if (not np.allclose(c.T @ c, np.eye(3), atol=1e-6, rtol=0)
+                or not np.isclose(np.linalg.det(c), 1, atol=1e-6)):
+            raise ValueError('C_gyro_i must be a rotation')
+        if any(np.linalg.det(m)<=1e-12 or np.linalg.cond(m)>1e4 for m in (ma,mw)):
+            raise ValueError('IMU scale matrices must be invertible and preserve handedness')
+        da = np.linalg.inv(ma)
+        dw = c.T @ np.linalg.inv(mw)
+        h = -dw @ a @ c
+    parameters.update(input_domain='raw_si', accel_inverse_matrix=da.tolist(),
+                      gyro_inverse_matrix=dw.tolist(), gyro_accel_matrix=h.tolist(),
+                      accel_offset=[0.0]*3, gyro_offset=[0.0]*3)
     for source, dest in (
             ('gyroscope_noise_density', 'sigma_omega_c'),
             ('accelerometer_noise_density', 'sigma_acc_c'),
@@ -130,8 +151,8 @@ def main():
         text = ('# Source: imucam-camchain-imucam.yaml + imucam-imu.yaml\n'
                 '# T_B_C = inverse(T_cam_imu), row-major; cam0=left, cam1=right.\n'
                 '# Paired images use cam0 time shift; delay_imu_cam stays zero.\n'
-                '# Six-face correction is loaded separately by LiveImu.\n'
-                '# Initialization biases are residuals, not six-face offsets.\n'
+                '# One inverse model maps nominal raw SI to the calibrated body frame.\n'
+                '# Initialization biases are residual VIO states; fitted bag biases are not fixed offsets.\n'
                 + yaml.safe_dump(result, sort_keys=False))
         output = args.output or args.results / 'schurvins.yaml'
         # Exclusive creation preserves previous configurations, including symlink targets.

@@ -1,5 +1,5 @@
 {
-  "protocol": "Offline residual IMU calibration on the unchanged six-face-corrected calibration bag. Independent VIO recordings are validation only; no fitted pose scale/time alignment and no GT.",
+  "protocol": "Offline residual IMU calibration on the unchanged historically preprocessed calibration bag. Independent VIO recordings are validation only; no fitted pose scale/time alignment and no GT.",
   "preflight": {
     "source": "/home/ncer/sophpi/cali/tidesense-imucam-kalibr-20261011-173935/imucam.bag",
     "sha256": "9b01523e7ec4d34a8f2c6eaebd0f89cce68b31de7e2e4891550249c8944526bb",
@@ -38,32 +38,7 @@
       "median_abs_lsb_fraction": 0.24602898924163696,
       "p99_abs_lsb_fraction": 0.49427187747915013,
       "max_abs_lsb_fraction": 0.49993745024377745
-    },
-    "six_face_inverse_lattice": {
-      "median_abs_lsb_fraction": 0.0,
-      "p99_abs_lsb_fraction": 4.547473508864641e-13,
-      "max_abs_lsb_fraction": 9.094947017729282e-13
-    },
-    "six_face_reference": {
-      "sensor": "sc7u22",
-      "frame": "imu_chip_xyz",
-      "sampling_frequency_hz": 200,
-      "source": "/mnt/data/penguin-flight-console/accelerometer-calibration.json",
-      "six_face_applied": true,
-      "accel_scale_m_s2_per_lsb": 0.004788403,
-      "gyro_scale_rad_s_per_lsb": 0.001065264,
-      "bias_m_s2": [
-        -0.44857120850268206,
-        0.20333474499202886,
-        -0.6918093118279289
-      ],
-      "correction_scale": [
-        0.9977862286984542,
-        0.9975905220776843,
-        0.9875934244981269
-      ]
-    },
-    "six_face_applied_confirmed": true
+    }
   },
   "original_ros2_check": {
     "ros2_source": "/home/ncer/sophpi/cali/tidesense-imucam/tidesense-imucam_0.db3",
@@ -80,7 +55,6 @@
         "status": "complete",
         "model": "scale-misalignment",
         "input_values_changed": false,
-        "six_face_policy": "Preserve bag IMU values exactly; estimate residual intrinsics for this input stream.",
         "input_sha256": {
           "imucam.bag": "9b01523e7ec4d34a8f2c6eaebd0f89cce68b31de7e2e4891550249c8944526bb",
           "camchain-input.yaml": "b6634060207f842ce54de5eab297d44644769e75e8f840e296738e1d4663c510",
@@ -427,7 +401,6 @@
         "status": "complete",
         "model": "scale-misalignment",
         "input_values_changed": false,
-        "six_face_policy": "Preserve bag IMU values exactly; estimate residual intrinsics for this input stream.",
         "input_sha256": {
           "imucam.bag": "9b01523e7ec4d34a8f2c6eaebd0f89cce68b31de7e2e4891550249c8944526bb",
           "camchain-input.yaml": "7d7687f9e50fdb0e2753d7b46f0e7eedc72c25ab19f83dedd824e3f4ca00e5d8",
@@ -775,7 +748,6 @@
         "model": "scale-misalignment",
         "input_values_changed": false,
         "gyro_g_sensitivity_estimated": false,
-        "six_face_policy": "Preserve bag IMU values exactly; estimate residual intrinsics for this input stream.",
         "input_sha256": {
           "imucam.bag": "9b01523e7ec4d34a8f2c6eaebd0f89cce68b31de7e2e4891550249c8944526bb",
           "camchain-input.yaml": "7d7687f9e50fdb0e2753d7b46f0e7eedc72c25ab19f83dedd824e3f4ca00e5d8",
@@ -1124,7 +1096,7 @@
       "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-radtan",
       "recording": "/home/ncer/sophpi/install/replay-20261012-084638/record",
       "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
-      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "source_input": "Recorded IMU already has historical input preprocessing; it is not applied again.",
       "noise": "Original device continuous-time scalar noise coefficients held fixed.",
       "new_camera_offset_ns": 10506779,
       "old_export_offset_ns": 10797086,
@@ -1463,7 +1435,7 @@
       "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-radtan",
       "recording": "/home/ncer/sophpi/install/replay-20261012-003648/record",
       "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
-      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "source_input": "Recorded IMU already has historical input preprocessing; it is not applied again.",
       "noise": "Original device continuous-time scalar noise coefficients held fixed.",
       "new_camera_offset_ns": 10506779,
       "old_export_offset_ns": 10797086,
@@ -1641,7 +1613,7 @@
       "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi",
       "recording": "/home/ncer/sophpi/install/replay-20261012-084638/record",
       "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
-      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "source_input": "Recorded IMU already has historical input preprocessing; it is not applied again.",
       "noise": "Original device continuous-time scalar noise coefficients held fixed.",
       "new_camera_offset_ns": 10630673,
       "old_export_offset_ns": 10797086,
@@ -1980,7 +1952,7 @@
       "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi",
       "recording": "/home/ncer/sophpi/install/replay-20261012-003648/record",
       "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
-      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "source_input": "Recorded IMU already has historical input preprocessing; it is not applied again.",
       "noise": "Original device continuous-time scalar noise coefficients held fixed.",
       "new_camera_offset_ns": 10630673,
       "old_export_offset_ns": 10797086,
@@ -2206,7 +2178,7 @@
       "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs",
       "recording": "/home/ncer/sophpi/install/replay-20261012-084638/record",
       "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
-      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "source_input": "Recorded IMU already has historical input preprocessing; it is not applied again.",
       "noise": "Original device continuous-time scalar noise coefficients held fixed.",
       "new_camera_offset_ns": 10918641,
       "old_export_offset_ns": 10797086,
@@ -2502,7 +2474,7 @@
       "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi-nogs",
       "recording": "/home/ncer/sophpi/install/replay-20261012-003648/record",
       "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
-      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "source_input": "Recorded IMU already has historical input preprocessing; it is not applied again.",
       "noise": "Original device continuous-time scalar noise coefficients held fixed.",
       "new_camera_offset_ns": 10918641,
       "old_export_offset_ns": 10797086,
@@ -2753,7 +2725,7 @@
       "calibration": "/home/ncer/sophpi/cali/tidesense-imucam-scale-misalignment-20261017-equi",
       "recording": "/home/ncer/sophpi/install/replay-20261012-003648/record",
       "correction": "a=inv(Ma)*am; w=C.T*inv(Mw)*(wm-A*C*a); no fitted bias subtraction",
-      "source_input": "Recorded IMU already has six-face correction; it is not applied again.",
+      "source_input": "Recorded IMU already has historical input preprocessing; it is not applied again.",
       "noise": "Original device continuous-time scalar noise coefficients held fixed.",
       "new_camera_offset_ns": 10630673,
       "old_export_offset_ns": 10797086,
@@ -2932,5 +2904,6 @@
     "openvins": 30,
     "all_repeat_pairs_identical": true
   },
-  "final_source_hash_audit_passed": true
+  "final_source_hash_audit_passed": true,
+  "historical_input_metadata_archive": "install/single-stage-imu-20261019/historical-metadata/intrinsics-results-20261017.json"
 }
