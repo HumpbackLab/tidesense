@@ -66,10 +66,19 @@ git clone https://github.com/HumpbackLab/tidesense.git
 
 - 更新所有子库（在已有工程的根目录执行）：
 
-**警告：此命令会强制覆盖子库中的本地修改和未推送提交，并删除未跟踪文件（包括被 Git 忽略的文件）。执行前请备份需要保留的内容，并推送需要保留的提交。该命令仅更新 `scripts/subtree.xml` 中列出的子库，不更新根仓库。**
+从 `scripts/subtree.xml` 读取子库路径，依次在各子库当前分支执行 `git pull`；某个子库更新失败时停止循环。此命令不更新根仓库。
 
 ```bash
-bash scripts/repo_clone.sh --gitpull scripts/subtree.xml
+while IFS= read -r repo; do
+  printf '\n更新 %s\n' "$repo"
+  git -C "$repo" pull || break
+done < <(python3 - <<'PY'
+import xml.etree.ElementTree as ET
+
+for project in ET.parse("scripts/subtree.xml").getroot().findall("project"):
+    print(project.get("path") or project.attrib["name"])
+PY
+)
 ```
 
 - 编译
