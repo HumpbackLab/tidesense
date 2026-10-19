@@ -13,8 +13,8 @@ Kalibr 直接拟合这条输入流，生成用于 VIO 的单级模型，见 [IMU
 
 ## 构建与启动
 
-使用 `SCHUR_WITH_MICRO_ROS=ON scripts/schurvins/build.sh` 构建可选 micro-ROS 包。
-这个开关仍默认 OFF；普通 VIO 的 micro-ROS 通信仍默认关闭。
+使用 `SCHUR_WITH_MICRO_ROS=ON scripts/schurvins/build.sh` 构建 micro-ROS 包。
+构建脚本及 TideSense 默认镜像均开启这个编译选项；普通 VIO 的 micro-ROS 通信仍默认关闭。
 
 先在电脑启动 Humble Agent（沿用 [MICRO-ROS.md](MICRO-ROS.md) 的安装与环境配置）：
 

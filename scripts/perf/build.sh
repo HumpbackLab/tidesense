@@ -6,6 +6,7 @@ work="$sdk_root/install/perf-build"
 deps="$work/deps"
 prefix="$sdk_root/host-tools/gcc/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-"
 output="$sdk_root/install/soc_sg2002_tidesense_arm64_sd"
+package="$output/perf"
 jobs=${PERF_JOBS:-8}
 archive="$work/elfutils-0.184.tar.bz2"
 mkdir -p "$deps" "$work/elfutils-out" "$work/perf-out"
@@ -40,16 +41,18 @@ make -C "$sdk_root/linux_5.10/tools/perf" -j"$jobs" \
     NO_LIBAUDIT=1 NO_LIBNUMA=1 NO_LIBCRYPTO=1 NO_LIBCAP=1 \
     NO_LIBBABELTRACE=1 NO_LIBZSTD=1 NO_LIBDEBUGINFOD=1 NO_AUXTRACE=1 \
     NO_JVMTI=1 NO_SDT=1 WERROR=0
-install -d "$output/tools/perf" "$output/rootfs/usr/bin"
-install -m755 "$work/perf-out/perf" "$output/tools/perf/perf"
-"${prefix}strip" "$output/tools/perf/perf"
-install -m755 "$output/tools/perf/perf" "$output/rootfs/usr/bin/perf"
+install -d "$package" "$output/rootfs/usr/bin"
+install -m755 "$work/perf-out/perf" "$package/perf"
+"${prefix}strip" "$package/perf"
+install -m755 "$package/perf" "$output/rootfs/usr/bin/perf"
 install -d "$output/rootfs/usr/share/doc/perf-tip"
 install -m644 "$sdk_root/linux_5.10/tools/perf/Documentation/tips.txt" \
     "$output/rootfs/usr/share/doc/perf-tip/tips.txt"
+install -m644 "$sdk_root/linux_5.10/tools/perf/Documentation/tips.txt" "$package/tips.txt"
 "${prefix}gcc" -O2 -g -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer \
     -fno-optimize-sibling-calls -static "$sdk_root/scripts/perf/smoke.c" \
-    -o "$output/tools/perf/perf-smoke"
-install -m644 "$work/elfutils-0.184/COPYING-GPLV2" "$output/tools/perf/COPYING-GPLV2"
-install -m644 "$work/elfutils-0.184/COPYING-LGPLV3" "$output/tools/perf/COPYING-LGPLV3"
-echo "perf installed in $output/tools/perf and rootfs/usr/bin"
+    -o "$package/perf-smoke"
+install -m644 "$work/elfutils-0.184/COPYING-GPLV2" "$package/COPYING-GPLV2"
+install -m644 "$work/elfutils-0.184/COPYING-LGPLV3" "$package/COPYING-LGPLV3"
+install -m644 "$sdk_root/scripts/perf/README.md" "$package/README.md"
+echo "perf installed in $package and rootfs/usr/bin"

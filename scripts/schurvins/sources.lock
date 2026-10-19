@@ -1,5 +1,5 @@
-# Official upstream source revisions; build.sh verifies these exact commits.
-SCHUR_REV=d8ab6dff20860694d8d879d716d7fd6cb2c2530e
+# Integrated TideSense source and dependency revisions verified by build.sh.
+SCHUR_REV=07149fe60aa4b514ead14d687fabb024001fbed9
 MINKINDR_REV=564f12639a8447d4d3e5e7707851424302941056
 FAST_REV=4914ed963aba8d2bb476551e186e4b20a206f03d
 YAML_REV=9a3624205e8774953ef18f57067b3426c1c5ada6

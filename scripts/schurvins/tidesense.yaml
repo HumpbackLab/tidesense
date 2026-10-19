@@ -1,0 +1,166 @@
+# Reference calibration for the currently tested TideSense board, 640x400 / 20 Hz.
+# Camera exposure limit: 500 us; live_camera_time_offset_ns includes the previous
+# exposure-time adjustment. This is a migrated configuration, not a new calibration.
+# IMU input: nominal chip-axis raw SI; apply the unified intrinsics exactly once.
+# Other boards require their own camera/IMU calibration.
+label: TideSense_Kalibr
+id: tidesense-kalibr
+cameras:
+- camera:
+    label: cam0
+    id: tidesense-cam0
+    line-delay-nanoseconds: 0
+    image_width: 640
+    image_height: 400
+    type: pinhole
+    intrinsics:
+      rows: 4
+      cols: 1
+      data:
+      - 328.9542148274374
+      - 328.2538626851859
+      - 356.1404103703769
+      - 175.52741735596317
+    distortion:
+      type: radial-tangential
+      parameters:
+        rows: 4
+        cols: 1
+        data:
+        - -0.2742635453235618
+        - 0.05908787873991614
+        - 0.0010990188499435513
+        - -0.00025414547837411175
+  T_B_C:
+    rows: 4
+    cols: 4
+    data:
+    - -0.9999923982969084
+    - 0.00020634397010528064
+    - -0.0038936834183814616
+    - -0.03604082730066826
+    - -0.00021171123322368186
+    - -0.9999990280198016
+    - 0.001378092088685675
+    - 0.0036800045764022924
+    - -0.003893395272805532
+    - 0.0013789059493570727
+    - 0.9999914700094354
+    - 0.01726894562970295
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+- camera:
+    label: cam1
+    id: tidesense-cam1
+    line-delay-nanoseconds: 0
+    image_width: 640
+    image_height: 400
+    type: pinhole
+    intrinsics:
+      rows: 4
+      cols: 1
+      data:
+      - 328.7295170516949
+      - 328.67205068451767
+      - 342.33222952058753
+      - 197.79095214360643
+    distortion:
+      type: radial-tangential
+      parameters:
+        rows: 4
+        cols: 1
+        data:
+        - -0.2685731354829868
+        - 0.05448827405566794
+        - -0.0012513636983430888
+        - 0.000759217932427126
+  T_B_C:
+    rows: 4
+    cols: 4
+    data:
+    - 0.9995110911613904
+    - -0.00013506424440507932
+    - -0.03126596237150797
+    - 0.013731436711376995
+    - -1.786517522246076e-05
+    - 0.9999880392589232
+    - -0.004890911973218726
+    - 0.0036712466948101373
+    - 0.031266248994757634
+    - 0.004889079335022423
+    - 0.9994991338550793
+    - 0.016879556620573426
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+live_camera_time_offset_ns: 11548086
+imu_params:
+  gyro_inverse_matrix:
+  - - 1.0135917376377497
+    - 0.004511573340816782
+    - -0.006902736844987923
+  - - -0.005008111639293255
+    - 0.990749732136619
+    - 0.001297795685019781
+  - - 0.004838599232382708
+    - 0.0011236906674843305
+    - 0.9999786911813152
+  delay_imu_cam: 0.0
+  max_imu_delta_t: 0.01
+  acc_max: 156.9064
+  omega_max: 34.90658503988659
+  sigma_integration: 0.0
+  g: 9.80665
+  imu_rate: 200
+  sigma_omega_c: 0.001253427834534552
+  sigma_acc_c: 0.013456558736400606
+  sigma_omega_bias_c: 0.0004450516959753275
+  sigma_acc_bias_c: 0.002833135380475674
+  input_domain: raw_si
+  accel_inverse_matrix:
+  - - 0.9977862286984542
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.9975905220776843
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.9875934244981269
+  accel_offset:
+  - 0.44757817443459913
+  - -0.20284481441313088
+  - 0.6832263273678368
+  gyro_accel_matrix:
+  - - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+  gyro_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+imu_initialization:
+  velocity:
+  - 0.0
+  - 0.0
+  - 0.0
+  omega_bias:
+  - 0.0
+  - 0.0
+  - 0.0
+  acc_bias:
+  - 0.0
+  - 0.0
+  - 0.0
+  velocity_sigma: 2.0
+  omega_bias_sigma: 0.01
+  acc_bias_sigma: 0.1

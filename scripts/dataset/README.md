@@ -12,6 +12,9 @@
 
 ## 编译与部署
 
+TideSense `build_all` 默认构建本程序并预装到 SD 卡的 `/mnt/data/tidesense-dataset/`，可直接进入该目录录制。
+单独构建和手动部署：
+
 ```sh
 scripts/dataset/build.sh
 scp -O install/soc_sg2002_tidesense_arm64_sd/tidesense-dataset-a53.tar root@192.168.123.99:/mnt/data/

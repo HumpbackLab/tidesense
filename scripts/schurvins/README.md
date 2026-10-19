@@ -5,14 +5,14 @@
 现已支持 OV9281 **实时双目图像输入与纯视觉前端**，用法和实测见 [CAMERA.md](CAMERA.md)。现已接入 SC7U22 **200Hz 实时 IMU**，双目＋惯性入口见 [IMU.md](IMU.md)；原离线双目＋IMU 入口保留。
 
 可选 **micro-ROS 位姿/跟踪状态发布**见 [MICRO-ROS.md](MICRO-ROS.md)。构建开关
-`SCHUR_WITH_MICRO_ROS=ON`；运行时还需显式设置 `SCHUR_MICRO_ROS=1` 和电脑端
-`SCHUR_MICRO_ROS_AGENT`。两层开关默认均关闭，`SCHUR_MICRO_ROS=0` 可独立运行 VIO。
+`SCHUR_WITH_MICRO_ROS=ON`，构建脚本默认开启；运行时还需显式设置 `SCHUR_MICRO_ROS=1` 和电脑端
+`SCHUR_MICRO_ROS_AGENT`。通信默认关闭，`SCHUR_MICRO_ROS=0` 可独立运行 VIO。
 
 独立双目标定采集：`--calibrate SENSOR.ini --fps 5`，直接发布 ROS 图像，见 [CALIBRATION.md](CALIBRATION.md)。
 
-源码：SDK 根目录 `SchurVINS/`，来自 <https://github.com/bytedance/SchurVINS>。
+源码：SDK 根目录 `SchurVINS/`，使用 <https://github.com/HumpbackLab/SchurVINS> 的 TideSense 集成版本，上游为 <https://github.com/bytedance/SchurVINS>。
 精确版本与依赖见 `sources.lock`；此目录保存 SDK 构建入口、运行程序和上游补丁。
-`SchurVINS/` 与 SDK 其它独立源码库一样不直接纳入主库，构建脚本可恢复指定版本并应用补丁。
+`SchurVINS/` 与 SDK 其它独立源码库一样不直接纳入主库，构建脚本可恢复指定集成版本；历史补丁已包含在该版本中。
 
 ## GCC 11 全静态版本
 
@@ -29,9 +29,12 @@ SchurVINS、OpenCV、yaml-cpp、glog 0.4.0 和 FAST；Eigen、minkindr、Boost �
 构建脚本检查 ELF 不含 `PT_INTERP` 或 `DT_NEEDED`。
 
 构建缓存：`install/schurvins-gcc11-static/`，源码缓存位于 `install/schurvins-build/deps/`。
-输出目录：`install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static/`。
-安装包：同级 `schurvins-gcc11-static-a53.tar`（不压缩，板端无须 gzip）。
-传到板端后使用 `tar -xf schurvins-gcc11-static-a53.tar -C /mnt/data` 解包。
+默认输出目录：`install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros/`。
+安装包：同级 `schurvins-gcc11-static-micro-ros-a53.tar`（不压缩，板端无须 gzip）。
+传到板端后使用 `tar -xf schurvins-gcc11-static-micro-ros-a53.tar -C /mnt/data` 解包。
+`SCHUR_WITH_MICRO_ROS=OFF` 可单独构建不带通信库的 `schurvins-gcc11-static/` 包。
+TideSense 的 `build_all` 会构建带 micro-ROS 的版本并放入 SD 卡 DATA 分区。
+包中 `schurvins.yaml` 来自 `scripts/schurvins/tidesense.yaml`，对应当前测试板；其它硬件需替换为本板标定。
 该版本无须部署 OpenCV 动态库，也无须升级板上 glibc。
 `BUILD-INFO` 记录编译器与构建模式；全静态程序可直接执行：
 
@@ -43,15 +46,16 @@ SchurVINS、OpenCV、yaml-cpp、glog 0.4.0 和 FAST；Eigen、minkindr、Boost �
 已在当前板上验证（2026-09-17）：在不含系统动态库的应用目录内，以 `env -i` + `chroot`
 运行合成自检及 CSV 输入测试，均为 `frames=6 tracking=6 imu_fused=6`，位姿均为有限值。
 可执行文件约 5.5 MB，压缩包约 3.0 MB。日志见 `scripts/schurvins/board-test-gcc11-static.log`。
-板上安装目录为 `/mnt/data/schurvins-gcc11-static`。
+当时板上安装目录为 `/mnt/data/schurvins-gcc11-static`；当前默认镜像使用带 `-micro-ros` 后缀的目录。
 
 尚未验证真实 VIO 精度。
-未剥离符号的程序和静态核心库位于构建缓存的 `core/` 下。
+未剥离符号的程序和静态核心库位于构建缓存的 `core-micro-ros/` 下；关闭 micro-ROS 时为 `core/`。
 
 ## 构建要求与功能范围
 
 `build.sh` 默认使用 GCC 11 全静态构建，仍接受 `--gcc11-static` 参数。
 主机需要 Git、curl、CMake >= 3.15、make、Boost 1.74 开发头文件（`libboost1.74-dev`）。
+默认还需要 ROS 2 Humble 开发环境和 Python venv；详见 [MICRO-ROS.md](MICRO-ROS.md)。
 也可用 `BOOST_HEADERS=/path/to/boost` 指定头文件目录，或用 `JOBS=2` 降低并行度。
 使用 `-mcpu=cortex-a53`、C++14，SchurVINS 核心保留栈帧用于 perf。
 依赖 SDK Eigen 3.3.7；其它依赖下载版本见 `sources.lock`，Boost 仅使用头文件。
@@ -67,9 +71,9 @@ FAST 使用通用 FAST-10 实现；OpenCV/Eigen 使用 AArch64 NEON。
 将整个产物目录复制到板子（需约 6 MB 空间）：
 
 ```sh
-scp -O -r install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static root@192.168.123.99:/mnt/data/
+scp -O -r install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros root@192.168.123.99:/mnt/data/
 ssh root@192.168.123.99
-cd /mnt/data/schurvins-gcc11-static
+cd /mnt/data/schurvins-gcc11-static-micro-ros
 ./run.sh --help
 ./run.sh --self-test synthetic.yaml
 ```

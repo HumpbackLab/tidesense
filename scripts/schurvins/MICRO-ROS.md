@@ -41,18 +41,18 @@ ordinary VIO still uses them for pose/tracking. No images are sent by ordinary V
 
 ## Build switches
 
-Default build, **no micro-ROS library dependency**:
+Default build includes micro-ROS (GCC11, A53, static):
 
 ```sh
 scripts/schurvins/build.sh
 # Explicit equivalent:
-SCHUR_WITH_MICRO_ROS=OFF scripts/schurvins/build.sh
+SCHUR_WITH_MICRO_ROS=ON scripts/schurvins/build.sh
 ```
 
-Optional micro-ROS build (GCC11, A53, static):
+Standalone build without the micro-ROS library:
 
 ```sh
-SCHUR_WITH_MICRO_ROS=ON scripts/schurvins/build.sh
+SCHUR_WITH_MICRO_ROS=OFF scripts/schurvins/build.sh
 ```
 
 Requires host ROS 2 Humble development tools (default `/opt/ros/humble/setup.bash`,
@@ -68,6 +68,8 @@ feature shuffling. The patch uses a local POSIX `rand_r` seed, so starting or
 reconnecting micro-ROS cannot reseed the estimator's random sequence.
 
 The existing NEON environment switches still apply; their defaults remain OFF.
+The TideSense `build_all` / `build_tidesense_apps` profile defaults these NEON
+switches to ON and always builds with micro-ROS enabled for the SD image.
 Outputs are separate, so an optional build does not replace the standalone VIO:
 
 - Standalone: `install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-a53.tar`

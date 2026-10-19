@@ -97,3 +97,13 @@ install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img
 ```
 
 镜像包含 BOOT、ROOTFS 和 DATA 三个分区，首次启动会自动将 DATA 分区扩展至 SD 卡末尾。烧录步骤和单独重新打包命令见 [SD 卡镜像与烧录说明](build/boards/cv181x/sg2002_tidesense_arm64_sd/README.md#制作并烧录-sd-卡)。
+
+`build_all` 默认构建并预装以下程序：
+
+- `/mnt/data/schurvins-gcc11-static-micro-ros/`：SchurVINS，编译启用 `SCHUR_WITH_MICRO_ROS=ON`，附带 `schurvins.yaml`。
+- `/mnt/data/tidesense-dataset/`：独立双目/IMU 录制工具。
+- `/usr/bin/perf` 及 `/mnt/data/perf/`：性能分析工具、测试负载和许可文件。
+
+主机需安装 ROS 2 Humble 开发环境及各工具的构建依赖，首次构建会下载锁定版本的依赖。
+micro-ROS 通信在运行时仍由 `SCHUR_MICRO_ROS=1` 和 Agent 地址启用。
+随包标定来自当前测试板；更换硬件后应使用对应板卡的标定。

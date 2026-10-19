@@ -11,7 +11,7 @@ esac
 work="$sdk/install/schurvins-gcc11-static"
 stage="$work/stage"
 out="$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static"
-micro_ros=${SCHUR_WITH_MICRO_ROS:-OFF}
+micro_ros=${SCHUR_WITH_MICRO_ROS:-ON}
 case "$micro_ros" in
   OFF) core="$work/core" ;;
   ON) core="$work/core-micro-ros"; out="$out-micro-ros" ;;
@@ -40,18 +40,12 @@ fetch_git() {
   }
 }
 verify() { printf '%s  %s\n' "$1" "$2" | sha256sum -c -; }
-fetch_git https://github.com/bytedance/SchurVINS.git "$sdk/SchurVINS" "$SCHUR_REV" allow-local-commits
+fetch_git https://github.com/HumpbackLab/SchurVINS.git "$sdk/SchurVINS" "$SCHUR_REV" allow-local-commits
 fetch_git https://github.com/ethz-asl/minkindr.git "$deps/minkindr" "$MINKINDR_REV"
 fetch_git https://github.com/uzh-rpg/fast_neon.git "$deps/fast_neon" "$FAST_REV"
 fetch_git https://github.com/jbeder/yaml-cpp.git "$deps/yaml-cpp" "$YAML_REV"
-for patch in "$here"/patches/*.patch; do
-  if git -C "$sdk/SchurVINS" apply --reverse --check "$patch" 2>/dev/null; then
-    echo "Already applied: $patch"
-  else
-    git -C "$sdk/SchurVINS" apply --check "$patch"
-    git -C "$sdk/SchurVINS" apply "$patch"
-  fi
-done
+# The pinned TideSense revision already contains the native build, NEON and
+# estimator fixes. Historical patches must not be reapplied to the fork.
 archive="$deps/opencv-$OPENCV_VERSION.tar.gz"
 if [[ ! -f "$archive" ]]; then
   curl -fL --retry 3 "https://codeload.github.com/opencv/opencv/tar.gz/refs/tags/$OPENCV_VERSION" -o "$archive.part"
@@ -119,6 +113,8 @@ fi
 "${cross}strip" --strip-unneeded "$out/bin/schurvins_stereo" "$out/bin/schurvins_imu_test"
 cp "$here/prepare-imu.sh" "$out/bin/"
 cp "$here/tidesense-imu-intrinsics.yaml" "$out/"
+cp "$here/tidesense.yaml" "$out/schurvins.yaml"
+rm -f "$out/tidesense-gyro-matrix.yaml"
 cp "$here/tests/board-imu.sh" "$out/bin/test-imu-board.sh"
 "${cross}readelf" -lW "$out/bin/schurvins_stereo" > "$work/elf-program-headers.txt"
 "${cross}readelf" -dW "$out/bin/schurvins_stereo" > "$work/elf-dynamic.txt"
@@ -154,7 +150,7 @@ cp "$stage/include/boost/config.hpp" "$out/licenses/boost-notices.hpp"
 cp "$work/sysroot/eigen/include/eigen3/Eigen/Core" "$out/licenses/Eigen-Core-notices"
 cp /usr/share/doc/libboost1.74-dev/copyright "$out/licenses/Boost-copyright" 2>/dev/null || true
 cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
-(cd "$out" && sha256sum bin/schurvins_stereo bin/schurvins_camera bin/fsin.sh bin/schurvins_imu_test bin/prepare-imu.sh bin/test-imu-board.sh run.sh camera-smoke.yaml > SHA256SUMS)
+(cd "$out" && sha256sum bin/schurvins_stereo bin/schurvins_camera bin/fsin.sh bin/schurvins_imu_test bin/prepare-imu.sh bin/test-imu-board.sh run.sh camera-smoke.yaml schurvins.yaml > SHA256SUMS)
 {
   "${cross}g++" --version | head -1
   printf 'SCHUR_OPT_HALFSAMPLE_NEON=%s\nSCHUR_OPT_ZMSSD_NEON=%s\nSCHUR_OPT_FAST10_NEON=%s\n' \

@@ -4,6 +4,9 @@
 
 ## 构建
 
+TideSense `build_all` 默认构建 perf，SD 镜像预装 `/usr/bin/perf`，测试负载和许可文件位于 `/mnt/data/perf/`。
+以下步骤用于单独构建或更新内核：
+
 在 SDK 根目录执行：
 
 ```sh
@@ -18,7 +21,7 @@ build_osdrv
 构建脚本使用 SDK ARM64 工具链及 `linux_5.10/tools/perf`，下载并校验
 elfutils 0.184（校验值来自 SDK Buildroot），使用 SDK 的 ARM64 zlib。
 主机需要 make、gcc、flex、bison、curl、tar、bzip2、gettext 等构建工具。
-产物放在 `install/soc_sg2002_tidesense_arm64_sd/tools/perf/`，同时将 perf
+产物放在 `install/soc_sg2002_tidesense_arm64_sd/perf/`，同时将 perf
 安装到该板 rootfs 的 `/usr/bin/perf`，后续打包根文件系统时会包含它。
 
 内核启用 `PERF_EVENTS`、`HW_PERF_EVENTS`、`ARM_PMU`（默认选中）、
@@ -50,7 +53,7 @@ perf stat -e task-clock,context-switches,page-faults -- your_program
 ```
 
 将 `your_program`/`PID` 换成实际应用。可用
-`/mnt/data/perf-test/perf-smoke` 作为三秒测试负载。
+`/mnt/data/perf/perf-smoke` 作为三秒测试负载。
 应用若需要完整调用栈，应保留符号，并使用 `-fno-omit-frame-pointer`
 （ARM64 可加 `-mno-omit-leaf-frame-pointer`）；关闭尾调用优化可保留更多调用层级。
 
@@ -71,6 +74,8 @@ task-clock/context-switches/page-faults 均能计数。按 99 Hz 进行 cycles �
 原始输出见 `board-test.log`；日志结尾缺少可选 tips 文件的提示已在最终安装中补齐。
 
 ## 部署与回退
+
+下面记录的是早期手工部署；当前默认 SD 镜像已包含 perf，无须另行复制。
 
 板上工具位于 `/usr/bin/perf`；测试负载和结果放在 `/mnt/data/perf-test/`。
 内核/设备树通过 SD 启动分区的 `boot.sd` 更新，旧版本备份为
