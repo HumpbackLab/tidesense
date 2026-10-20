@@ -22,6 +22,7 @@ case "${1:-}" in
  start|train)
   action=$1
   [ "${2:-20}" = 20 ] || fail 'FSIN is fixed at IMU 200 Hz / 10 (20 Hz)'
+  [ "$(cat "$iio/in_accel_sampling_frequency")" = 200 ] || fail '20Hz FSIN requires IMU 200Hz; stop UVC mode and restore 200Hz first'
   [ "$(cat "$iio/fsin_enable")" = 0 ] || fail 'Stop FSIN before starting a new pulse train'
   count=0
   if [ "$action" = train ]; then

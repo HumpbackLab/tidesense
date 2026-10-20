@@ -26,8 +26,10 @@ cd /mnt/data/schurvins-gcc11-static-micro-ros
 
 - 内核 `drivers/iio/imu/sc7u22.c` 驱动拥有 SPI2 和 INT1。
   INT1 接 SG2002 pin 53 / SD1_D1 / PWR_GPIO20，推挽高有效、上升沿中断。
-- 硬件固定 **200 Hz**、加速度 ±16g、陀螺仪 ±2000°/s、OSR4。
-  使用具名寄存器/位定义构造配置，启动时回读验证；IIO 频率/量程属性只读，防止与 VIO 配置不一致。
+- VIO 使用默认 **200 Hz**、加速度 ±16g、陀螺仪 ±2000°/s、OSR4。
+  使用具名寄存器/位定义构造配置，启动时回读验证；量程属性只读。
+  新内核允许在 IIO 缓冲和 FSIN 均停止时，将两路采样率一起切换为 200 或 400 Hz；
+  VIO 仍明确检查 200 Hz。独立 [UVC 模式](../uvc/README.md) 使用 400/40 Hz，正常退出恢复原频率。
 - INT1 路由陀螺仪数据就绪。硬中断入口首先调用 `ktime_get_ns()` 保存 **CLOCK_MONOTONIC**
   纳秒时间；线程化中断读取六轴并检查两路数据就绪。用户态不重新打时间戳。
   先启用 GPIO IRQ、再路由传感器 DRDY，避免启动丢边沿。首次路由可能对应启动期间
@@ -37,7 +39,7 @@ cd /mnt/data/schurvins-gcc11-static-micro-ros
   `/etc/init.d/S21imu_priority` 进一步将 SC7U22 IRQ 线程设为 `SCHED_FIFO 95`、SPI2
   消息线程设为 `SCHED_FIFO 94`，均高于 ISP/VPSS 的 90；每次开机自动应用，
   按线程名称和物理控制器定位。运行该脚本的 `status` 可读回设置。
-- FIFO 关闭、BDU 开启；每次中断对应一次六轴寄存器读取。读取耗时达到一个采样周期（5 ms）时
+- FIFO 关闭、BDU 开启；每次中断连续读取状态及六轴寄存器。读取耗时达到一个采样周期（200Hz 为 5ms，400Hz 为 2.5ms）时
   丢弃并统计，不把可能已更新的数据配上旧时间。没有硬件序号，所以不能声称能精确统计所有丢样。
   无数据时消费者超时报错，没有轮询传感器的兜底路径。
 - IIO scan：6 个 little-endian int16，顺序 accel XYZ / gyro XYZ，偏移 12–15 是 padding，
