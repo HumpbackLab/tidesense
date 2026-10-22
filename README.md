@@ -58,10 +58,9 @@ https://oshwhub.com/brics-hospital-drone-team/project_hpetjiuj
 
 - 获取源码：
 ``` bash
-mkdir -p <WORKSPACE>
-cd <WORKSPACE>
 git clone https://github.com/HumpbackLab/tidesense.git
-./tidesense/scripts/repo_clone.sh --gitclone tidesense/scripts/subtree.xml
+cd tidesense
+./scripts/repo_clone.sh --gitclone ./scripts/subtree.xml
 ```
 
 - 更新所有子库（在已有工程的根目录执行）：
