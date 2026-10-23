@@ -1,0 +1,118 @@
+name: Release SD card image
+run-name: Release TideSense ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 / tag（例如 v1.0.0，按输入原样使用）'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-sdcard-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Validate version and tag the triggering commit
+        run: |
+          if [[ ! "$VERSION" =~ ^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,99}$ ]] ||
+             ! git check-ref-format "refs/tags/$VERSION"; then
+            echo '::error::版本号需为 1–100 个字母、数字或 . _ + -，且是有效的 Git tag。'
+            exit 1
+          fi
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo '::error::该版本的 Release 已存在，请使用新的版本号。'
+            exit 1
+          fi
+          if git show-ref --verify --quiet "refs/tags/$VERSION"; then
+            if [[ "$(git rev-parse "refs/tags/$VERSION^{commit}")" != "$GITHUB_SHA" ]]; then
+              echo '::error::该 tag 已指向其他 commit，禁止覆盖。'
+              exit 1
+            fi
+            echo 'Tag already points at this commit; retrying the build.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git tag -a "$VERSION" "$GITHUB_SHA" -m "TideSense $VERSION"
+            git push origin "refs/tags/$VERSION"
+          fi
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache
+          df -h "$GITHUB_WORKSPACE"
+
+      - name: Prepare the SDK build environment
+        run: docker build --tag tidesense-sdk:ci --file .github/docker/sdk.Dockerfile .github/docker
+
+      - name: Fetch SDK sources and build the SD card image
+        run: |
+          # The release token stays on the host and is not passed to SDK builds.
+          # Keep this directory writable by the host after the root container exits.
+          mkdir -p release
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/sdk" \
+            --env JOBS=4 --env PERF_JOBS=4 \
+            tidesense-sdk:ci bash -eo pipefail -c '
+              git config --global --add safe.directory /sdk
+              python3 .github/scripts/prepare-sdk.py
+              source build/envsetup_soc.sh
+              defconfig sg2002_tidesense_arm64_sd
+              build_all
+              test -s install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img
+            '
+
+      - name: Compress image and generate checksums
+        run: |
+          image="install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img"
+          asset="tidesense-${VERSION}-sdcard.img.xz"
+          xz -T2 -6 --stdout "$image" > "release/$asset"
+          xz --test "release/$asset"
+          cd release
+          sha256sum "$asset" sdk-sources.json > SHA256SUMS
+          sha256sum --check SHA256SUMS
+
+      - name: Publish GitHub Release
+        run: |
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          TideSense ${VERSION}
+
+          - Commit: ${GITHUB_SHA}
+          - Board: sg2002_tidesense_arm64_sd (SG2002 / Arm Cortex-A53)
+          - Build: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          下载 tidesense-${VERSION}-sdcard.img.xz、SHA256SUMS 和 sdk-sources.json 到同一目录。
+          运行 \`sha256sum --check SHA256SUMS\` 校验，再用 \`xz -dk tidesense-${VERSION}-sdcard.img.xz\` 解压。
+          使用 balenaEtcher 或 dd 将解压后的 .img 写入整张 SD 卡。首次启动自动扩展 DATA 分区。
+
+          sdk-sources.json 记录本次实际使用的 SDK 子库 commit；子库默认按 scripts/subtree.xml 下载，SchurVINS 按 sources.lock 固定版本。
+          EOF
+          gh release create "$VERSION" \
+            "release/tidesense-${VERSION}-sdcard.img.xz" \
+            release/SHA256SUMS release/sdk-sources.json \
+            --verify-tag --title "TideSense $VERSION" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+          printf 'Release: %s/%s/releases/tag/%s\n' \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$VERSION" >> "$GITHUB_STEP_SUMMARY"
