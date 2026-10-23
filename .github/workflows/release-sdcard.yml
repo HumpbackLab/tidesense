@@ -97,17 +97,7 @@ jobs:
       - name: Publish GitHub Release
         run: |
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
-          TideSense ${VERSION}
-
-          - Commit: ${GITHUB_SHA}
-          - Board: sg2002_tidesense_arm64_sd (SG2002 / Arm Cortex-A53)
-          - Build: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
-
-          下载 tidesense-${VERSION}-sdcard.img.xz、SHA256SUMS 和 sdk-sources.json 到同一目录。
-          运行 \`sha256sum --check SHA256SUMS\` 校验，再用 \`xz -dk tidesense-${VERSION}-sdcard.img.xz\` 解压。
-          使用 balenaEtcher 或 dd 将解压后的 .img 写入整张 SD 卡。首次启动自动扩展 DATA 分区。
-
-          sdk-sources.json 记录本次实际使用的 SDK 子库 commit；子库默认按 scripts/subtree.xml 下载，SchurVINS 按 sources.lock 固定版本。
+          解压 \`tidesense-${VERSION}-sdcard.img.xz\`，然后使用 balenaEtcher、dd 或 Win32 Disk Imager 将解压后的 \`.img\` 文件写入 SD 卡。
           EOF
           gh release create "$VERSION" \
             "release/tidesense-${VERSION}-sdcard.img.xz" \
