@@ -48,6 +48,11 @@ OV9281 ×2 → CVITEK VI（每路深度 3）→ schurvins_camera
   SchurVINS 主程序继续使用 GCC 11 全静态构建，保留现有六项优化开关。
 - 将 VI 的 Y 平面按真实 stride 复制为连续的 `CV_8UC1`，复制后立即释放 SDK 帧，
   前端持有独立图像内存。没有图像缩放、磁盘中转或 JPEG/PNG 编解码。
+- 取图默认使用 `CVI_SYS_MmapCache`，每张 VI DMA 图像在读取前调用
+  `CVI_SYS_IonInvalidateCache`。`SCHUR_CAMERA_CACHE=0` 可回退未缓存映射；
+  `SCHUR_CAMERA_VERIFY_CACHE=1` 可诊断性地对同一持有帧的两种读取结果逐像素比较，
+  验证模式额外开销不用于性能评估。构建保留精确未剥离采集 ELF 于
+  `install/schurvins-camera-build/schurvins_camera.sym`。
 - 带版本头的本地二进制协议传输两路尺寸、帧号、各自 PTS 及两个灰度平面。
   协议仅用于同机小端进程，不是网络协议。接收端检查长度、尺寸、递增序号和时间戳；
   坏头、截断或超时会报错并关闭采集。
