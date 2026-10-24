@@ -96,21 +96,21 @@ struct TpuSad::Impl {
   CVI_RT_HANDLE rt=nullptr;
   CVI_RT_MEM input[2]={},output=nullptr;
   int width,height,nd,tw,th;
-  bool tree;
+  bool tree,quality;
   using Key=std::tuple<int,int,int>;
   std::map<Key,CVI_RT_MEM> programs;
   struct Tile { int x,y,c,h,w; CVI_RT_MEM program; };
   std::vector<Tile> tiles;
-  Impl(int w,int h,int d,int tilew,int tileh,bool use_tree):width(w),height(h),nd(d),tw(tilew),th(tileh),tree(use_tree) {
+  Impl(int w,int h,int d,int tilew,int tileh,bool use_tree,bool use_quality):width(w),height(h),nd(d),tw(tilew),th(tileh),tree(use_tree),quality(use_quality) {
     if (nd<1 || nd>64 || width<=nd+14 || height<=14 || tw<1 || th<1)
       throw std::runtime_error("Invalid TPU SAD geometry (D <=64)");
     check(CVI_RT_Init(&rt),"RT init");
     if (!rt) throw std::runtime_error("RT init returned no handle");
     try {
       for (auto& m:input) { m=CVI_RT_MemAlloc(rt,size_t(w)*h);if (!m) throw std::runtime_error("Input allocation failed"); }
-      output=CVI_RT_MemAlloc(rt,size_t(w)*h*3);
+      output=CVI_RT_MemAlloc(rt,size_t(w)*h*(quality?9:3));
       if (!output) throw std::runtime_error("Output allocation failed");
-      std::memset(CVI_RT_MemGetVAddr(output),0,size_t(w)*h*3);check(CVI_RT_MemFlush(rt,output),"output clear");
+      std::memset(CVI_RT_MemGetVAddr(output),0,size_t(w)*h*(quality?9:3));check(CVI_RT_MemFlush(rt,output),"output clear");
       for (int y=7;y<height-7;) {
         const int rows=std::min(th,height-7-y), channels=std::min(8,(height-7-y)/rows);
         for (int x=nd-1+7;x<width-7;x+=tw) {
@@ -146,6 +146,22 @@ struct TpuSad::Impl {
     auto cost=pair(k,c,h,w),best=pair(k,c,h,w);
     auto delta=pair(k,c,h,w),mask=pair(k,c,h,w);
     auto shift=k.alloc(c,h,w),disp=k.alloc(c,h,w),dconstant=k.alloc(c,h,w),tmpdisp=k.alloc(c,h,w);
+    Pair previous{},minus{},plus{},previous_mask{},prefix{},competitor{},far{};
+    cvk_tl_t *outzero=nullptr,*distance=nullptr,*boolean=nullptr;
+    if (quality) {
+      previous=pair(k,c,h,w);minus=pair(k,c,h,w);plus=pair(k,c,h,w);
+      previous_mask=pair(k,c,h,w);prefix=pair(k,c,h,w);
+      competitor=pair(k,c,h,w);far=pair(k,c,h,w);
+      outzero=k.alloc(c,h,w);distance=k.alloc(c,h,w);boolean=k.alloc(c,h,w);
+    }
+    auto select=[&](Pair mask_,Pair value,Pair dest) {
+      xor16(k,dest,value,delta);and16(k,delta,mask_,delta);xor16(k,dest,delta,dest);
+    };
+    auto less=[&](Pair a,Pair b,Pair out) {
+      subtract(k,a,b,delta);
+      cvk_tiu_arith_shift_param_t sh{};sh.a_low=delta.low;sh.a_high=delta.high;
+      sh.res_low=out.low;sh.res_high=out.high;sh.bits=shift;k.c->ops->tiu_arith_shift(k.c,&sh);
+    };
     auto dma=[&](cvk_tl_t* t,int base,bool load,uint64_t offset=0) {
       cvk_tg_t global{};global.base_reg_index=base;global.start_address=offset;global.fmt=CVK_FMT_I8;
       global.shape={1,unsigned(c),t->shape.h,t->shape.w};
@@ -155,6 +171,11 @@ struct TpuSad::Impl {
     };
     dma(left,2,true);dma(right,3,true);
     k.fill(zero,0);k.fill(best.low,255);k.fill(best.high,127);k.fill(shift,uint8_t(-15));k.fill(disp,0);
+    if (quality) {
+      for (auto p:{previous,minus,plus,previous_mask}) { k.fill(p.low,0);k.fill(p.high,0); }
+      for (auto p:{prefix,competitor}) { k.fill(p.low,255);k.fill(p.high,127); }
+      k.fill(outzero,0);
+    }
     for (int d=0;d<nd;++d) {
       auto shifted=view(right,h+14,w+14,0,nd-1-d);
       cvk_tiu_min_param_t pn{};pn.a=left;pn.b=&shifted;pn.min=minimum;k.c->ops->tiu_min(k.c,&pn);
@@ -179,17 +200,38 @@ struct TpuSad::Impl {
           add(k,cost,{&lo,&hi},cost);
         }
       }
-      // Exact 16-bit SAD <=62*225=13950. Arithmetic sign mask selects strictly lower cost.
-      subtract(k,cost,best,delta);
-      cvk_tiu_arith_shift_param_t sh{};sh.a_low=delta.low;sh.a_high=delta.high;
-      sh.res_low=mask.low;sh.res_high=mask.high;sh.bits=shift;k.c->ops->tiu_arith_shift(k.c,&sh);
-      xor16(k,best,cost,delta);and16(k,delta,mask,delta);xor16(k,best,delta,best);
       auto zout=view(zero,h,w);
       cvk_tiu_max_param_t pc{};pc.a=&zout;pc.b_is_const=1;pc.b_const.val=d;pc.b_const.is_signed=1;pc.max=dconstant;
       k.c->ops->tiu_max(k.c,&pc);
+      if (quality) {
+        select(previous_mask,cost,plus);
+        cvk_tiu_sub_param_t sub{};sub.a_low=dconstant;sub.a_high=outzero;
+        sub.b_low=disp;sub.b_high=outzero;sub.res_low=distance;k.c->ops->tiu_sub(k.c,&sub);
+        cvk_tiu_ge_param_t ge{};ge.a=distance;ge.b_is_const=1;
+        ge.b_const.val=2;ge.b_const.is_signed=1;ge.ge=boolean;k.c->ops->tiu_ge(k.c,&ge);
+        cvk_tiu_mul_param_t mul{};mul.a=boolean;mul.b_is_const=1;
+        mul.b_const.val=-1;mul.b_const.is_signed=1;mul.res_low=far.low;k.c->ops->tiu_mul(k.c,&mul);
+        k.copy(far.low,far.high);
+        less(cost,competitor,mask);and16(k,mask,far,mask);select(mask,cost,competitor);
+      }
+      // Arithmetic sign mask selects strictly lower cost; lowest disparity wins ties.
+      less(cost,best,mask);
+      if (quality) {
+        select(mask,previous,minus);select(mask,prefix,competitor);
+        copy_pair(k,best,prefix); // Prefix minimum through d-1 for the next iteration.
+      }
+      select(mask,cost,best);
       xor8(k,disp,dconstant,tmpdisp);and8(k,tmpdisp,mask.low,tmpdisp);xor8(k,disp,tmpdisp,disp);
+      if (quality) { copy_pair(k,cost,previous);copy_pair(k,mask,previous_mask); }
     }
     dma(best.low,4,false);dma(best.high,4,false,size_t(width)*height);dma(disp,4,false,size_t(width)*height*2);
+    if (quality) {
+      int plane=3;
+      for (auto p:{minus,plus,competitor}) {
+        dma(p.low,4,false,size_t(width)*height*plane++);
+        dma(p.high,4,false,size_t(width)*height*plane++);
+      }
+    }
     uint32_t size=0;auto bytes=k.c->ops->acquire_cmdbuf(k.c,&size);
     if (!bytes || !size) throw std::runtime_error("Empty TPU command buffer");
     CVI_RT_MEM program=nullptr;
@@ -220,17 +262,89 @@ struct TpuSad::Impl {
     const auto executed=Clock::now();
     check(CVI_RT_MemInvld(rt,output),"output invalidate");
     auto bytes=CVI_RT_MemGetVAddr(output);const size_t pixels=size_t(width)*height;
-    SadResult result{cv::Mat(height,width,CV_16UC1),cv::Mat(height,width,CV_8UC1)};
+    SadResult result;result.cost=cv::Mat(height,width,CV_16UC1);result.disparity=cv::Mat(height,width,CV_8UC1);
     size_t i=0;auto z=result.cost.ptr<uint16_t>();
     for (;i+8<=pixels;i+=8)
       vst1q_u16(z+i,vorrq_u16(vmovl_u8(vld1_u8(bytes+i)),vshll_n_u8(vld1_u8(bytes+i+pixels),8)));
     for (;i<pixels;++i) z[i]=bytes[i]|uint16_t(bytes[i+pixels])<<8;
     std::memcpy(result.disparity.data,bytes+pixels*2,pixels);
+    if (quality) {
+      int plane=3;
+      for (auto m:{&result.minus,&result.plus,&result.competitor}) {
+        m->create(height,width,CV_16U);auto dst=m->ptr<uint16_t>();
+        for (size_t j=0;j<pixels;j++) dst[j]=bytes[j+pixels*plane]|uint16_t(bytes[j+pixels*(plane+1)])<<8;
+        plane+=2;
+      }
+    }
     const auto end=Clock::now();
     timing={ms(start,uploaded),ms(uploaded,executed),ms(executed,end),int(tiles.size())};
     return result;
   }
 };
-TpuSad::TpuSad(int w,int h,int d,int tw,int th,bool tree):impl_(new Impl(w,h,d,tw,th,tree)) {}
+TpuSad::TpuSad(int w,int h,int d,int tw,int th,bool tree,bool quality):impl_(new Impl(w,h,d,tw,th,tree,quality)) {}
 TpuSad::~TpuSad()=default;
 SadResult TpuSad::run(const cv::Mat& a,const cv::Mat& b,SadTiming& t) { return impl_->run(a,b,t); }
+
+struct TpuStereoDownsample::Impl {
+  CVI_RT_HANDLE rt=nullptr;
+  CVI_RT_MEM input=nullptr,output=nullptr;
+  struct Tile { int y,c,h;CVI_RT_MEM program; };
+  std::vector<Tile> tiles;
+  Impl() {
+    check(CVI_RT_Init(&rt),"downsample init");
+    try {
+      input=CVI_RT_MemAlloc(rt,2*640*400);output=CVI_RT_MemAlloc(rt,2*320*200);
+      if (!input || !output) throw std::runtime_error("Downsample allocation failed");
+      for (int y=0;y<200;) {
+        int h=std::min(16,200-y),c=std::min(8,(200-y)/h);
+        Kernel k(rt);
+        auto in=k.alloc(c,h*2,640),out=k.alloc(c,h,320);
+        in->fmt=CVK_FMT_U8;out->fmt=CVK_FMT_U8;
+        cvk_tg_t gi{};gi.base_reg_index=2;gi.fmt=CVK_FMT_U8;gi.shape={1,unsigned(c),unsigned(h*2),640};
+        gi.stride={640*400,unsigned(h*2*640),640,1};
+        cvk_tdma_g2l_tensor_copy_param_t load{};load.src=&gi;load.dst=in;k.c->ops->tdma_g2l_tensor_copy(k.c,&load);
+        cvk_tiu_average_pooling_param_t pool{};pool.ifmap=in;pool.ofmap=out;pool.kh=pool.kw=2;
+        pool.stride_h=pool.stride_w=2;pool.avg_pooling_const=1;pool.rshift_bits=2;
+        k.c->ops->tiu_average_pooling(k.c,&pool);
+        cvk_tg_t go{};go.base_reg_index=3;go.fmt=CVK_FMT_U8;go.shape={1,unsigned(c),unsigned(h),320};
+        go.stride={320*200,unsigned(h*320),320,1};
+        cvk_tdma_l2g_tensor_copy_param_t store{};store.src=out;store.dst=&go;k.c->ops->tdma_l2g_tensor_copy(k.c,&store);
+        uint32_t size=0;auto bytes=k.c->ops->acquire_cmdbuf(k.c,&size);CVI_RT_MEM program=nullptr;
+        check(CVI_RT_LoadCmdbuf(rt,bytes,size,0,0,false,&program),"downsample load");
+        tiles.push_back({y,c,h,program});y+=h*c;
+      }
+    } catch (...) { cleanup();throw; }
+  }
+  void cleanup() {
+    for (auto t:tiles) CVI_RT_MemFree(rt,t.program);
+    tiles.clear();
+    if (output) { CVI_RT_MemFree(rt,output);output=nullptr; }
+    if (input) { CVI_RT_MemFree(rt,input);input=nullptr; }
+    if (rt) { CVI_RT_DeInit(rt);rt=nullptr; }
+  }
+  ~Impl() { cleanup(); }
+  std::array<cv::Mat,2> run(const cv::Mat& left,const cv::Mat& right,SadTiming& timing) {
+    auto start=Clock::now();
+    int side=0;auto in=CVI_RT_MemGetVAddr(input);
+    for (auto image:{&left,&right}) {
+      if (image->size()!=cv::Size(640,400) || image->type()!=CV_8UC1) throw std::runtime_error("Downsample expects 640x400 mono8");
+      for (int y=0;y<400;++y) std::memcpy(in+side*640*400+y*640,image->ptr(y),640);
+      ++side;
+    }
+    check(CVI_RT_MemFlush(rt,input),"downsample flush");auto uploaded=Clock::now();
+    for (side=0;side<2;++side) for (auto t:tiles) {
+      CVI_RT_ARRAYBASE base{};base.gaddr_base2=CVI_RT_MemGetPAddr(input)+side*640*400+t.y*2*640;
+      base.gaddr_base3=CVI_RT_MemGetPAddr(output)+side*320*200+t.y*320;
+      check(CVI_RT_RunCmdbufEx(rt,t.program,&base),"downsample execute");
+    }
+    auto executed=Clock::now();check(CVI_RT_MemInvld(rt,output),"downsample invalidate");
+    auto out=CVI_RT_MemGetVAddr(output);
+    std::array<cv::Mat,2> result{{cv::Mat(200,320,CV_8U),cv::Mat(200,320,CV_8U)}};
+    for (side=0;side<2;++side) std::memcpy(result[side].data,out+side*320*200,320*200);
+    timing={ms(start,uploaded),ms(uploaded,executed),ms(executed,Clock::now()),int(tiles.size()*2)};
+    return result;
+  }
+};
+TpuStereoDownsample::TpuStereoDownsample():impl_(new Impl) {}
+TpuStereoDownsample::~TpuStereoDownsample()=default;
+std::array<cv::Mat,2> TpuStereoDownsample::run(const cv::Mat& a,const cv::Mat& b,SadTiming& t) { return impl_->run(a,b,t); }

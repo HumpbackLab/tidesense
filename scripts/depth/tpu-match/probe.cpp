@@ -32,7 +32,7 @@ cv::Mat prefilter(const cv::Mat& raw) {
   return result;
 }
 SadResult cpu_sad(const cv::Mat& ref,const cv::Mat& target,int nd) {
-  SadResult result{cv::Mat(ref.size(),CV_16U,cv::Scalar(0)),cv::Mat(ref.size(),CV_8U,cv::Scalar(0))};
+  SadResult result;result.cost=cv::Mat(ref.size(),CV_16U,cv::Scalar(0));result.disparity=cv::Mat(ref.size(),CV_8U,cv::Scalar(0));
   cv::Rect valid(nd-1+7,7,ref.cols-(nd-1)-14,ref.rows-14);
   result.cost(valid).setTo(32767);
   for (int d=0;d<nd;++d) {
@@ -46,9 +46,27 @@ SadResult cpu_sad(const cv::Mat& ref,const cv::Mat& target,int nd) {
   }
   return result;
 }
+void check_quality(const SadResult& actual,const cv::Mat& ref,const cv::Mat& target,int nd) {
+  cv::Rect roi(nd-1+7,7,ref.cols-(nd-1)-14,ref.rows-14);
+  cv::Mat competitor(ref.size(),CV_16U,cv::Scalar(32767));
+  int errors=0;
+  for (int d=0;d<nd;++d) {
+    cv::Mat diff,cost;
+    cv::absdiff(ref(cv::Rect(d,0,ref.cols-d,ref.rows)),target(cv::Rect(0,0,ref.cols-d,ref.rows)),diff);
+    cv::boxFilter(diff,cost,CV_16U,cv::Size(15,15),cv::Point(-1,-1),false,cv::BORDER_CONSTANT);
+    for (int y=roi.y;y<roi.y+roi.height;++y) for (int x=roi.x;x<roi.x+roi.width;++x) {
+      int winner=actual.disparity.at<uint8_t>(y,x),c=cost.at<uint16_t>(y,x-d);
+      if (d==winner-1) errors+=actual.minus.at<uint16_t>(y,x)!=c;
+      if (d==winner+1) errors+=actual.plus.at<uint16_t>(y,x)!=c;
+      if (std::abs(d-winner)>1) competitor.at<uint16_t>(y,x)=std::min<int>(competitor.at<uint16_t>(y,x),c);
+    }
+  }
+  errors+=cv::countNonZero(actual.competitor(roi)!=competitor(roi));
+  if (errors) throw std::runtime_error("Quality cost mismatch: "+std::to_string(errors));
+}
 int main(int argc,char**argv) try {
   int width=128,height=64,nd=16,runs=3,tw=64,th=0;
-  bool tree=true;
+  bool tree=true,quality=false;
   std::string kind="random",refpath,targetpath,csv;
   for (int i=1;i<argc;++i) {
     std::string option=argv[i];
@@ -61,6 +79,7 @@ int main(int argc,char**argv) try {
     else if (option=="--tile-width") tw=std::stoi(value);
     else if (option=="--tile-height") th=std::stoi(value);
     else if (option=="--aggregation") { if (value!="tree" && value!="direct") throw std::runtime_error("Use tree or direct aggregation");tree=value=="tree"; }
+    else if (option=="--quality") quality=std::stoi(value)!=0;
     else if (option=="--case") kind=value;
     else if (option=="--reference") refpath=value;
     else if (option=="--target") targetpath=value;
@@ -70,9 +89,21 @@ int main(int argc,char**argv) try {
   if (runs<1 || runs>1000 || width>640 || height>400 || width<32 || height<16)
     throw std::runtime_error("Invalid geometry/run count");
   cv::setNumThreads(1);
+  { TpuStereoDownsample downsample;
+    for (int n=0;n<6;++n) {
+      cv::Mat a(400,640,CV_8U),b,expected;
+      cv::RNG rng(789+n);rng.fill(a,cv::RNG::UNIFORM,0,256);
+      if (n<3) a.setTo(n?255:0);
+      b=a.clone();auto original=a.clone();SadTiming timing;
+      auto result=downsample.run(a,b,timing);cv::resize(a,expected,cv::Size(320,200),0,0,cv::INTER_AREA);
+      if (cv::countNonZero(result[0]!=expected) || cv::countNonZero(result[1]!=expected) || cv::countNonZero(a!=original))
+        throw std::runtime_error("TPU area downsample mismatch");
+      std::cerr << "Downsample exact PASS ms=" << timing.upload_ms+timing.execute_ms+timing.download_ms << '\n';
+    }
+  }
   auto initialized=Clock::now();
-  if (!th) th=tree?10:16;
-  TpuSad tpu(width,height,nd,tw,th,tree);
+  if (!th) th=quality?6:(tree?10:16);
+  TpuSad tpu(width,height,nd,tw,th,tree,quality);
   const double init_ms=ms(initialized,Clock::now());
   auto bm=cv::StereoBM::create(((nd+15)/16)*16,15);
   bm->setPreFilterType(cv::StereoBM::PREFILTER_XSOBEL);bm->setPreFilterCap(31);
@@ -102,6 +133,7 @@ int main(int argc,char**argv) try {
     auto filtered=Clock::now();SadTiming timing;const uint64_t cpu_begin=cpu_ns();
     auto actual=tpu.run(ref,target,timing);auto tpu_end=Clock::now();
     const double tpu_cpu_ms=(cpu_ns()-cpu_begin)/1e6;
+    if (quality) check_quality(actual,ref,target,nd);
     auto expected=cpu_sad(ref,target,nd);auto cpu_end=Clock::now();
     int cost_errors=cv::countNonZero(actual.cost!=expected.cost);
     int disparity_errors=cv::countNonZero(actual.disparity!=expected.disparity);

@@ -38,9 +38,10 @@ cv::Mat transform(const YAML::Node& n) {
 }
 }
 
-StereoDepth::StereoDepth(const std::string& calibration, int width, int disparities) {
+StereoDepth::StereoDepth(const std::string& calibration, int width, int disparities, bool half_input) : half_input_(half_input) {
   if ((width != 320 && width != 640) || disparities < 16 || disparities%16 || disparities >= width-15)
     throw std::runtime_error("Use width 320/640 and disparities a multiple of 16 below width-15");
+  if (half_input && width != 320) throw std::runtime_error("Half input requires 320 output");
   const cv::Size raw(640,400), size(width, width*5/8);
   auto n = YAML::LoadFile(calibration);
   if (!n["cameras"].IsSequence() || n["cameras"].size() != 2)
@@ -99,7 +100,11 @@ StereoDepth::StereoDepth(const std::string& calibration, int width, int disparit
     else
       cv::initUndistortRectifyMap(k[i],d[i],rotations[i],p[i],size,CV_32FC1,mx,my);
     if (i == 1) { mx = 639-mx; my = 399-my; }
-    valid_[i] = (mx >= 0) & (mx < 639) & (my >= 0) & (my < 399);
+    // A reduced pixel j is the average of original pixels 2j and 2j+1,
+    // centred at 2j+0.5. Preserve the original calibrated ray directions.
+    if (half_input_) { mx=(mx-0.5f)*0.5f;my=(my-0.5f)*0.5f; }
+    valid_[i] = (mx >= 0) & (mx < (half_input_?319:639)) &
+                (my >= 0) & (my < (half_input_?199:399));
     // Matching support and XSobel prefilter must stay within real source pixels.
     cv::erode(valid_[i],valid_[i],cv::Mat::ones(19,19,CV_8U),cv::Point(-1,-1),1,
               cv::BORDER_CONSTANT,cv::Scalar(0));
@@ -135,13 +140,44 @@ cv::Mat StereoDepth::millimetres(const cv::Mat& disparity, double fx_baseline,
   return depth;
 }
 
-cv::Mat StereoDepth::compute(const cv::Mat& left, const cv::Mat& right, DepthTiming* timing) {
+std::array<cv::Mat,2> StereoDepth::rectify(const cv::Mat& left, const cv::Mat& right, bool fast_reduced) {
   if (left.type() != CV_8UC1 || right.type() != CV_8UC1 ||
-      left.size() != cv::Size(640,400) || right.size() != left.size())
-    throw std::runtime_error("Expected original 640x400 mono8 stereo images");
+      left.size() != (half_input_?cv::Size(320,200):cv::Size(640,400)) || right.size() != left.size())
+    throw std::runtime_error("Unexpected stereo input geometry");
+  if (half_input_ && fast_reduced) {
+    // Same 1/32-pixel bilinear weights and rounding as INTER_LINEAR. Maps are
+    // fixed at construction; four mono8 gathers avoid generic remap dispatch.
+    const cv::Mat* images[]={&left,&right};
+    for(int side=0;side<2;++side) {
+      const auto& raw=*images[side];rect_[side].create(info_.height,info_.width,CV_8U);
+      for(int y=0;y<info_.height;++y) {
+        auto coords=map1_[side].ptr<cv::Vec2s>(y);auto frac=map2_[side].ptr<uint16_t>(y);
+        auto out=rect_[side].ptr<uint8_t>(y);
+        for(int x=0;x<info_.width;++x) {
+          int sx=coords[x][0],sy=coords[x][1],fx=frac[x]&31,fy=frac[x]>>5;
+          int a,b,c,d;
+          if(unsigned(sx)<unsigned(raw.cols-1) && unsigned(sy)<unsigned(raw.rows-1)) {
+            auto row=raw.ptr<uint8_t>(sy)+sx;
+            a=row[0];b=row[1];c=row[raw.step];d=row[raw.step+1];
+          } else {
+            auto sample=[&](int xx,int yy) { return unsigned(xx)<unsigned(raw.cols) && unsigned(yy)<unsigned(raw.rows)?raw.at<uint8_t>(yy,xx):0; };
+            a=sample(sx,sy);b=sample(sx+1,sy);c=sample(sx,sy+1);d=sample(sx+1,sy+1);
+          }
+          int top=a*32+(b-a)*fx,bottom=c*32+(d-c)*fx;
+          out[x]=(top*32+(bottom-top)*fy+512)>>10;
+        }
+      }
+    }
+  } else {
+    cv::remap(left,rect_[0],map1_[0],map2_[0],cv::INTER_LINEAR,cv::BORDER_CONSTANT);
+    cv::remap(right,rect_[1],map1_[1],map2_[1],cv::INTER_LINEAR,cv::BORDER_CONSTANT);
+  }
+  return {{rect_[0],rect_[1]}};
+}
+
+cv::Mat StereoDepth::compute(const cv::Mat& left, const cv::Mat& right, DepthTiming* timing) {
   mark(timing,0);
-  cv::remap(left,rect_[0],map1_[0],map2_[0],cv::INTER_LINEAR,cv::BORDER_CONSTANT);
-  cv::remap(right,rect_[1],map1_[1],map2_[1],cv::INTER_LINEAR,cv::BORDER_CONSTANT);
+  rectify(left,right);
   const int ref = info_.reference;
   mark(timing,1);
   bm_->compute(rect_[ref],rect_[1-ref],disparity_);

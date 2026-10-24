@@ -105,6 +105,7 @@ install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img
 - `/mnt/data/tidesense-dataset/`：独立双目/IMU 录制工具。
 - `/mnt/data/tidesense-uvc/`：USB 双目 MJPEG + IMU 模式。
 - `/mnt/data/tidesense-depth/`：micro-ROS 双目深度模式，附带标定和电脑端接收工具。
+- `/mnt/data/tidesense-vio-depth/`：[共享帧 VIO + TPU 深度模式](scripts/vio-depth/README.md)，640×400 SchurVINS 与 TPU 320×200 深度并行，经 micro-ROS 输出。
 - `/usr/bin/perf` 及 `/mnt/data/perf/`：性能分析工具、测试负载和许可文件。
 
 主机需安装 ROS 2 Humble 开发环境及各工具的构建依赖，首次构建会下载锁定版本的依赖。
