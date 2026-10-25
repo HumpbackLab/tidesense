@@ -118,7 +118,10 @@ endif()
 target_link_libraries(schurvins PUBLIC ${OpenCV_LIBS} yaml-cpp
   "${GLOG_LIBRARY}" fast pthread dl)
 target_link_options(schurvins PRIVATE "-Wl,--no-undefined")
-add_executable(schurvins_stereo stereo.cpp live_camera.cpp live_imu.cpp calibration.cpp recording.cpp imu_prediction.cpp)
+set(TIDE_CAM_BUILD_EXAMPLES OFF)
+add_subdirectory("${SDK_ROOT}/tide_cam" tide_cam EXCLUDE_FROM_ALL)
+add_executable(schurvins_stereo stereo.cpp tide_camera.cpp live_imu.cpp recording.cpp imu_prediction.cpp)
+target_link_libraries(schurvins_stereo PRIVATE tide_cam::tide_cam)
 add_library(schurvins_micro_ros STATIC micro_ros_bridge.cpp)
 target_include_directories(schurvins_micro_ros PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 if(SCHUR_WITH_MICRO_ROS)
@@ -186,6 +189,15 @@ target_include_directories(schurvins_recording_test PRIVATE ${CMAKE_CURRENT_SOUR
 target_link_libraries(schurvins_recording_test PRIVATE ${OpenCV_LIBS} yaml-cpp pthread dl)
 if(SCHUR_STATIC)
   target_link_options(schurvins_recording_test PRIVATE -static -Wl,--gc-sections)
+endif()
+
+add_executable(schurvins_tide_camera_test EXCLUDE_FROM_ALL tests/tide_camera_test.cpp tide_camera.cpp
+  "${SDK_ROOT}/tide_cam/src/tide_cam.c" "${SDK_ROOT}/tide_cam/tests/backend_mock.c")
+target_include_directories(schurvins_tide_camera_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+  "${SDK_ROOT}/tide_cam/include" "${SDK_ROOT}/tide_cam/src" "${SDK_ROOT}/tide_cam/tests")
+target_link_libraries(schurvins_tide_camera_test PRIVATE ${OpenCV_LIBS} yaml-cpp pthread dl)
+if(SCHUR_STATIC)
+  target_link_options(schurvins_tide_camera_test PRIVATE -static -Wl,--gc-sections)
 endif()
 
 add_executable(schurvins_prediction_test EXCLUDE_FROM_ALL tests/imu_prediction_test.cpp imu_prediction.cpp)

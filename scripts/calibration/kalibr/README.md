@@ -2,6 +2,10 @@
 
 本机端到端结果见 [验证记录](VALIDATION.md)。
 
+通用录制器导出的 ROS 1 `dataset.bag` 可直接输入本脚本，默认相机话题为
+`/cam0/image_raw`、`/cam1/image_raw`。标定不需要专用录制程序，见 [完整流程](../README.md)。
+已有 ROS 2 bag 目录继续使用原话题默认值。
+
 在 SDK 根目录操作。运行时使用 rootless Podman，不需要主机安装 ROS 1，
 也不需要在 ROS 2 终端 source ROS 1。容器不访问相机或网络，不连接正在运行的 Agent。
 运行使用 rootless 默认 UID 映射，容器内 root 对应宿主机当前用户；不要用 sudo 执行脚本。
@@ -24,7 +28,7 @@ Ubuntu 软件包默认使用中科大镜像，Python 包使用清华镜像，ROS
 纯编译约 19 分钟，首次下载和安装依赖另计。构建使用 host 网络，
 以便访问本机已有的 HTTP 代理；运行标定时禁用容器网络。
 
-## 一条命令：ROS 2 bag → 双目标定
+## 一条命令：ROS bag → 双目标定
 
 ```bash
 scripts/calibration/kalibr.sh cali/tidesense-stereo-calib

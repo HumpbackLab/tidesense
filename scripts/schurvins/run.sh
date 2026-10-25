@@ -9,16 +9,8 @@ if [ -d "$app_dir/lib" ]; then
   export LD_LIBRARY_PATH="$app_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 case "${1:-}" in
-  --vio) imu_device=${4:-} ;;
-  --vio-smoke) imu_device=${3:-} ;;
-  --calibrate)
-    imu_device=
-    previous=
-    for option in "$@"; do
-      if [ "$previous" = --imu ]; then imu_device=$option; fi
-      previous=$option
-    done
-    ;;
+  --vio) imu_device=${3:-} ;;
+  --vio-smoke) imu_device=${2:-} ;;
   --imu-test) imu_device=${2:-} ;;
   *) imu_device= ;;
 esac

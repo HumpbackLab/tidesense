@@ -6,12 +6,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <opencv2/core.hpp>
-#include "camera_protocol.h"
-struct LivePair {
- CameraHeader header{};
- cv::Mat left, right;
-};
+#include "camera_frame.hpp"
 // Default: latest pair only. A nonzero fifo_capacity selects lossless FIFO;
 // overflow is an error, never a silent replacement (for dataset recording).
 class LiveCamera {
@@ -36,4 +31,3 @@ class LiveCamera {
   std::string error_;
   uint64_t received_ = 0, replaced_ = 0;
 };
-std::string executableDirectory();

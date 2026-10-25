@@ -1,5 +1,5 @@
 // Standalone sensor recorder. Lossless residual+zstd, no estimator or ROS.
-#include "live_camera.hpp"
+#include "tide_camera.hpp"
 #include "live_imu.hpp"
 #include <chrono>
 #include <cstdlib>
@@ -49,6 +49,7 @@ class Writer {
  size_t capacity_, high_water_ = 0;
  uint64_t pairs_=0, samples_=0, first_=0, last_=0, imu_first_=0, imu_last_=0;
  uint64_t max_cam_gap_=0, max_imu_gap_=0, compressed_bytes_=0, compression_ns_=0;
+ tide_cam_config camera_config_;
  void space() {
   struct statvfs fs{};
   if (statvfs(dir_.c_str(),&fs)) throw std::runtime_error("Cannot query free space");
@@ -62,7 +63,7 @@ class Writer {
    if (!compressor) throw std::runtime_error("Cannot allocate zstd compressor");
    ZSTD_CCtx_setParameter(compressor.get(), ZSTD_c_compressionLevel, 1);
    ZSTD_CCtx_setParameter(compressor.get(), ZSTD_c_checksumFlag, 1);
-   std::vector<uint8_t> pixels(sizeof(CameraHeader)+2*640*400);
+   std::vector<uint8_t> pixels(sizeof(CameraHeader)+2*size_t(camera_config_.mode.width)*camera_config_.mode.height);
    std::vector<uint8_t> compressed(ZSTD_compressBound(pixels.size()));
    while (true) {
     Batch b;
@@ -122,7 +123,9 @@ class Writer {
   n["imu_value_domain"]="raw_si";
   n["clock"]="CLOCK_MONOTONIC nanoseconds";
   n["camera_timestamp"]="raw VI arrival PTS; not exposure time; no time offset applied";
-  n["stereo"]="FSIN paired, original sensor orientation, mono8 640x400";
+  n["stereo"]="FSIN paired, original sensor orientation, mono8";
+  n["width"]=camera_config_.mode.width; n["height"]=camera_config_.mode.height;
+  n["camera_source"]="tide_cam";
   n["scope"]="contiguous pairs after camera/IMU warmup; IMU starts before first pair and ends after last pair";
   n["camera_hz_nominal"]=20; n["imu_hz_nominal"]=200;
   n["pairs"]=pairs_; n["imu_samples"]=samples_;
@@ -139,7 +142,7 @@ class Writer {
   yaml(dir_+"/metadata.yaml",n);
  }
  public:
- Writer(const std::string& dir, size_t capacity):dir_(dir),capacity_(capacity) {
+ Writer(const std::string& dir, size_t capacity,const tide_cam_config& config):dir_(dir),capacity_(capacity),camera_config_(config) {
   if (mkdir(dir.c_str(),0755)) throw std::runtime_error("Output must be a NEW directory: "+dir+": "+strerror(errno));
   { std::ofstream f; open(f,dir+"/INCOMPLETE"); f << "Capture not finalized\n"; }
   space(); open(images_,dir+"/frames.bin"); open(imu_,dir+"/imu.csv");
@@ -180,28 +183,34 @@ class Writer {
 };
 }
 int main(int argc,char** argv) {
- std::string dir,ini="/mnt/data/sensor_cfg.ini",device="auto",calibration,helper=executableDirectory()+"/schurvins_camera";
+ std::string dir,device="auto",calibration;
+ tide_cam_config camera_config; tide_cam_config_init(&camera_config);
+ camera_config.queue=TIDE_CAM_FIFO; camera_config.buffer_count=8;
  uint64_t seconds=0,capacity=64;
  try {
   for (int i=1;i<argc;++i) {
    std::string option=argv[i];
    if (option=="--help") {
-    std::cout << "tidesense_record --output NEW_DIR [--seconds N] [--sensor-ini FILE]\n"
+    std::cout << "tidesense_record --output NEW_DIR [--seconds N] [--width W] [--height H]\n"
      "  [--imu auto|/dev/iio:deviceN] [--calibration SCHUR.yaml] [--queue-pairs 1..128]\n"
-     "  [--camera-helper PATH]\n20Hz stereo / 200Hz IMU. No VINS or ROS. Ctrl-C stops and flushes.\n"; return 0;
+     "Hardware-synced stereo / 200Hz IMU via tide_cam; no INI or helper.\n"
+     "Use the same raw recording for datasets, calibration and VIO replay. Ctrl-C stops and flushes.\n"; return 0;
    }
    if (++i>=argc) throw std::runtime_error("Missing option value");
    std::string value=argv[i];
    if (option=="--output") dir=value;
-   else if (option=="--sensor-ini") ini=value;
    else if (option=="--imu") device=value;
    else if (option=="--calibration") calibration=value;
-   else if (option=="--camera-helper") helper=value;
-   else if (option=="--seconds" || option=="--queue-pairs") {
+   else if (option=="--seconds" || option=="--queue-pairs" || option=="--width" || option=="--height") {
     if (value.empty() || value.find_first_not_of("0123456789")!=std::string::npos) throw std::runtime_error("Expected unsigned integer");
     uint64_t n=std::stoull(value);
     if (option=="--seconds") { if(n>86400) throw std::runtime_error("seconds must be 0..86400"); seconds=n; }
-    else { if(n<1 || n>128) throw std::runtime_error("queue-pairs must be 1..128"); capacity=n; }
+    else if (option=="--queue-pairs") { if(n<1 || n>128) throw std::runtime_error("queue-pairs must be 1..128"); capacity=n; }
+    else {
+     if (!n || n>UINT32_MAX) throw std::runtime_error("Invalid camera dimension");
+     if (option=="--width") camera_config.mode.width=uint32_t(n);
+     else camera_config.mode.height=uint32_t(n);
+    }
    } else throw std::runtime_error("Unknown option: "+option);
   }
   if (dir.empty()) throw std::runtime_error("--output NEW_DIR is required");
@@ -209,17 +218,23 @@ int main(int argc,char** argv) {
   if (!calibration.empty()) {
    auto n=YAML::LoadFile(calibration);
    if (!n["cameras"] || n["cameras"].size()!=2) throw std::runtime_error("Expected stereo SchurVINS calibration");
+   for (const auto& c:n["cameras"]) {
+    const auto model=c["camera"];
+    if (!model || model["image_width"].as<uint32_t>()!=camera_config.mode.width ||
+        model["image_height"].as<uint32_t>()!=camera_config.mode.height)
+     throw std::runtime_error("Calibration dimensions differ from capture mode");
+   }
    if (n["live_camera_time_offset_ns"]) offset=n["live_camera_time_offset_ns"].as<int64_t>();
    if (offset < -1000000000LL || offset>1000000000LL) throw std::runtime_error("Invalid camera time offset");
   }
   struct sigaction sa{}; sa.sa_handler=interrupt;
   sigaction(SIGINT,&sa,nullptr); sigaction(SIGTERM,&sa,nullptr);
-  Writer writer(dir,capacity);
-  snapshot(ini,dir+"/sensor_cfg.ini");
+  Writer writer(dir,capacity,camera_config);
+  yaml(dir+"/camera-config.yaml",cameraConfiguration(camera_config));
   if (!calibration.empty()) snapshot(calibration,dir+"/calibration.yaml");
   // As in live VIO: camera startup first, then enable buffered IIO acquisition.
   // FSIN itself keeps the IMU IRQ active even before its IIO buffer is enabled.
-  LiveCamera camera(helper,ini,8);
+  TideCamera camera(camera_config);
   LivePair pair;
   if (!camera.next(pair,interrupted)) throw std::runtime_error("Interrupted during camera startup");
   LiveImu imu(device);

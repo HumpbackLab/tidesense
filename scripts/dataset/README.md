@@ -3,12 +3,14 @@
 电脑端命令均在工程根目录执行；板端采集与回放在设备上的程序目录执行。
 
 `tidesense_record` 不链接 SchurVINS、OpenVINS、ROS 或 DDS，不运行特征提取和 VIO。
-复用经过板端验证的 CVITEK 双 OV9281 helper 和 SC7U22 IIO 读取代码。
-双目 640×400 mono8 / 20 Hz；IMU 200 Hz，INT1 内核时间戳，10 次中断触发一次 FSIN。
+通过根目录 `tide_cam` 在本进程采集双目，复用 SC7U22 IIO 读取代码，无相机辅助进程或 INI。
+双目支持 640×400（默认）、640×480、1280×800 mono8；硬件触发约 20 Hz。
+IMU 200 Hz，INT1 内核时间戳，10 次中断触发一次 FSIN。
 两颗相机使用现有自动曝光/增益 ISP 配置，曝光上限 0.5 ms（500 µs）；不旋转或去畸变图像。
 单帧空间降噪 YNR 强度默认 192，锐化和跨帧 TNR 关闭；启动日志报告 YNR 强度。
 可用 `OV9281_YNR_STRENGTH=64 scripts/dataset/build.sh` 构建原来的强度，对照时保留实际运行日志。
-存储采用可逐字节还原的无损压缩。
+存储采用可逐字节还原的无损压缩。同一份原始录制用于数据集、标定和 VIO 回放，
+首次标定不需要已有相机参数，完整流程见 [标定说明](../calibration/README.md)。
 
 ## 编译与部署
 
@@ -25,7 +27,8 @@ tar xf tidesense-dataset-a53.tar
 
 首次构建依赖现有 `scripts/schurvins/build.sh` 建好的 GCC11 OpenCV/yaml-cpp 静态库；
 录制程序本身单独编译，不构建/链接 VINS。构建脚本下载并校验
-[Zstandard 1.5.7](https://github.com/facebook/zstd/releases/tag/v1.5.7) 的固定 SHA256，静态链接。相机 helper 仍使用 SDK GCC6/CVITEK 库，独立进程。
+[Zstandard 1.5.7](https://github.com/facebook/zstd/releases/tag/v1.5.7) 的固定 SHA256，静态链接。
+构建时同时准备 `tide_cam` 所需 SDK archives，最终程序全静态链接。
 
 ## 录制
 
@@ -34,14 +37,13 @@ tar xf tidesense-dataset-a53.tar
 ```sh
 cd /mnt/data/tidesense-dataset
 record_dir=/mnt/data/dataset-$(date +%Y%m%d-%H%M%S)
-./run.sh --output "$record_dir" \
-  --calibration /mnt/data/schurvins-gcc11-static-micro-ros/schurvins.yaml \
-  >"$record_dir.log" 2>&1
+./run.sh --output "$record_dir" >"$record_dir.log" 2>&1
 ```
 
 前台运行，Ctrl-C 正常停止、排空写队列并同步到 SD。固定时长可加 `--seconds 120`。
-输出目录必须不存在。`--sensor-ini` 默认 `/mnt/data/sensor_cfg.ini`，要求两路 `hw_sync=1`。
+输出目录必须不存在。用 `--width 640 --height 480` 等参数选择尺寸，无需 `--sensor-ini` / `--camera-helper`。
 `--imu` 默认 auto。`--calibration` 可省略；它仅保存参数和保证 IMU 覆盖时间偏移，录制时不运行估计器。
+传入标定时两颗相机的尺寸必须匹配采集设置。实际采集参数保存为 `camera-config.yaml`。
 
 IMU 只做标称 SI 单位换算，不读取外部校准文件，也不应用 VIO 内参。
 `imu-source.yaml` 保存 IIO scale、采样率和 `imu_value_domain: raw_si`。
@@ -53,6 +55,10 @@ IMU 只做标称 SI 单位换算，不读取外部校准文件，也不应用 VI
 - `frames.bin` 每对图做逐行 uint8 差分 + Zstandard level 1 无损压缩，再顺序写入，附带每对校验和；没有 JPEG 有损压缩或大量小文件操作。
 - 压缩率取决于图像纹理/噪声，抽样约 2.22:1；极端高噪声若压缩后仍超 SD 带宽会明确报错，不静默丢帧。
 - 写队列默认 64 对，约 32.8 MB；`--queue-pairs 1..128` 可调整。相机另有 8 对 FIFO。
+- 上述带宽和内存数字对应 640×400。640×480 / 1280×800 原始图像带宽分别为
+  12.29 / 40.96 MB/s，队列每对像素分别为 0.614 / 2.048 MB，必须留足 RAM。
+  本板 1280×800 连续录制实测压缩和 SD 吞吐不足，16 对写队列会满并报错；
+  1 秒、21 对短段可正常排空并完成。增大队列只吸收短暂积压，不保证持续录制。
 - 队列满、SD 空间不足、相机参考号/帧序/时间戳跳变、IMU 间隔 >7.5ms 都报错并保留 `INCOMPLETE`。
 - 正常停止才出现 `COMPLETE`；不能直接拔电。最终日志和 `metadata.yaml` 给出帧数、IMU 数、实际速率、最大间隔和队列峰值。
 - 仅记录相机/IMU 完成启动后的连续区间。IMU 从第一帧前开始，到最后一帧后结束；不包含启动过程和停止后的空闲样本。
@@ -61,7 +67,8 @@ IMU 只做标称 SI 单位换算，不读取外部校准文件，也不应用 VI
 二进制格式：文件头 ASCII `TIDESENSE_ZST_V1\n`，随后重复：4 字节小端压缩块长度，
 紧接一个独立带 checksum 的 Zstandard 帧。解压后是 56 字节小端
 `<IIIIQQQIIII` CameraHeader（magic/version/width/height/sequence/left_ns/right_ns/left_ref/right_ref/flags/reserved），
-紧接左图 256000 字节、右图 256000 字节，无行填充。图像字节是逐行差分：
+紧接左图和右图，各 `width × height` 字节，无行填充。640×400 时每路为 256000 字节。
+图像字节是逐行差分：
 首列原值，其余 `uint8(pixel[x]-pixel[x-1])`，按行累加模 256 还原。头部不做差分。
 数据集元数据为 `tidesense-dataset-v2`。导出工具亦可读取早期 `TIDESENSE_RAW_V1\n` 未压缩格式。
 IMU CSV：timestamp_ns,gx,gy,gz,ax,ay,az，单位 rad/s、m/s²。
@@ -85,11 +92,14 @@ scp -O -r root@192.168.123.99:/mnt/data/dataset-YYYYMMDD-HHMMSS ./
 
 `--calibration SCHUR.yaml` 可在导出时补充/替换参数；没有参数时可以导出 EuRoC/bag，
 但不生成 `replay.yaml`。不提供虚假的 EuRoC sensor.yaml 或 groundtruth；算法配置需使用本板的真实标定。
+导出器校验整个录制的尺寸一致、像素长度和标定尺寸；PNG 与 ROS Image 使用实际采集尺寸。
 
 导出默认将标定文件的 `live_camera_time_offset_ns` 加到 cam0 PTS，双目共用该帧时刻；
 原始左右 PTS 另外保存到 `frames.csv`。`replay.yaml` 清零时间偏移，避免重复应用。
 OpenVINS/VINS-Fusion 配置也须设置与导出一致的偏移（已经平移的 bag 应从 0 开始）。
 如需重做 Kalibr，使用 `--time-offset-ns 0` 导出未平移时间戳，避免使用旧标定偏移。
+导出的 `dataset.bag` 可直接交给 `scripts/calibration/kalibr.sh`，默认相机话题为
+`/cam0/image_raw`、`/cam1/image_raw`，IMU 为 `/imu0`，无需安装 ROS。
 旧配置尚未迁移到原始 SI 域时，这种导出仍可生成标定 bag，但不会生成 VIO 回放配置。
 右摄像头旋转 180° 已由真实外参表达，程序不会转图。
 

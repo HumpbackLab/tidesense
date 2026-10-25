@@ -112,9 +112,12 @@ with AnyReader([a.source], default_typestore=ros2) as reader:
             stamp = msg.header.stamp.sec * 10**9 + msg.header.stamp.nanosec
             if c.topic == imu_topic or stamp in common:
                 # Align bag time with acquisition time for Kalibr time-range selection.
-                # Image headers/pixels remain unchanged; ROS1 Header.seq defaults to zero.
-                writer.write(outputs[c.topic], stamp, ros2.cdr_to_ros1(raw, c.msgtype))
-summary = dict(source=str(a.source), topics=a.topics, resolution=shapes,
+                # ROS1 is already serialized correctly. ROS2 conversion supplies
+                # Header.seq=0; existing ROS1 headers (including seq) stay intact.
+                serialized = ros2.cdr_to_ros1(raw, c.msgtype) if reader.is2 else raw
+                writer.write(outputs[c.topic], stamp, serialized)
+summary = dict(source=str(a.source), source_format='ros2' if reader.is2 else 'ros1',
+               topics=a.topics, resolution=shapes,
                input_messages={t: len(stamps[t]) for t in a.topics},
                stereo_pairs=len(common), dropped_unpaired={t: len(stamps[t])-len(common) for t in a.topics},
                first_header_ns=min(common), last_header_ns=max(common),

@@ -1,6 +1,6 @@
 # VIO 输入录制与离线回放
 
-用于复现初始化后转动/平移发散等问题。录制默认关闭，在 `--vio` 命令末尾增加
+标定和完整数据集使用 [通用原始录制器](../dataset/README.md)。本入口保存 VIO 实际消费的输入，用于复现初始化后转动/平移发散等问题。录制默认关闭，在 `--vio` 命令末尾增加
 `--record NEW_DIR` 开启；micro-ROS 开关独立，录制无需 Agent。
 
 ## 录制
@@ -11,7 +11,7 @@
 cd /mnt/data/schurvins-gcc11-static-micro-ros
 record_dir=/mnt/data/vio-record-$(date +%Y%m%d-%H%M%S)
 export SCHUR_MICRO_ROS=0
-./run.sh --vio schurvins.yaml /mnt/data/sensor_cfg.ini \
+./run.sh --vio schurvins.yaml \
   auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
 ```
 
@@ -45,7 +45,7 @@ export SCHUR_MICRO_ROS_DOMAIN=0
 | `calibration.yaml` | 运行时相机/IMU 配置快照，保留原始时间补偿 |
 | `replay.yaml` | 回放配置；时间补偿设为零，保留完整 IMU 内参，回放时对保存的标称 SI 数据补偿一次 |
 | `imu-source.yaml` | IIO scale、采样率及 `imu_value_domain: raw_si`；`intrinsics_applied: false` 表示未应用内参 |
-| `sensor_cfg.ini` | 相机 INI 快照 |
+| `camera-config.yaml` | tide_cam 采集参数快照 |
 | `metadata.yaml` | 录制版本、范围、完整性、已写帧数/IMU 数量、写盘队列水位和错误 |
 | `COMPLETE` / `INCOMPLETE` | 是否成功结束录制；异常中断保留 `INCOMPLETE` |
 | `live-poses.csv` | 上面命令指定的现场位姿输出，供与 replay 对照；无跟踪时仅有表头 |

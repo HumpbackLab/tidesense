@@ -9,13 +9,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 static_assert(sizeof(CameraHeader) == 56, "IPC header layout");
-std::string executableDirectory() {
- char buf[4096];
- ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf)-1);
- if (n <= 0 || n >= ssize_t(sizeof(buf)-1)) throw std::runtime_error("Cannot locate executable");
- std::string path(buf, n);
- return path.substr(0, path.find_last_of('/'));
-}
 LiveCamera::LiveCamera(const std::string& helper, const std::string& ini, size_t fifo_capacity)
  : fifo_capacity_(fifo_capacity) {
  int sockets[2];

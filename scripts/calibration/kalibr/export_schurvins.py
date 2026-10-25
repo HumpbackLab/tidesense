@@ -71,8 +71,11 @@ def convert(chain, imu_document):
             raise ValueError(f'{name}: expected camera mapping')
         if cam['camera_model'] != 'pinhole' or cam['distortion_model'] not in ('radtan', 'equidistant'):
             raise ValueError(f'{name}: expected pinhole with radtan or equidistant distortion')
-        if cam['resolution'] != [640, 400]:
-            raise ValueError(f'{name}: live TideSense requires 640x400')
+        resolution = cam['resolution']
+        if resolution not in ([640, 400], [640, 480], [1280, 800]):
+            raise ValueError(f'{name}: unsupported TideSense capture resolution')
+        if resolution != chain['cam0']['resolution']:
+            raise ValueError('Stereo capture requires matching camera resolutions')
         intrinsics = vector(cam['intrinsics'], 4, f'{name}.intrinsics')
         if np.any(intrinsics[:2] <= 0):
             raise ValueError(f'{name}: focal lengths must be positive')
@@ -86,8 +89,8 @@ def convert(chain, imu_document):
         shifts.append(shift)
         cameras.append({
             'camera': {'label': name, 'id': f'tidesense-{name}',
-                       'line-delay-nanoseconds': 0, 'image_width': 640,
-                       'image_height': 400, 'type': 'pinhole',
+                       'line-delay-nanoseconds': 0, 'image_width': resolution[0],
+                       'image_height': resolution[1], 'type': 'pinhole',
                        'intrinsics': matrix(intrinsics[:, None]),
                        'distortion': {'type': 'radial-tangential' if cam['distortion_model']=='radtan' else 'equidistant',
                                       'parameters': matrix(distortion[:, None])}},

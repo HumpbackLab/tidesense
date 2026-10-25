@@ -16,6 +16,16 @@ MAGIC = b'TIDESENSE_RAW_V1\n'
 HEADER = struct.Struct('<IIIIQQQIIII')
 PIXELS = 640 * 400
 RECORD = HEADER.size + 2 * PIXELS
+RESOLUTIONS = {(640, 400), (640, 480), (1280, 800)}
+MAX_RECORD = HEADER.size + 2 * 1280 * 800
+
+
+def image_bytes(header):
+    if (header[0], header[1], header[9], header[10]) != (0x54444341, 1, 1, 0):
+        raise ValueError('Invalid camera header or FSIN disabled')
+    if (header[2], header[3]) not in RESOLUTIONS:
+        raise ValueError('Unsupported capture resolution')
+    return header[2] * header[3]
 
 
 def frames(source):
@@ -35,28 +45,38 @@ def frames(source):
                 if len(length) != 4:
                     raise ValueError('Truncated record length')
                 size = struct.unpack('<I', length)[0]
-                if not 0 < size <= RECORD + 4096:
+                if not 0 < size <= MAX_RECORD + MAX_RECORD // 128 + 4096:
                     raise ValueError('Invalid compressed record size')
                 data = f.read(size)
                 if len(data) != size:
                     raise ValueError('Truncated compressed record')
                 try:
-                    data = decompressor.decompress(data, max_output_size=RECORD)
+                    content_size = zstandard.frame_content_size(data)
+                    if content_size not in (zstandard.CONTENTSIZE_UNKNOWN, zstandard.CONTENTSIZE_ERROR) and content_size > MAX_RECORD:
+                        raise ValueError('Oversized decompressed frame')
+                    data = decompressor.decompress(data, max_output_size=MAX_RECORD)
                 except zstandard.ZstdError as exc:
                     raise ValueError(f'Frame decompression/checksum failed: {exc}') from exc
             else:
-                data = f.read(RECORD)
-                if not data:
+                header_data = f.read(HEADER.size)
+                if not header_data:
                     return
-            if len(data) != RECORD:
+                if len(header_data) != HEADER.size:
+                    raise ValueError('Truncated frame header')
+                count = image_bytes(HEADER.unpack(header_data))
+                data = header_data + f.read(2 * count)
+            if len(data) < HEADER.size:
                 raise ValueError('Truncated/invalid frame record; refuse export')
             h = HEADER.unpack_from(data)
+            count = image_bytes(h)
+            if len(data) != HEADER.size + 2 * count:
+                raise ValueError('Truncated/invalid frame record; refuse export')
             pixels = data[HEADER.size:]
             if compressed:
                 import numpy as np
-                residual = np.frombuffer(pixels, dtype=np.uint8).reshape(800, 640)
+                residual = np.frombuffer(pixels, dtype=np.uint8).reshape(2 * h[3], h[2])
                 pixels = np.cumsum(residual, axis=1, dtype=np.uint8).tobytes()
-            yield h, pixels[:PIXELS], pixels[PIXELS:]
+            yield h, pixels[:count], pixels[count:]
 
 
 def imu_rows(source):
@@ -79,10 +99,14 @@ def validate(source, offset):
         raise ValueError('Invalid metadata schema/completion')
     first = last = previous = None
     count = 0
+    resolution = None
     for h, _, _ in frames(source):
         magic, version, width, height, seq, left, right, lr, rr, flags, reserved = h
-        if (magic, version, width, height, flags, reserved) != (0x54444341, 1, 640, 400, 1, 0):
-            raise ValueError('Invalid camera header or FSIN disabled')
+        image_bytes(h)
+        if resolution is None:
+            resolution = [width, height]
+        if resolution != [width, height]:
+            raise ValueError('Resolution changed within recording')
         if not left or not right or abs(right-left) > 20000000 or left+offset <= 0:
             raise ValueError('Invalid camera timestamp/skew')
         if previous:
@@ -108,15 +132,19 @@ def validate(source, offset):
         raise ValueError('Insufficient frames/IMU or IMU does not bracket image time range')
     if count != meta['pairs'] or samples != meta['imu_samples']:
         raise ValueError('Metadata counts differ from archive (truncation/corruption)')
-    return dict(pairs=count, imu_samples=samples, camera_hz=(count-1)*1e9/(last-first),
+    if 'width' in meta and [meta['width'], meta.get('height')] != resolution:
+        raise ValueError('Metadata dimensions differ from archive')
+    return dict(pairs=count, imu_samples=samples, resolution=resolution, camera_hz=(count-1)*1e9/(last-first),
                 imu_hz=(samples-1)*1e9/(imu_last-imu_first), camera_offset_ns=offset)
 
 
-def png(data):
+def png(data, width=640, height=400):
+    if len(data) != width * height:
+        raise ValueError('PNG pixels do not match image dimensions')
     def chunk(kind, value):
         return struct.pack('>I', len(value)) + kind + value + struct.pack('>I', zlib.crc32(kind+value))
-    scan = b''.join(b'\0'+data[i:i+640] for i in range(0, PIXELS, 640))
-    return (b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR', struct.pack('>IIBBBBB', 640, 400, 8, 0, 0, 0, 0))
+    scan = b''.join(b'\0'+data[i:i+width] for i in range(0, len(data), width))
+    return (b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 0, 0, 0, 0))
             + chunk(b'IDAT', zlib.compress(scan, 1))+chunk(b'IEND', b''))
 
 
@@ -152,7 +180,7 @@ def bag(source, destination, offset):
                 write_imu(*current)
                 current = next(samples, None)
             for i, pixels in enumerate((left, right)):
-                msg = Image(header(t, f'cam{i}'), 400, 640, 'mono8', 0, 640, np.frombuffer(pixels, dtype=np.uint8))
+                msg = Image(header(t, f'cam{i}'), h[3], h[2], 'mono8', 0, h[2], np.frombuffer(pixels, dtype=np.uint8))
                 writer.write(cams[i], t, store.serialize_ros1(msg, Image.__msgtype__))
         while current:
             write_imu(*current)
@@ -175,6 +203,11 @@ def export(source, output, calibration_path=None, offset_override=None, write_ba
     if abs(offset) > 10**9:
         raise ValueError('Camera offset must be within +/-1 second')
     report = validate(source, offset)
+    if calibration is not None:
+        for item in calibration['cameras']:
+            camera = item.get('camera', {})
+            if [camera.get('image_width'), camera.get('image_height')] != report['resolution']:
+                raise ValueError('Calibration dimensions differ from capture resolution')
     if write_bag:
         import rosbags.rosbag1  # Fail before creating destination if dependency is missing.
         import numpy
@@ -196,7 +229,7 @@ def export(source, output, calibration_path=None, offset_override=None, write_ba
             names = []
             for i, pixels in enumerate((left, right)):
                 path = f'mav0/cam{i}/data/{t}.png'
-                (output / path).write_bytes(png(pixels))
+                (output / path).write_bytes(png(pixels, h[2], h[3]))
                 names.append(path)
             stereo.write(f'{t},{names[0]},{names[1]}\n')
             for f in (c0, c1):
@@ -213,7 +246,7 @@ def export(source, output, calibration_path=None, offset_override=None, write_ba
         calibration['live_camera_time_offset_ns'] = 0
         calibration.setdefault('imu_params', {})['delay_imu_cam'] = 0.0
         (output / 'replay.yaml').write_text(yaml.safe_dump(calibration, sort_keys=False))
-    for name in ('imu-source.yaml', 'sensor_cfg.ini', 'metadata.yaml'):
+    for name in ('imu-source.yaml', 'camera-config.yaml', 'sensor_cfg.ini', 'metadata.yaml'):
         if (source / name).exists():
             shutil.copyfile(source / name, output / ('capture-'+name if name == 'metadata.yaml' else name))
     if write_bag:

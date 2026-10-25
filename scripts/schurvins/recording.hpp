@@ -1,15 +1,15 @@
 #pragma once
-#include "live_camera.hpp"
+#include "camera_frame.hpp"
 #include "live_imu.hpp"
 #include <deque>
 #include <fstream>
 
-// Records estimator input, not frames replaced in LiveCamera's latest-frame queue.
+// Records estimator input, not frames replaced in tide_cam's latest-frame queue.
 // A bounded background writer owns disk I/O. Overflow is an error, never a silent drop.
 class VioRecording {
  public:
   VioRecording(const std::string& directory, const YAML::Node& calibration,
-               const std::string& sensor_ini);
+               const YAML::Node& camera_config);
   ~VioRecording();
   void setImuMetadata(const YAML::Node& metadata);
   void submit(uint64_t timestamp, const LivePair& pair, const std::vector<ImuSample>& imu);

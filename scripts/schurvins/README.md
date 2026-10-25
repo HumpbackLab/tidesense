@@ -8,7 +8,7 @@
 `SCHUR_WITH_MICRO_ROS=ON`，构建脚本默认开启；运行时还需显式设置 `SCHUR_MICRO_ROS=1` 和电脑端
 `SCHUR_MICRO_ROS_AGENT`。通信默认关闭，`SCHUR_MICRO_ROS=0` 可独立运行 VIO。
 
-独立双目标定采集：`--calibrate SENSOR.ini --fps 5`，直接发布 ROS 图像，见 [CALIBRATION.md](CALIBRATION.md)。
+标定与数据集统一使用 `tidesense_record` 录制原始双目和 IMU，见 [CALIBRATION.md](CALIBRATION.md)。实时 VIO 通过根目录 `tide_cam` 在进程内采集，无需相机 INI 或辅助进程。
 
 源码：SDK 根目录 `SchurVINS/`，使用 <https://github.com/HumpbackLab/SchurVINS> 的 TideSense 集成版本，上游为 <https://github.com/bytedance/SchurVINS>。
 精确版本与依赖见 `sources.lock`；此目录保存 SDK 构建入口、运行程序和上游补丁。
@@ -23,7 +23,7 @@ JOBS=4 ./scripts/schurvins/build.sh
 使用 SDK 的 Arm GNU Toolchain 11.3.Rel1（GCC 11.3.1），为 Cortex-A53 重编
 SchurVINS、OpenCV、yaml-cpp、glog 0.4.0 和 FAST；Eigen、minkindr、Boost 使用头文件。
 最终通过 `-static` 链入工具链的 glibc、libstdc++ 和 libgcc。
-新增实时采集辅助进程 `schurvins_camera` 使用板上现有 libc，主程序仍为全静态，详见 `CAMERA.md`。
+相机 SDK 与 `tide_cam` 静态链接进主程序，采集和 VIO 在同一进程，详见 `CAMERA.md`。
 关闭 OpenCV ITT 的动态插件加载，以及 glog 的 NSS 用户名查询（日志用户名取 `USER`，
 未设置时使用其内置占位名），避免这两项功能引入运行时动态库需求。
 构建脚本检查 ELF 不含 `PT_INTERP` 或 `DT_NEEDED`。
@@ -121,7 +121,7 @@ export SCHUR_MICRO_ROS_PORT=8888
 export SCHUR_MICRO_ROS_DOMAIN=0
 
 nohup ./run.sh --vio schurvins.yaml \
-  /mnt/data/sensor_cfg.ini auto "$vio_output/poses.csv" 0 \
+  auto "$vio_output/poses.csv" 0 \
   >"$vio_output/vio.log" 2>&1 </dev/null &
 echo $! >/tmp/vio-micro-ros.pid
 echo "VIO PID: $(cat /tmp/vio-micro-ros.pid); output: $vio_output"
@@ -148,7 +148,7 @@ VIO 和 IMU 高频预测共用同一个模型，残余零偏由估计器估计�
 通过 `run.sh` 启动默认设置 `SCHUR_IMU_MIDPOINT=1`、`SCHUR_PIXEL_RESIDUAL=1`，
 分别启用中点积分和像素残差；显式设为 `0` 可独立关闭。直接运行二进制需自行设置这两项。
 
-`--calibrate --imu auto`、`--record` 和独立录制器保存标称 SI 数据，
+`--record` 和通用录制器保存标称 SI 数据，
 标定数据不预先应用内参，回放由 `replay.yaml` 中的内参补偿一次。
 外部工具已完整补偿六轴 CSV 时，设置 `imu_params.imu_input_is_corrected: true` 跳过整个模型；
 实时 IIO 模式拒绝此标记，因为实时源提供标称 SI 数据。
@@ -213,7 +213,7 @@ scripts/visualization/run.sh
 ```sh
 cd /mnt/data/schurvins-gcc11-static-micro-ros
 record_dir=/mnt/data/vio-record-$(date +%Y%m%d-%H%M%S)
-SCHUR_MICRO_ROS=0 ./run.sh --vio schurvins.yaml /mnt/data/sensor_cfg.ini auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
+SCHUR_MICRO_ROS=0 ./run.sh --vio schurvins.yaml auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
 # Ctrl-C 正常结束录制后：
 SCHUR_MICRO_ROS=0 ./run.sh --replay "$record_dir" "$record_dir/replay-poses.csv"
 ```
@@ -461,20 +461,20 @@ RESULTS_DIR="$PWD/install/schurvins-gcc11-static/next-results" \
 
 ## IMU 同步触发与自动曝光（2026-09-24）
 
-`hw_sync=1` 时，`schurvins_camera` 调用 `fsin.sh` 控制 SC7U22 内核驱动：
+当前 VIO 使用 `tide_cam` 硬件同步模式，库直接控制 SC7U22 内核 FSIN 接口：
 
 - IMU 保持 200 Hz；每 10 次 INT1 硬中断立即向两颗 OV9281 发送一次 FSIN，约 20 Hz。
 - 高电平目标 100 µs，由硬高精度定时器结束。退出采集会停触发并拉低；若 IIO 仍在使用，则 IMU 继续采样。
 - 两路 ISP 使用自动曝光和自动增益，曝光上限 **500 µs（0.5 ms）**。亮度补偿值为 48；传感器按行周期量化曝光，采集日志定期报告实际时间及增益。较短曝光用于减少快速旋转时的运动模糊，暗处应加强照明以减少高增益噪声。
 - 单帧空间降噪 YNR 强度为 **192**，保留 SDK 的 ISO 分档 coring/filter 表，锐化与跨帧 TNR 关闭。0.5 ms 板端静止对照中，选定平面的时间噪声约减少 40%–49%，强结构角点与边缘基本保留；静止 LK 跳点率未稳定下降，运动效果尚未验证。
-- 可用 `OV9281_YNR_STRENGTH=64 scripts/schurvins/build-camera.sh` 编译原来的降噪强度；允许 `0..255`。需重新部署生成的 `bin/schurvins_camera` 后生效，启动日志会报告实际设置的 YNR 强度。
+- 当前 ISP profile 位于 `tide_cam/src/sg2002/ov9281_isp.h`，修改后需重新构建并部署使用它的程序。
 - 自动曝光变化也会改变曝光中心时刻；重新核实相机与 IMU 的时间偏移后再评价快速运动轨迹。
-- 新内核/DT 与新版 `bin/fsin.sh` 必须配套；不再使用独立 PWM8。单独采图无需另启动 IMU 用户态程序。
+- 库需要配套的 SC7U22 INT1/FSIN 内核和设备树；直接操作内核接口，不使用独立 PWM8。单独采图无需另启动 IMU 用户态程序。
 
-启动 VIO、录制和 micro-ROS 的命令不变。运行中可查看：
+当前启动命令见前文；运行中可查看：
 
 ```sh
-./bin/fsin.sh status
+cat /sys/bus/iio/devices/iio:device0/fsin_diagnostics
 cat /sys/bus/iio/devices/iio:device0/diagnostics
 ```
 
@@ -497,7 +497,7 @@ cat /sys/bus/iio/devices/iio:device0/diagnostics
 ```sh
 SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
 SCHUR_PREDICTION=1 SCHUR_PREDICTION_CSV=/mnt/data/predicted-poses.csv \
-  ./run.sh --vio CALIB.yaml /mnt/data/sensor_cfg.ini auto /mnt/data/visual-poses.csv 0
+  ./run.sh --vio CALIB.yaml auto /mnt/data/visual-poses.csv 0
 ```
 
 - `visual-poses.csv` 仍是视觉帧率的校正位姿；可选的 `predicted-poses.csv` 是 IMU

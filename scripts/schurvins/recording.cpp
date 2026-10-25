@@ -49,7 +49,7 @@ void pgm(const std::string& path, const cv::Mat& image) {
 }
 
 VioRecording::VioRecording(const std::string& dir, const YAML::Node& calibration,
-                           const std::string& ini) : dir_(dir), capacity_(recordingCapacity()) {
+                           const YAML::Node& camera_config) : dir_(dir), capacity_(recordingCapacity()) {
   directory(dir_); directory(dir_ + "/left"); directory(dir_ + "/right");
   { std::ofstream flag; open(flag, dir_ + "/INCOMPLETE"); flag << "Recording not closed successfully\n"; }
   checkSpace();
@@ -58,10 +58,7 @@ VioRecording::VioRecording(const std::string& dir, const YAML::Node& calibration
   replay["live_camera_time_offset_ns"] = 0;
   replay["imu_params"]["delay_imu_cam"] = 0.0;
   yamlFile(dir_ + "/replay.yaml", replay);
-  std::ifstream sensor(ini, std::ios::binary);
-  if (!sensor) throw std::runtime_error("Cannot snapshot sensor INI");
-  std::ofstream sensor_copy; open(sensor_copy, dir_ + "/sensor_cfg.ini", true);
-  sensor_copy << sensor.rdbuf(); sensor_copy.close();
+  yamlFile(dir_ + "/camera-config.yaml", camera_config);
   open(stereo_, dir_ + "/stereo.csv"); open(imu_, dir_ + "/imu.csv");
   open(frames_, dir_ + "/frames.csv");
   stereo_ << "#timestamp_ns,left_image,right_image\n";

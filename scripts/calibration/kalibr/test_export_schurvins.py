@@ -32,6 +32,17 @@ def fixture():
 
 
 class ExportTest(unittest.TestCase):
+    def test_capture_resolutions(self):
+        for size in ([640, 400], [640, 480], [1280, 800]):
+            chain, imu = fixture()
+            for camera in chain.values(): camera['resolution'] = size
+            result, _ = convert(chain, imu)
+            for camera in result['cameras']:
+                self.assertEqual([camera['camera']['image_width'], camera['camera']['image_height']], size)
+        chain['cam1']['resolution'] = [640, 400]
+        with self.assertRaisesRegex(ValueError, 'matching'):
+            convert(chain, imu)
+
     def test_frames_intrinsics_and_rotated_camera(self):
         chain, imu = fixture()
         result, _ = convert(chain, imu)

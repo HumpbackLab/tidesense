@@ -3,7 +3,7 @@ set -euo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
   cat <<'HELP'
-Usage: scripts/calibration/kalibr.sh ROS2_BAG_DIR [options]
+Usage: scripts/calibration/kalibr.sh ROS1_FILE.bag|ROS2_BAG_DIR [options]
        scripts/calibration/kalibr.sh --export-schurvins RESULTS_DIR [--output NEW_YAML]
   --output DIR       New output directory (default: BAG_DIR-kalibr-TIMESTAMP)
   --target YAML      AprilGrid target (default: TideSense A4 6x4, 32 mm)
@@ -37,6 +37,7 @@ target="$here/tidesense-aprilgrid-a4-6x4-32mm.yaml"
 output="${bag}-kalibr-$(date +%Y%m%d-%H%M%S)"
 models=(pinhole-radtan pinhole-radtan)
 topics=(/tidesense/left/image_raw /tidesense/right/image_raw)
+topics_set=0
 convert_only=0
 imu_cam=0
 cam=
@@ -62,7 +63,7 @@ while [[ $# -gt 0 ]]; do
       allan_options+=("$1" "$2"); shift 2 ;;
     --models|--topics) [[ $# -ge 3 ]] || { usage >&2; exit 2; }
       stereo_options=1
-      if [[ $1 == --models ]]; then models=("$2" "$3"); else topics=("$2" "$3"); fi; shift 3 ;;
+      if [[ $1 == --models ]]; then models=("$2" "$3"); else topics=("$2" "$3"); topics_set=1; fi; shift 3 ;;
     --convert-only) convert_only=1; shift ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -92,7 +93,13 @@ if [[ $imu_cam == 1 ]]; then
 else
   [[ -z $cam && -z $imu ]] || { echo '--cam and --imu require --imu-cam' >&2; exit 2; }
 fi
-[[ -f "$bag/metadata.yaml" ]] || { echo "Not a ROS 2 bag directory: $bag" >&2; exit 2; }
+input_path=/input
+if [[ -f "$bag" && "$bag" == *.bag ]]; then
+  input_path=/input.bag
+  if [[ $topics_set == 0 ]]; then topics=(/cam0/image_raw /cam1/image_raw); fi
+else
+  [[ -f "$bag/metadata.yaml" ]] || { echo "Expected a ROS 1 .bag file or ROS 2 bag directory: $bag" >&2; exit 2; }
+fi
 if [[ $allan == 0 ]]; then
   target=$(realpath -- "$target")
   [[ -f $target ]] || { echo "Missing target: $target" >&2; exit 2; }
@@ -118,11 +125,11 @@ podman image inspect "$image" > "$output/container-image.json"
 printf '%q ' "$0" "${original_args[@]}" > "$output/command.txt"
 printf '\n' >> "$output/command.txt"
 run=(podman run --rm --init --network=none --cap-drop=all --env PYTHONUNBUFFERED=1
-     --security-opt=no-new-privileges --volume "$bag:/input:ro"
+     --security-opt=no-new-privileges --volume "$bag:$input_path:ro"
      --volume "$output:/output:rw" --workdir /output "$image")
 if [[ $allan == 1 ]]; then
   cp -- "$here/kalibr/allan.py" "$output/allan.py"
-  "${run[@]}" python3 /output/allan.py /input /output "${allan_options[@]}" \
+  "${run[@]}" python3 /output/allan.py "$input_path" /output "${allan_options[@]}" \
     2>&1 | tee "$output/allan.log"
   printf '\nAllan results (check warnings and null parameters): %s\n' "$output"
   exit 0
@@ -135,7 +142,7 @@ if [[ $imu_cam == 1 ]]; then
   cp -- "$imu" "$output/imu-input.yaml"
   conversion=(--cam /output/camchain-input.yaml --imu /output/imu-input.yaml)
 fi
-"${run[@]}" python3 /output/convert.py /input "/output/$bagname.bag" \
+"${run[@]}" python3 /output/convert.py "$input_path" "/output/$bagname.bag" \
   "${conversion[@]}" 2>&1 | tee "$output/conversion.log"
 if [[ $convert_only == 0 ]]; then
   # Virtual X server also handles Kalibr's GUI imports; no host display/mount needed.

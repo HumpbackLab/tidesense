@@ -27,7 +27,8 @@ int main(int argc, char** argv) {
     pair.header.flags=CAMERA_FSIN;
     std::vector<ImuSample> samples;
     uint64_t last=95000000;
-    VioRecording recorder(dir,calibration,argv[1]);
+    YAML::Node camera_config; camera_config["source"]="tide_cam";
+    VioRecording recorder(dir,calibration,camera_config);
     YAML::Node meta; meta["imu_value_domain"]="raw_si"; recorder.setImuMetadata(meta);
     for (uint64_t i=0;i<6;++i) {
       uint64_t t=1000000000+i*50000000;
@@ -59,10 +60,10 @@ int main(int argc, char** argv) {
     require(YAML::LoadFile(dir+"/calibration.yaml")["live_camera_time_offset_ns"].as<int>()==10461667,"Original time shift lost");
     require(YAML::LoadFile(dir+"/replay.yaml")["live_camera_time_offset_ns"].as<int>()==0,"Double time correction");
     bool refused=false;
-    try { VioRecording again(dir,calibration,argv[1]); } catch (...) { refused=true; }
+    try { VioRecording again(dir,calibration,camera_config); } catch (...) { refused=true; }
     require(refused,"Existing directory overwritten");
     {
-      VioRecording failed(dir+"-failed",calibration,argv[1]);
+      VioRecording failed(dir+"-failed",calibration,camera_config);
       failed.submit(1000000000,pair,{});
       refused=false;
       try { failed.finish(); } catch (...) { refused=true; }

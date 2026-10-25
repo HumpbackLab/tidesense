@@ -218,5 +218,7 @@ ctest --test-dir install/tide_cam-host-tests --output-on-failure
 忙设备拒绝、停止后帧有效、同进程关闭后换尺寸重开和信号处理器保持。
 验证记录见 [VALIDATION.md](VALIDATION.md)。
 
-现有 SchurVINS、depth、tidesense_record 尚未切换到此库，仍使用各自原有入口。
-后续迁移时以这些应用的适配层管理帧引用，避免把 SDK 或算法类型加入公共 API。
+`tidesense_record` 与 SchurVINS 实时入口已接入此库，分别使用 FIFO 和最新待处理帧策略。
+两者通过应用适配层复制到独立 OpenCV Mat 后释放库帧，支持算法关键帧和后台写盘持有图像，
+避免过早复用采集缓冲。depth 等其他现有应用仍使用原入口。
+标定复用 `tidesense_record`，流程见 [标定说明](../scripts/calibration/README.md)。

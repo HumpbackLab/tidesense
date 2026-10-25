@@ -134,3 +134,43 @@ CLI 实测 `--fps 20` 在未传 `--free-run` 时退出码为 2 并明确提示�
 ```text
 ae872205207b10a76698580fb1efb8b300b6dc561a2d2baf9f190d7edb945252
 ```
+
+## 数据录制与 VIO 接入（2026-10-25）
+
+以下应用测试均使用硬件同步约 20 Hz 和 SC7U22 200 Hz，没有使用自由运行。
+图像帧数是每轮处理总量，不是帧率。
+
+- `tidesense_record` 和 SchurVINS 实时入口直接链接 tide_cam，包内不再携带
+  `schurvins_camera` 或 `fsin.sh`，命令无需相机 INI。
+- 应用适配层在 release 库帧前复制到独立 OpenCV Mat，保证 VIO 关键帧和写盘队列的所有权。
+  三种尺寸的适配测试在库缓冲反复复用及关闭后逐像素验证保留的 Mat，故障传播测试通过。
+- 正常 VIO 加录制处理 60 帧：`tracking=60 imu_fused=60`，IMU 无丢样，录制 COMPLETE。
+  回放同一份数据再次得到 60 帧，输出时间戳完全一致，位姿分量最大差约 `2.78e-10`。
+  此为输入/回放一致性验证，不是轨迹精度评估。
+- 最终打包程序另验证 30 帧正常 VIO 加录制：`tracking=30 imu_fused=30`，约 20 Hz，
+  writer 高水位 1/32，退出码 0。传感器关闭后 FSIN 和 IIO buffer 均为 0。
+- 原始录制：640×400 为 61 对 / 630 条 IMU；640×480 为 41 对 / 428 条 IMU；
+  1280×800 的 1 秒短段为 21 对 / 228 条 IMU。三份数据导出为 PNG/EuRoC/ROS1 bag 后，
+  每张原始图像的 SHA-256、IMU 六轴值和采集时间逐条核对通过。
+- 1280×800 连续录制达到 16 对写队列上限，明确报错并保留 INCOMPLETE；导出器拒绝该目录。
+  本次该尺寸压缩约 128 ms/对、压缩后约 0.80 MB/对，持续 20 Hz 超过本板处理/SD 能力。
+  完成的短段不构成长时间持续录制保证。
+- 合成 VIO 自检 6/6 帧通过；VIO 录制单元测试覆盖像素、时间戳、IMU 精度、配置快照和错误标记。
+- Python 数据导出 12 项、Kalibr 输入转换 8 项、SchurVINS 配置导出 10 项测试通过。
+  ROS1 输入转换逐字节保留 Image/Imu，包括已有 Header.seq，正确使用采集时间重建 bag 索引。
+  真实 640×400 录制导出的 ROS1 bag 通过 `kalibr.sh --convert-only`，61 对，无孤立帧。
+  本次没有对未摆放标定板的场景运行参数求解。
+- 通用录制器和带 micro-ROS 的 SchurVINS 均完成构建、全静态 ELF 检查和打包；
+  设备验证只使用 `/tmp/tide-cam-consumers-check/`，没有替换板端原有程序。
+
+记录与像素核对结果：`install/tide-cam-consumers-check/verification.json`；
+原始日志和录制/导出产物在同目录。
+
+最终包内二进制 SHA-256：
+
+```text
+tidesense_record:
+89197fbcd08210bb71f7df16b486074ef4ec9ff86de6007a86b93aee282a42d9
+schurvins_stereo:
+6f2a284b9867ed7dd656125b2a80ce4a046a14d3fdbb37fe712c08f61b353839
+```

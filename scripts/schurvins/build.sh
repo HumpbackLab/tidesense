@@ -90,6 +90,7 @@ cmake --install "$work/opencv"
 if [[ "$micro_ros" == ON ]]; then
   "$here/micro_ros/build.sh"
 fi
+"$sdk/tide_cam/build.sh"
 cmake -S "$here" -B "$core" "${common[@]}" \
   -DCMAKE_PREFIX_PATH="$stage" -DCMAKE_INSTALL_PREFIX="$out" \
   -DWORK="$work" -DDEPS="$deps" -DSCHUR_STATIC=ON -DGLOG_LIBRARY="$glog_library" \
@@ -105,11 +106,7 @@ cmake -S "$here" -B "$core" "${common[@]}" \
   -DSCHUR_SYNC_OUTLIER_OBSERVATIONS="${SCHUR_SYNC_OUTLIER_OBSERVATIONS:-OFF}"
 cmake --build "$core" -j"$jobs"
 cmake --install "$core"
-"$here/build-camera.sh"
-if [[ "$micro_ros" == ON ]]; then
-  # Camera helper build is shared; copy its artifacts into the optional package.
-  cp "$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static/bin/"{schurvins_camera,fsin.sh} "$out/bin/"
-fi
+rm -f "$out/bin/schurvins_camera" "$out/bin/fsin.sh"
 "${cross}strip" --strip-unneeded "$out/bin/schurvins_stereo" "$out/bin/schurvins_imu_test"
 cp "$here/prepare-imu.sh" "$out/bin/"
 cp "$here/tidesense-imu-intrinsics.yaml" "$out/"
@@ -150,7 +147,7 @@ cp "$stage/include/boost/config.hpp" "$out/licenses/boost-notices.hpp"
 cp "$work/sysroot/eigen/include/eigen3/Eigen/Core" "$out/licenses/Eigen-Core-notices"
 cp /usr/share/doc/libboost1.74-dev/copyright "$out/licenses/Boost-copyright" 2>/dev/null || true
 cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
-(cd "$out" && sha256sum bin/schurvins_stereo bin/schurvins_camera bin/fsin.sh bin/schurvins_imu_test bin/prepare-imu.sh bin/test-imu-board.sh run.sh camera-smoke.yaml schurvins.yaml > SHA256SUMS)
+(cd "$out" && sha256sum bin/schurvins_stereo bin/schurvins_imu_test bin/prepare-imu.sh bin/test-imu-board.sh run.sh camera-smoke.yaml schurvins.yaml > SHA256SUMS)
 {
   "${cross}g++" --version | head -1
   printf 'SCHUR_OPT_HALFSAMPLE_NEON=%s\nSCHUR_OPT_ZMSSD_NEON=%s\nSCHUR_OPT_FAST10_NEON=%s\n' \
@@ -159,7 +156,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'SCHUR_SYNC_OUTLIER_OBSERVATIONS=%s\n' "${SCHUR_SYNC_OUTLIER_OBSERVATIONS:-OFF}"
   printf 'SCHUR_OPT_ALIGN2D_HESSIAN_NEON=%s\nSCHUR_OPT_WARP_AFFINE_NEON=%s\n' "${SCHUR_OPT_ALIGN2D_HESSIAN_NEON:-OFF}" "${SCHUR_OPT_WARP_AFFINE_NEON:-OFF}"
   printf 'SCHUR_OPT_WARP_TAIL2=%s\n' "${SCHUR_OPT_WARP_TAIL2:-OFF}"
-  printf 'LIVE_CAMERA=OV9281_640x400_20fps\nLIVE_IMU=SC7U22_IIO_INT1_200Hz\nCAMERA_HELPER=GCC6_MPI_static_system_libc_dynamic\n'
+  printf 'LIVE_CAMERA=tide_cam_in_process_dimensions_from_calibration\nLIVE_IMU=SC7U22_IIO_INT1_200Hz\nCAMERA_SYNC=hardware_trigger\n'
   printf 'IMU_INPUT_DOMAIN=raw_si\nIMU_INTRINSICS=single_stage\n'
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
   printf 'SCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$micro_ros"
