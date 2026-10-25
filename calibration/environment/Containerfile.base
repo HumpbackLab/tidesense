@@ -1,0 +1,8 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+# configure.py verifies the exact pinned source before installing the IMU policy.
+COPY configure.py /usr/local/lib/tidesense-calibration-env.py
+RUN python3 /usr/local/lib/tidesense-calibration-env.py
+COPY entrypoint.sh /usr/local/bin/tidesense-kalibr
+ENV MPLBACKEND=Agg OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=1
+ENTRYPOINT ["/usr/local/bin/tidesense-kalibr"]
