@@ -1,0 +1,419 @@
+{
+  "date": "2026-10-25",
+  "method": {
+    "comparison": "corrected ov-SchurVINS versus same-fork OpenVINS MSCKF",
+    "execution": "sequential host runs; one OpenCV thread; no diagnostic CSV or Jacobian export",
+    "backend_columns": [
+      "propagation",
+      "msckf update",
+      "slam update",
+      "slam delayed",
+      "re-tri & marg"
+    ],
+    "units": "milliseconds per initialized camera frame",
+    "fixed_environment": {
+      "OV_SCHUR_FIX_STACK": "1",
+      "OV_SCHUR_FIX_NOISE": "1"
+    },
+    "msckf_environment": {
+      "OV_SCHUR_USE_MSCKF": "1"
+    },
+    "common_environment": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1"
+    },
+    "hardware_scope": "local x86 host; does not establish A53 performance",
+    "note": "The msckf update phase includes shared feature selection/housekeeping. Corrected Schur includes eigenvalue whitening required by the experimental repair."
+  },
+  "source_commit": "d988139c0ba3cc51abacb8b5b5acb482a19325ba",
+  "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "artifacts": {
+    "install/ov-schurvins-validation-20261025/build/run_record": {
+      "size": 31256272,
+      "sha256": "35af14212265532b8cf4cf42ff2f0e27d6f64a4da5fa9b1e91d4371ea7aeb5d4"
+    },
+    "install/ov-schurvins-validation-20261025/build/libov_msckf_lib.so": {
+      "size": 316666176,
+      "sha256": "108be4a0513405039cdfa1997fb58ec44aa072403aa07bd6c0bdf3304357a3be"
+    },
+    "scripts/vio-compare/ov-schurvins/diagnostic.patch": {
+      "size": 4432,
+      "sha256": "e5623c451f9b2cbde474c76fd9416b55bfd21420362fee9346b3e103d232bd45"
+    }
+  },
+  "schedule": [
+    {
+      "dataset": "uzh",
+      "variant": "fixed",
+      "repeat": 1
+    },
+    {
+      "dataset": "uzh",
+      "variant": "msckf",
+      "repeat": 1
+    },
+    {
+      "dataset": "euroc",
+      "variant": "msckf",
+      "repeat": 1
+    },
+    {
+      "dataset": "euroc",
+      "variant": "fixed",
+      "repeat": 1
+    },
+    {
+      "dataset": "uzh",
+      "variant": "msckf",
+      "repeat": 2
+    },
+    {
+      "dataset": "uzh",
+      "variant": "fixed",
+      "repeat": 2
+    }
+  ],
+  "comparison": {
+    "euroc": {
+      "fixed": {
+        "runs": 1,
+        "backend_mean_ms": 6.683592857142856,
+        "backend_run_means_ms": [
+          6.683592857142856
+        ],
+        "visual_update_mean_ms": 0.7199285714285714
+      },
+      "msckf": {
+        "runs": 1,
+        "backend_mean_ms": 7.095267857142857,
+        "backend_run_means_ms": [
+          7.095267857142857
+        ],
+        "visual_update_mean_ms": 0.9850428571428571
+      }
+    },
+    "uzh": {
+      "fixed": {
+        "runs": 2,
+        "backend_mean_ms": 3.4180864197530862,
+        "backend_run_means_ms": [
+          3.385662177328844,
+          3.4505106621773285
+        ],
+        "visual_update_mean_ms": 0.3457098765432099
+      },
+      "msckf": {
+        "runs": 2,
+        "backend_mean_ms": 3.3233024691358026,
+        "backend_run_means_ms": [
+          3.4018686868686867,
+          3.2447362514029185
+        ],
+        "visual_update_mean_ms": 0.3229068462401795
+      }
+    }
+  },
+  "runs": [
+    {
+      "dataset": "uzh",
+      "variant": "fixed",
+      "repeat": 1,
+      "frames": 1782,
+      "wall_s": 17.628963239999393,
+      "command": [
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/build/run_record",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/uzh-fixed-1/config/estimator_config.yaml",
+        "/home/ncer/sophpi/install/fisheye-benchmark/openvins/uzh-input",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/uzh-fixed-1/trajectory.csv",
+        "0"
+      ],
+      "backend": {
+        "mean_ms": 3.385662177328844,
+        "median_ms": 3.1799999999999997,
+        "p95_ms": 5.7894999999999985
+      },
+      "msckf_phase": {
+        "mean_ms": 0.35005050505050506,
+        "median_ms": 0.25999999999999995,
+        "p95_ms": 0.9700000000000001
+      },
+      "tracking": {
+        "mean_ms": 4.918013468013468,
+        "median_ms": 3.91,
+        "p95_ms": 10.027499999999993
+      },
+      "propagation": {
+        "mean_ms": 0.22015712682379351,
+        "median_ms": 0.2,
+        "p95_ms": 0.33
+      },
+      "slam_update": {
+        "mean_ms": 0.8996969696969698,
+        "median_ms": 0.66,
+        "p95_ms": 2.29
+      },
+      "slam_init": {
+        "mean_ms": 0.47920875420875425,
+        "median_ms": 0.19,
+        "p95_ms": 1.84
+      },
+      "cleanup_marginalization": {
+        "mean_ms": 1.4365488215488218,
+        "median_ms": 1.35,
+        "p95_ms": 2.04
+      },
+      "poses_identical_to_untimed_run": true
+    },
+    {
+      "dataset": "uzh",
+      "variant": "msckf",
+      "repeat": 1,
+      "frames": 1782,
+      "wall_s": 16.383815385999696,
+      "command": [
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/build/run_record",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/uzh-msckf-1/config/estimator_config.yaml",
+        "/home/ncer/sophpi/install/fisheye-benchmark/openvins/uzh-input",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/uzh-msckf-1/trajectory.csv",
+        "0"
+      ],
+      "backend": {
+        "mean_ms": 3.4018686868686867,
+        "median_ms": 3.2700000000000005,
+        "p95_ms": 5.78
+      },
+      "msckf_phase": {
+        "mean_ms": 0.33276094276094276,
+        "median_ms": 0.21000000000000002,
+        "p95_ms": 1.0994999999999984
+      },
+      "tracking": {
+        "mean_ms": 4.992514029180696,
+        "median_ms": 3.925,
+        "p95_ms": 10.19449999999998
+      },
+      "propagation": {
+        "mean_ms": 0.2271773288439955,
+        "median_ms": 0.2,
+        "p95_ms": 0.34
+      },
+      "slam_update": {
+        "mean_ms": 0.9018967452300785,
+        "median_ms": 0.65,
+        "p95_ms": 2.29
+      },
+      "slam_init": {
+        "mean_ms": 0.47159371492704827,
+        "median_ms": 0.18000000000000002,
+        "p95_ms": 1.7994999999999983
+      },
+      "cleanup_marginalization": {
+        "mean_ms": 1.4684399551066218,
+        "median_ms": 1.39,
+        "p95_ms": 2.039499999999998
+      },
+      "poses_identical_to_untimed_run": true
+    },
+    {
+      "dataset": "euroc",
+      "variant": "msckf",
+      "repeat": 1,
+      "frames": 2800,
+      "wall_s": 45.82028139199974,
+      "command": [
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/build/run_record",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/euroc-msckf-1/config/estimator_config.yaml",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/inputs/euroc",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/euroc-msckf-1/trajectory.csv",
+        "0"
+      ],
+      "backend": {
+        "mean_ms": 7.095267857142857,
+        "median_ms": 6.465,
+        "p95_ms": 11.41
+      },
+      "msckf_phase": {
+        "mean_ms": 0.9850428571428571,
+        "median_ms": 0.385,
+        "p95_ms": 3.94
+      },
+      "tracking": {
+        "mean_ms": 4.701410714285714,
+        "median_ms": 4.45,
+        "p95_ms": 6.31
+      },
+      "propagation": {
+        "mean_ms": 0.21699999999999997,
+        "median_ms": 0.2,
+        "p95_ms": 0.32
+      },
+      "slam_update": {
+        "mean_ms": 3.3505857142857143,
+        "median_ms": 3.33,
+        "p95_ms": 4.79
+      },
+      "slam_init": {
+        "mean_ms": 0.6092535714285715,
+        "median_ms": 0.1,
+        "p95_ms": 2.8800000000000003
+      },
+      "cleanup_marginalization": {
+        "mean_ms": 1.933385714285714,
+        "median_ms": 1.83,
+        "p95_ms": 2.66
+      },
+      "poses_identical_to_untimed_run": true
+    },
+    {
+      "dataset": "euroc",
+      "variant": "fixed",
+      "repeat": 1,
+      "frames": 2800,
+      "wall_s": 41.52294586700009,
+      "command": [
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/build/run_record",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/euroc-fixed-1/config/estimator_config.yaml",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/inputs/euroc",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/euroc-fixed-1/trajectory.csv",
+        "0"
+      ],
+      "backend": {
+        "mean_ms": 6.683592857142856,
+        "median_ms": 6.3549999999999995,
+        "p95_ms": 9.600999999999996
+      },
+      "msckf_phase": {
+        "mean_ms": 0.7199285714285714,
+        "median_ms": 0.49,
+        "p95_ms": 2.0004999999999975
+      },
+      "tracking": {
+        "mean_ms": 4.6879857142857135,
+        "median_ms": 4.45,
+        "p95_ms": 6.260499999999997
+      },
+      "propagation": {
+        "mean_ms": 0.21584285714285714,
+        "median_ms": 0.2,
+        "p95_ms": 0.29049999999999726
+      },
+      "slam_update": {
+        "mean_ms": 3.2412464285714284,
+        "median_ms": 3.3,
+        "p95_ms": 4.32
+      },
+      "slam_init": {
+        "mean_ms": 0.6038749999999999,
+        "median_ms": 0.1,
+        "p95_ms": 2.8404999999999974
+      },
+      "cleanup_marginalization": {
+        "mean_ms": 1.9027,
+        "median_ms": 1.81,
+        "p95_ms": 2.5500000000000003
+      },
+      "poses_identical_to_untimed_run": true
+    },
+    {
+      "dataset": "uzh",
+      "variant": "msckf",
+      "repeat": 2,
+      "frames": 1782,
+      "wall_s": 15.593508361000204,
+      "command": [
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/build/run_record",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/uzh-msckf-2/config/estimator_config.yaml",
+        "/home/ncer/sophpi/install/fisheye-benchmark/openvins/uzh-input",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/uzh-msckf-2/trajectory.csv",
+        "0"
+      ],
+      "backend": {
+        "mean_ms": 3.2447362514029185,
+        "median_ms": 3.1000000000000005,
+        "p95_ms": 5.4389999999999965
+      },
+      "msckf_phase": {
+        "mean_ms": 0.3130527497194163,
+        "median_ms": 0.2,
+        "p95_ms": 0.98
+      },
+      "tracking": {
+        "mean_ms": 4.733035914702581,
+        "median_ms": 3.8,
+        "p95_ms": 9.78699999999999
+      },
+      "propagation": {
+        "mean_ms": 0.2087822671156004,
+        "median_ms": 0.19,
+        "p95_ms": 0.31
+      },
+      "slam_update": {
+        "mean_ms": 0.8717396184062851,
+        "median_ms": 0.635,
+        "p95_ms": 2.189499999999998
+      },
+      "slam_init": {
+        "mean_ms": 0.4555836139169472,
+        "median_ms": 0.18000000000000002,
+        "p95_ms": 1.7294999999999983
+      },
+      "cleanup_marginalization": {
+        "mean_ms": 1.3955780022446689,
+        "median_ms": 1.33,
+        "p95_ms": 1.88
+      },
+      "poses_identical_to_untimed_run": true
+    },
+    {
+      "dataset": "uzh",
+      "variant": "fixed",
+      "repeat": 2,
+      "frames": 1782,
+      "wall_s": 16.260140278999643,
+      "command": [
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/build/run_record",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/uzh-fixed-2/config/estimator_config.yaml",
+        "/home/ncer/sophpi/install/fisheye-benchmark/openvins/uzh-input",
+        "/home/ncer/sophpi/install/ov-schurvins-validation-20261025/backend-timing/uzh-fixed-2/trajectory.csv",
+        "0"
+      ],
+      "backend": {
+        "mean_ms": 3.4505106621773285,
+        "median_ms": 3.28,
+        "p95_ms": 5.699499999999999
+      },
+      "msckf_phase": {
+        "mean_ms": 0.34136924803591473,
+        "median_ms": 0.25999999999999995,
+        "p95_ms": 0.94
+      },
+      "tracking": {
+        "mean_ms": 4.911503928170594,
+        "median_ms": 4.0200000000000005,
+        "p95_ms": 9.177999999999994
+      },
+      "propagation": {
+        "mean_ms": 0.2192368125701459,
+        "median_ms": 0.2,
+        "p95_ms": 0.32
+      },
+      "slam_update": {
+        "mean_ms": 0.9197474747474748,
+        "median_ms": 0.645,
+        "p95_ms": 2.3794999999999984
+      },
+      "slam_init": {
+        "mean_ms": 0.46676767676767666,
+        "median_ms": 0.19,
+        "p95_ms": 1.77
+      },
+      "cleanup_marginalization": {
+        "mean_ms": 1.5033894500561167,
+        "median_ms": 1.42,
+        "p95_ms": 2.18
+      },
+      "poses_identical_to_untimed_run": true
+    }
+  ],
+  "local_raw_results": "install/ov-schurvins-validation-20261025/backend-timing/"
+}

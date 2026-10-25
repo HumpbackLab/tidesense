@@ -120,6 +120,45 @@ Raw results: [summary](../../../install/ov-schurvins-validation-20261025/summary
 [position-error plot](../../../install/ov-schurvins-validation-20261025/position-errors.png),
 and [binary/configuration provenance](../../../install/ov-schurvins-validation-20261025/provenance.json).
 
+### Host backend timing, 2026-10-25
+
+A separate sequential experiment compares the corrected Schur update with
+the same executable's MSCKF backend. It enables the existing stage timer,
+uses one OpenCV thread, and disables diagnostic matrix/Jacobian export.
+Schur eigenvalue whitening remains enabled as part of the repair. Dataset
+configs match the accuracy experiment, apart from enabling timing and using
+separate timing output paths. Every replay completes and reproduces its
+untimed trajectory exactly, excluding compute timing.
+
+Means in milliseconds per initialized camera frame:
+
+| Dataset | Runs per backend | Schur backend | MSCKF backend | Schur visual-update phase | MSCKF visual-update phase |
+|---|---:|---:|---:|---:|---:|
+| EuRoC V1_01_easy | 1 | 6.684 | 7.095 | 0.720 | 0.985 |
+| UZH-FPV indoor_forward_6 | 2 | 3.418 | 3.323 | 0.346 | 0.323 |
+
+Backend time sums propagation, MSCKF/Schur update, SLAM update, delayed SLAM
+initialization, and re-triangulation/cleanup/marginalization. Tracking, image
+loading, and stage-file output are outside this sum. The visual-update phase
+also includes shared feature selection and housekeeping around the updater.
+Samples cover 2800 initialized frames per EuRoC run and 1782 per UZH run.
+Repeated UZH means are 3.386/3.451 ms for Schur and 3.402/3.245 ms for MSCKF.
+
+Schur's backend mean is about 6% lower in this EuRoC run and about 3% higher
+on UZH, within the observed host timing variability. This supports comparable
+backend cost for these configurations, rather than a general speed ranking.
+Only the MSCKF visual updater changes; propagation, SLAM, covariance
+management, and marginalization still use the OpenVINS implementation.
+These are local x86 measurements, without CPU affinity or frequency controls;
+they do not establish A53 performance or compare the native SVO-based
+SchurVINS backend.
+
+The committed [timing record](backend-timing-20261025.json) preserves all six
+run summaries, execution order, commands, environment switches, timing
+definitions, trajectory checks, and executable/library fingerprints. Full
+logs, configs, per-frame stage timings, and trajectories remain under
+`install/ov-schurvins-validation-20261025/backend-timing/`.
+
 ### Confirmed elimination error
 
 `UpdaterSchurVINS.cpp` sums `Jx^T Jf` across cameras into
