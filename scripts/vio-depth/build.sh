@@ -27,7 +27,14 @@ cp "$sdk/scripts/schurvins/prepare-imu.sh" "$out/bin/"
 cp "$sdk/scripts/schurvins/tidesense.yaml" "$out/calibration.yaml"
 cp "$sdk/scripts/depth/sensor_cfg.ini" "$out/"
 cp "$here/run.sh" "$here/README.md" "$here/VALIDATION.md" "$here/receive.py" "$out/"
-cp -a "$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros/licenses/." "$out/licenses/"
+case "${SCHUR_ROS_BACKEND:-micro-ros}" in
+  native-dds) vio_package=schurvins-gcc11-native-dds ;;
+  none) vio_package=schurvins-gcc11-static ;;
+  *) vio_package=schurvins-gcc11-static-micro-ros ;;
+esac
+cp -a "$sdk/install/soc_sg2002_tidesense_arm64_sd/$vio_package/licenses/." "$out/licenses/"
+mkdir -p "$out/licenses/micro-ROS"
+cp -a "$sdk/install/micro-ros/firmware/build/licenses/." "$out/licenses/micro-ROS/"
 {
   printf 'MODE=vio-depth\nSOURCE=%s\n' "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
   printf '%s\n' "CAMERA=OV9281_640x400_FSIN_20Hz" "VIO=SchurVINS_A53" "DEPTH=TPU_AREA_320x200_SAD32_15x15"

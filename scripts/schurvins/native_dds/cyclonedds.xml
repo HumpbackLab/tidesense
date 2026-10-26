@@ -1,0 +1,16 @@
+<CycloneDDS>
+  <Domain>
+    <!-- Optional fixed-peer setup: edit both addresses and set CYCLONEDDS_URI.
+         Without this file Cyclone DDS uses its normal automatic discovery. -->
+    <General>
+      <Interfaces><NetworkInterface address="192.168.123.99"/></Interfaces>
+      <AllowMulticast>false</AllowMulticast>
+      <MaxMessageSize>1400B</MaxMessageSize>
+      <FragmentSize>1200B</FragmentSize>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <Peers><Peer Address="192.168.123.2"/></Peers>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

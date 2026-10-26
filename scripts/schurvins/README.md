@@ -4,9 +4,18 @@
 
 现已支持 OV9281 **实时双目图像输入与纯视觉前端**，用法和实测见 [CAMERA.md](CAMERA.md)。现已接入 SC7U22 **200Hz 实时 IMU**，双目＋惯性入口见 [IMU.md](IMU.md)；原离线双目＋IMU 入口保留。
 
-可选 **micro-ROS 位姿/跟踪状态发布**见 [MICRO-ROS.md](MICRO-ROS.md)。构建开关
-`SCHUR_WITH_MICRO_ROS=ON`，构建脚本默认开启；运行时还需显式设置 `SCHUR_MICRO_ROS=1` 和电脑端
-`SCHUR_MICRO_ROS_AGENT`。通信默认关闭，`SCHUR_MICRO_ROS=0` 可独立运行 VIO。
+VIO 的 ROS 输出可在编译时选择 **micro-ROS**（默认）、**原生 DDS** 或关闭通信：
+
+```sh
+SCHUR_ROS_BACKEND=micro-ros scripts/schurvins/build.sh
+SCHUR_ROS_BACKEND=native-dds scripts/schurvins/build.sh
+SCHUR_ROS_BACKEND=none scripts/schurvins/build.sh
+```
+
+两种后端均发布 `/tidesense/pose`（PoseStamped）及 `/tidesense/tracking`（Bool），best effort，
+通过独立通信线程和 64 条有界队列隔离 VIO；运行时默认关闭，用 `SCHUR_ROS=1` 开启。
+micro-ROS 的 `SCHUR_MICRO_ROS=1` 继续兼容，显式设置的 `SCHUR_ROS` 优先。
+Agent 用法见 [MICRO-ROS.md](MICRO-ROS.md)，原生 DDS 构建、部署见 [原生 DDS 说明](native_dds/README.md)。
 
 标定与数据集统一使用 `tidesense_record` 录制原始双目和 IMU，见 [CALIBRATION.md](CALIBRATION.md)。实时 VIO 通过根目录 `tide_cam` 在进程内采集，无需相机 INI 或辅助进程。
 
@@ -14,7 +23,7 @@
 精确版本与依赖见 `sources.lock`；此目录保存 SDK 构建入口、运行程序和上游补丁。
 `SchurVINS/` 与 SDK 其它独立源码库一样不直接纳入主库，构建脚本可恢复指定集成版本；历史补丁已包含在该版本中。
 
-## GCC 11 全静态版本
+## GCC 11 构建与安装包
 
 ```sh
 JOBS=4 ./scripts/schurvins/build.sh
@@ -26,17 +35,18 @@ SchurVINS、OpenCV、yaml-cpp、glog 0.4.0 和 FAST；Eigen、minkindr、Boost �
 相机 SDK 与 `tide_cam` 静态链接进主程序，采集和 VIO 在同一进程，详见 `CAMERA.md`。
 关闭 OpenCV ITT 的动态插件加载，以及 glog 的 NSS 用户名查询（日志用户名取 `USER`，
 未设置时使用其内置占位名），避免这两项功能引入运行时动态库需求。
-构建脚本检查 ELF 不含 `PT_INTERP` 或 `DT_NEEDED`。
+micro-ROS 和 none 包的构建脚本检查 ELF 不含 `PT_INTERP` 或 `DT_NEEDED`。原生 DDS 保留静态估计器和相机库，但通过随包私有加载器使用 ROS 2 动态运行库；使用该包的 `run.sh` 启动，不替换设备系统库。
 
 构建缓存：`install/schurvins-gcc11-static/`，源码缓存位于 `install/schurvins-build/deps/`。
 默认输出目录：`install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros/`。
 安装包：同级 `schurvins-gcc11-static-micro-ros-a53.tar`（不压缩，板端无须 gzip）。
 传到板端后使用 `tar -xf schurvins-gcc11-static-micro-ros-a53.tar -C /mnt/data` 解包。
 `SCHUR_WITH_MICRO_ROS=OFF` 可单独构建不带通信库的 `schurvins-gcc11-static/` 包。
-TideSense 的 `build_all` 会构建带 micro-ROS 的版本并放入 SD 卡 DATA 分区。
+原生 DDS 输出为 `schurvins-gcc11-native-dds/` 和同名 `-a53.tar`。三种后端的构建目录与安装包互相独立。
+TideSense 的 `build_all` / `build_tidesense_apps` 默认选择 micro-ROS，可通过导出 `SCHUR_ROS_BACKEND=native-dds` 改为原生 DDS；其它独立深度应用仍使用自身的 micro-ROS 输出。
 包中 `schurvins.yaml` 来自 `scripts/schurvins/tidesense.yaml`，对应当前测试板；其它硬件需替换为本板标定。
-该版本无须部署 OpenCV 动态库，也无须升级板上 glibc。
-`BUILD-INFO` 记录编译器与构建模式；全静态程序可直接执行：
+三种包均无须部署 OpenCV 动态库；原生 DDS 包自带匹配的加载器及运行库，无须升级系统 glibc。
+`BUILD-INFO` 记录编译器、`SCHUR_ROS_BACKEND` 与构建模式；micro-ROS / none 全静态程序可直接执行：
 
 ```sh
 ./bin/schurvins_stereo --self-test synthetic.yaml
@@ -49,11 +59,11 @@ TideSense 的 `build_all` 会构建带 micro-ROS 的版本并放入 SD 卡 DATA 
 当时板上安装目录为 `/mnt/data/schurvins-gcc11-static`；当前默认镜像使用带 `-micro-ros` 后缀的目录。
 
 尚未验证真实 VIO 精度。
-未剥离符号的程序和静态核心库位于构建缓存的 `core-micro-ros/` 下；关闭 micro-ROS 时为 `core/`。
+未剥离符号的程序和静态核心库分别位于 `core-micro-ros/`、`core-native-dds/` 和 `core/`。
 
 ## 构建要求与功能范围
 
-`build.sh` 默认使用 GCC 11 全静态构建，仍接受 `--gcc11-static` 参数。
+`build.sh` 默认使用 GCC 11 / micro-ROS 全静态构建，仍接受 `--gcc11-static` 参数；原生 DDS 包带私有动态运行库。
 主机需要 Git、curl、CMake >= 3.15、make、Boost 1.74 开发头文件（`libboost1.74-dev`）。
 默认还需要 ROS 2 Humble 开发环境和 Python venv；详见 [MICRO-ROS.md](MICRO-ROS.md)。
 也可用 `BOOST_HEADERS=/path/to/boost` 指定头文件目录，或用 `JOBS=2` 降低并行度。

@@ -6,7 +6,7 @@
 // No ROS types escape this interface. Only the communication thread calls rcl/rmw.
 class MicroRosBridge {
  public:
-  // Runtime opt-in: SCHUR_MICRO_ROS=1. Off creates no thread or ROS context.
+  // Runtime opt-in: SCHUR_ROS=1 (or legacy SCHUR_MICRO_ROS=1). Off creates no thread/context.
   explicit MicroRosBridge(bool calibration = false, bool imu = false);
   ~MicroRosBridge();
   MicroRosBridge(const MicroRosBridge&) = delete;

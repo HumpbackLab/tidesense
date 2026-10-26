@@ -22,4 +22,7 @@ if [ "${1:-}" = --imu-test ]; then
   shift
   exec "$app_dir/bin/schurvins_imu_test" "$@"
 fi
+if [ -x "$app_dir/lib/ld-linux-aarch64.so.1" ]; then
+  exec "$app_dir/lib/ld-linux-aarch64.so.1" --library-path "$app_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$app_dir/bin/schurvins_stereo" "$@"
+fi
 exec "$app_dir/bin/schurvins_stereo" "$@"

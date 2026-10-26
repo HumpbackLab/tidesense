@@ -4,7 +4,7 @@
 #include "live_imu.hpp"
 #include "imu_prediction.hpp"
 #include <svo/schur_vins.h>
-#include "micro_ros_bridge.hpp"
+#include "ros_bridge.hpp"
 #include "imu_intrinsics.hpp"
 #include "recording.hpp"
 #include <algorithm>
@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
     replay_args[4] = argv[3]; argv = replay_args; argc = 5;
   }
   if (argc == 2 && std::string(argv[1]) == "--help") {
-    std::cout << "SchurVINS stereo + IMU (A53, optional micro-ROS)\n"
+    std::cout << "SchurVINS stereo + IMU (A53, build-selected ROS transport)\n"
       "  schurvins_stereo CALIB.yaml STEREO.csv IMU.csv POSES.csv\n"
       "  schurvins_stereo --self-test SYNTHETIC_CALIB.yaml\n"
       "  schurvins_stereo --camera CALIB.yaml POSES.csv [FRAMES]\n"
@@ -113,17 +113,19 @@ int main(int argc, char** argv) {
       "Capture uses tide_cam in-process, with dimensions from calibration and hardware-triggered cadence.\n"
       "For calibration, record raw data with tidesense_record and export to Kalibr; no separate capture mode.\n"
       "VIO modes acquire SC7U22 accel/gyro at 200Hz. Use run.sh with IMU_DEVICE=auto.\n"
-      "IMU prediction defaults ON: IMU-rate micro-ROS poses; POSES.csv stays visual-rate.\n"
+      "IMU prediction defaults ON: IMU-rate ROS poses; POSES.csv stays visual-rate.\n"
       "SCHUR_PREDICTION=0 disables prediction; SCHUR_PREDICTION_CSV=<path> saves predicted poses.\n"
       "Camera modes run the stereo visual frontend without IMU. FRAMES defaults to 120; 0 runs until Ctrl-C.\n"
       "Camera smoke uses test-only geometry, reports input validation, and writes no poses.\n"
       "STEREO: timestamp_ns,left_image,right_image (paths relative to CSV)\n"
       "IMU: timestamp_ns,gx,gy,gz,ax,ay,az (rad/s, m/s^2)\n"
       "Rows must be strictly time-ordered; comments start with #.\n"
-      "micro-ROS runtime default OFF. Set SCHUR_MICRO_ROS=1 and SCHUR_MICRO_ROS_AGENT=<computer IPv4>.\n"
+      "ROS runtime default OFF. Set SCHUR_ROS=1 to enable the compiled backend.\n"
+      "micro-ROS: SCHUR_MICRO_ROS=1 is also accepted; SCHUR_MICRO_ROS_AGENT=<computer IPv4>.\n"
       "Optional SCHUR_MICRO_ROS_PORT=8888, SCHUR_MICRO_ROS_DOMAIN=0. SCHUR_MICRO_ROS=0 disables it.\n"
       "Live ROS stamps use system realtime mapped from acquisition monotonic time; CSV stamps are unchanged.\n"
-      "micro-ROS compiled: " << (MicroRosBridge::compiled() ? "yes" : "no") << '\n';
+      "native-dds: ROS_DOMAIN_ID=0 and optional CYCLONEDDS_URI; no Agent required.\n"
+      "ROS backend: " << RosBridge::backend() << "\nmicro-ROS compiled: " << (std::string(RosBridge::backend()) == "micro-ros" ? "yes" : "no") << '\n';
     return 0;
   }
   if (argc > 1 && std::string(argv[1]) == "--calibrate") {
@@ -142,10 +144,10 @@ int main(int argc, char** argv) {
   FLAGS_logtostderr = true;
   cv::setNumThreads(1);
   try {
-    MicroRosBridge micro_ros;
+    RosBridge ros;
     // Use acquisition time, not network arrival time. Dataset timestamps remain
     // unchanged. Live timestamps share CLOCK_MONOTONIC with the input adapters.
-    const int64_t ros_clock_offset = camera && micro_ros.enabled()
+    const int64_t ros_clock_offset = camera && ros.enabled()
       ? int64_t(clockNs(CLOCK_REALTIME)) - int64_t(clockNs(CLOCK_MONOTONIC)) : 0;
     const uint64_t frame_limit = camera ? (argc == count_index+1 ? stamp(argv[count_index]) : 120) : 0;
     const bool use_imu = !camera || live_vio;
@@ -255,7 +257,7 @@ int main(int argc, char** argv) {
     if (predict) {
       prediction.reset(new ImuPrediction([&](const PredictedState& s, bool valid) {
         const uint64_t stamp = uint64_t(int64_t(s.stamp_ns) + ros_clock_offset);
-        micro_ros.submit(stamp, valid, valid ? s.p.data() : nullptr, valid ? s.q.coeffs().data() : nullptr);
+        ros.submit(stamp, valid, valid ? s.p.data() : nullptr, valid ? s.q.coeffs().data() : nullptr);
         if (valid) ++predicted_count;
         if (prediction_csv.is_open()) {
           prediction_csv << s.stamp_ns << std::setprecision(15);
@@ -441,7 +443,7 @@ int main(int argc, char** argv) {
       const uint64_t ros_stamp = uint64_t(int64_t(t) + ros_clock_offset);
       if (!f || !tracking_healthy) {
         if (prediction) prediction->invalidate();
-        else micro_ros.submit(ros_stamp, false);
+        else ros.submit(ros_stamp, false);
         continue;
       }
       auto T = f->get_T_W_B();
@@ -449,8 +451,8 @@ int main(int argc, char** argv) {
       if (!p.allFinite() || !q.coeffs().allFinite()) throw std::runtime_error("Non-finite pose");
       ++tracked;
       // Smoke modes use test geometry and must never advertise a usable pose.
-      if (smoke) micro_ros.submit(ros_stamp, false);
-      else if (!prediction) micro_ros.submit(ros_stamp, true, p.data(), q.coeffs().data());
+      if (smoke) ros.submit(ros_stamp, false);
+      else if (!prediction) ros.submit(ros_stamp, true, p.data(), q.coeffs().data());
       if (prediction) {
         schur_vins::SchurVINS::ImuSnapshot snapshot;
         if (f->imu_ready_ && vio.schur_vins_ && vio.schur_vins_->getImuSnapshot(snapshot)) {

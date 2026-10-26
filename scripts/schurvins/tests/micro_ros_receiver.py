@@ -10,6 +10,7 @@ from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Bool
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--hz', type=int, choices=(10, 200), default=10)
 parser.add_argument('--seconds', type=float, default=45)
 parser.add_argument('--output', required=True)
 parser.add_argument('--ready-file')
@@ -27,7 +28,7 @@ def on_pose(msg):
     if msg.header.frame_id != 'odom':
         errors.append('frame mismatch')
     stamp = msg.header.stamp.sec * 10**9 + msg.header.stamp.nanosec
-    if stamp < 1700000000000000000 or stamp % 100000000:
+    if stamp < 1700000000000000000 or (stamp-1700000000000000000) % (10**9//a.hz):
         errors.append('timestamp mismatch')
     if poses and stamp <= poses[-1]['stamp']:
         errors.append('timestamps not increasing')
@@ -59,4 +60,4 @@ assert len(poses) >= 10, result
 assert True in tracking and False in tracking, result
 assert 'tidesense' in nodes, result
 assert not errors, result
-print('micro-ROS receiver PASS:', len(poses), 'poses; tracking loss and ROS node verified')
+print('ROS receiver PASS:', len(poses), 'poses; tracking loss and ROS node verified')

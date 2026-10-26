@@ -3,7 +3,7 @@ set -euo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 sdk=$(cd -- "$here/../.." && pwd)
 source "$here/sources.lock"
-# GCC 11 full-static is the supported build; accept the previous explicit flag.
+# SDK GCC 11; native DDS carries a private shared ROS runtime.
 case "${1:-}" in
   ""|--gcc11-static) ;;
   *) echo "Usage: $0 [--gcc11-static]" >&2; exit 2 ;;
@@ -11,11 +11,20 @@ esac
 work="$sdk/install/schurvins-gcc11-static"
 stage="$work/stage"
 out="$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static"
-micro_ros=${SCHUR_WITH_MICRO_ROS:-ON}
-case "$micro_ros" in
-  OFF) core="$work/core" ;;
-  ON) core="$work/core-micro-ros"; out="$out-micro-ros" ;;
-  *) echo 'SCHUR_WITH_MICRO_ROS must be ON or OFF' >&2; exit 2 ;;
+backend=${SCHUR_ROS_BACKEND:-}
+if [[ -z "$backend" ]]; then
+  case "${SCHUR_WITH_MICRO_ROS:-ON}" in
+    ON) backend=micro-ros ;;
+    OFF) backend=none ;;
+    *) echo 'SCHUR_WITH_MICRO_ROS must be ON or OFF' >&2; exit 2 ;;
+  esac
+fi
+micro_ros=OFF
+case "$backend" in
+  none) core="$work/core" ;;
+  micro-ros) micro_ros=ON; core="$work/core-micro-ros"; out="$out-micro-ros" ;;
+  native-dds) core="$work/core-native-dds"; out="$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-native-dds" ;;
+  *) echo 'SCHUR_ROS_BACKEND must be micro-ros, native-dds or none' >&2; exit 2 ;;
 esac
 deps="$sdk/install/schurvins-build/deps"
 jobs=${JOBS:-4}
@@ -87,14 +96,27 @@ cmake -S "$deps/opencv-$OPENCV_VERSION" -B "$work/opencv" "${common[@]}" \
   -DCPU_BASELINE=NEON
 cmake --build "$work/opencv" -j"$jobs"
 cmake --install "$work/opencv"
-if [[ "$micro_ros" == ON ]]; then
+if [[ "$backend" == micro-ros ]]; then
   "$here/micro_ros/build.sh"
+elif [[ "$backend" == native-dds ]]; then
+  "$here/native_dds/build.sh"
+fi
+ros_args=()
+if [[ "$backend" == native-dds ]]; then
+  ros_args+=(-DCMAKE_TOOLCHAIN_FILE="$here/native_dds/toolchain.cmake")
+  set +u
+  source /opt/ros/humble/setup.bash
+  set -u
+  export AMENT_PREFIX_PATH="$sdk/install/native-dds/ws/install:$AMENT_PREFIX_PATH"
+  export CMAKE_PREFIX_PATH="$sdk/install/native-dds/ws/install:${CMAKE_PREFIX_PATH:-}"
+  export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 fi
 "$sdk/tide_cam/build.sh"
 cmake -S "$here" -B "$core" "${common[@]}" \
   -DCMAKE_PREFIX_PATH="$stage" -DCMAKE_INSTALL_PREFIX="$out" \
   -DWORK="$work" -DDEPS="$deps" -DSCHUR_STATIC=ON -DGLOG_LIBRARY="$glog_library" \
-  -DSCHUR_WITH_MICRO_ROS="$micro_ros" \
+  -DSCHUR_ROS_BACKEND="$backend" "${ros_args[@]}" \
+  -DSCHUR_BUILD_ROS_TESTS="${SCHUR_BUILD_ROS_TESTS:-OFF}" \
   -DSCHUR_BUILD_BENCHMARKS="${SCHUR_BUILD_BENCHMARKS:-OFF}" \
   -DSCHUR_OPT_HALFSAMPLE_NEON="${SCHUR_OPT_HALFSAMPLE_NEON:-OFF}" \
   -DSCHUR_OPT_ZMSSD_NEON="${SCHUR_OPT_ZMSSD_NEON:-OFF}" \
@@ -115,12 +137,19 @@ rm -f "$out/tidesense-gyro-matrix.yaml"
 cp "$here/tests/board-imu.sh" "$out/bin/test-imu-board.sh"
 "${cross}readelf" -lW "$out/bin/schurvins_stereo" > "$work/elf-program-headers.txt"
 "${cross}readelf" -dW "$out/bin/schurvins_stereo" > "$work/elf-dynamic.txt"
-if grep -Eq 'INTERP|NEEDED' "$work/elf-program-headers.txt" "$work/elf-dynamic.txt"; then
-  echo "Static ELF verification failed" >&2; exit 1
+if [[ "$backend" == native-dds ]]; then
+  python3 "$here/native_dds/package-runtime.py" "$out/lib" --binary "$out/bin/schurvins_stereo"
+  "${cross}readelf" -hW "$out/bin/schurvins_stereo" | grep -q 'Machine:.*AArch64'
+  grep -q 'librcl' "$work/elf-dynamic.txt" || { echo 'Native ROS runtime is not linked' >&2; exit 1; }
+else
+  if grep -Eq 'INTERP|NEEDED' "$work/elf-program-headers.txt" "$work/elf-dynamic.txt"; then
+    echo "Static ELF verification failed" >&2; exit 1
+  fi
 fi
 cp "$here/board-test-imu.log" "$here/IMU.md" "$here/CAMERA.md" "$here/camera-smoke.yaml" "$here/run.sh" "$here/synthetic.yaml" "$here/README.md" "$here/RECORDING.md" "$here/sources.lock" "$out/"
 mkdir -p "$out/licenses" "$out/tests"
 cp "$here/tests/PREDICTION-VALIDATION.md" "$out/tests/"
+cp "$here/native_dds/VALIDATION.md" "$out/tests/ROS-BACKENDS-VALIDATION.md"
 cp "$here/MICRO-ROS.md" "$here/CALIBRATION.md" "$here/CALIBRATION-VALIDATION.md" "$out/"
 cp "$here/micro_ros/VALIDATION.md" "$out/MICRO-ROS-VALIDATION.md"
 cp "$sdk/scripts/calibration/sc7u22-imu.yaml.example" "$out/"
@@ -131,6 +160,14 @@ if [[ "$micro_ros" == ON ]]; then
   cp "$here/micro_ros/0001-isolate-client-key-rng.patch" "$out/micro-ros-rng.patch"
   cp "$here/micro_ros/colcon.meta" "$out/micro-ros-colcon.meta"
   cp "$here/micro_ros/calibration-agent.xml" "$here/micro_ros/calibration-cyclone.xml" "$out/"
+fi
+if [[ "$backend" == native-dds ]]; then
+  cp "$here/native_dds/README.md" "$out/NATIVE-DDS.md"
+  cp "$here/native_dds/VALIDATION.md" "$out/NATIVE-DDS-VALIDATION.md"
+  cp "$here/native_dds/sources.repos" "$out/native-dds-sources.repos"
+  cp "$here/native_dds/cyclonedds.xml" "$out/cyclonedds.xml"
+  mkdir -p "$out/licenses/native-dds"
+  cp -a "$sdk/install/native-dds/licenses/." "$out/licenses/native-dds/"
 fi
 cp "$here/LICENSE.PX4-SC7U22" "$out/licenses/"
 # Preserve the full upstream source license notices in the downloaded trees too.
@@ -147,7 +184,10 @@ cp "$stage/include/boost/config.hpp" "$out/licenses/boost-notices.hpp"
 cp "$work/sysroot/eigen/include/eigen3/Eigen/Core" "$out/licenses/Eigen-Core-notices"
 cp /usr/share/doc/libboost1.74-dev/copyright "$out/licenses/Boost-copyright" 2>/dev/null || true
 cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
-(cd "$out" && sha256sum bin/schurvins_stereo bin/schurvins_imu_test bin/prepare-imu.sh bin/test-imu-board.sh run.sh camera-smoke.yaml schurvins.yaml > SHA256SUMS)
+(cd "$out" && {
+  sha256sum bin/schurvins_stereo bin/schurvins_imu_test bin/prepare-imu.sh bin/test-imu-board.sh run.sh camera-smoke.yaml schurvins.yaml
+  if [[ "$backend" == native-dds ]]; then sha256sum lib/* cyclonedds.xml; fi
+} > SHA256SUMS)
 {
   "${cross}g++" --version | head -1
   printf 'SCHUR_OPT_HALFSAMPLE_NEON=%s\nSCHUR_OPT_ZMSSD_NEON=%s\nSCHUR_OPT_FAST10_NEON=%s\n' \
@@ -159,7 +199,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'LIVE_CAMERA=tide_cam_in_process_dimensions_from_calibration\nLIVE_IMU=SC7U22_IIO_INT1_200Hz\nCAMERA_SYNC=hardware_trigger\n'
   printf 'IMU_INPUT_DOMAIN=raw_si\nIMU_INTRINSICS=single_stage\n'
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
-  printf 'SCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$micro_ros"
+  printf 'SCHUR_ROS_BACKEND=%s\nROS_RUNTIME_DEFAULT=OFF\nSCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$backend" "$micro_ros"
 } > "$out/BUILD-INFO"
 tar -C "$(dirname "$out")" -cf "$out-a53.tar" "$(basename "$out")"
 printf '\nBuilt: %s\nPackage: %s-a53.tar\n' "$out" "$out"

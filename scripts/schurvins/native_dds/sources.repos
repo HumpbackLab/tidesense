@@ -1,0 +1,81 @@
+repositories:
+  ros2/test_interface_files:
+    type: git
+    url: https://github.com/ros2/test_interface_files.git
+    version: a0c8f5e338490ddf8b98238dce35c06810115e8b
+  ros2/libyaml_vendor:
+    type: git
+    url: https://github.com/ros2/libyaml_vendor.git
+    version: 239f695ceaa0820255f3d0fe02ec8c2bd41b8e78
+  ros2/common_interfaces:
+    type: git
+    url: https://github.com/ros2/common_interfaces.git
+    version: 08434490d3e4abd37ccc5462cdde69b88853b5b8
+  ros2/rcl:
+    type: git
+    url: https://github.com/ros2/rcl.git
+    version: cbaee7c905e3276bb7a629eb1e18d8d3c781f194
+  ros2/rcl_interfaces:
+    type: git
+    url: https://github.com/ros2/rcl_interfaces.git
+    version: 82776fc9068d1e0cd4af11c2e2700195994b2eb1
+  ros2/rcl_logging:
+    type: git
+    url: https://github.com/ros2/rcl_logging.git
+    version: 5bab8cf7a19c466de77aee35fa55778298563c57
+  ros2/rcpputils:
+    type: git
+    url: https://github.com/ros2/rcpputils.git
+    version: ddb3f310870e1cd5395396ca36101075420ba8ba
+  ros2/rmw:
+    type: git
+    url: https://github.com/ros2/rmw.git
+    version: 566d17a97e87bc5336ce33fb025ce8e952a3326a
+  ros2/rmw_implementation:
+    type: git
+    url: https://github.com/ros2/rmw_implementation.git
+    version: 0fd2967b217afef2d45fbab550b598c70444a0aa
+  ros2/rosidl:
+    type: git
+    url: https://github.com/ros2/rosidl.git
+    version: 5621b26eff54596a356ad8abd72c06e7650d21f7
+  ros2/rosidl_dds:
+    type: git
+    url: https://github.com/ros2/rosidl_dds.git
+    version: ab8497770c652edb40d6b1591118198cbcf14237
+  ros2/rosidl_defaults:
+    type: git
+    url: https://github.com/ros2/rosidl_defaults.git
+    version: 8266f1c0f062d405595570209cfb0ed3f71684ae
+  ros2/unique_identifier_msgs:
+    type: git
+    url: https://github.com/ros2/unique_identifier_msgs.git
+    version: 27767cefcf8a80da44641dc208c57722c28aa11c
+  uros/rclc:
+    type: git
+    url: https://github.com/ros2/rclc
+    version: 10eadcc6444a3af3b21e7fb80a626f8c391450e0
+  uros/tracetools:
+    type: git
+    url: https://github.com/ros2/ros2_tracing.git
+    version: 3c159b382d2d565e26eaa91e39c9ec06a5c6fe88
+  rcutils:
+    type: git
+    url: https://github.com/ros2/rcutils.git
+    version: b11330c9f8c180ae86a19f3c92a386d362a4aaff
+  rosidl_typesupport:
+    type: git
+    url: https://github.com/ros2/rosidl_typesupport.git
+    version: 94c7b6d6db353cf26adc22cb7023833fd6cd18a1
+  rmw_dds_common:
+    type: git
+    url: https://github.com/ros2/rmw_dds_common.git
+    version: e26ba1079886c5598614172db0b27526aa6af07d
+  rmw_cyclonedds:
+    type: git
+    url: https://github.com/ros2/rmw_cyclonedds.git
+    version: e370e09ca76fc811e42ff07bd3a5e3b92f18c51e
+  cyclonedds:
+    type: git
+    url: https://github.com/eclipse-cyclonedds/cyclonedds.git
+    version: 2cdd114cbd18340c606573b4cc8dc20cc161ec5a
