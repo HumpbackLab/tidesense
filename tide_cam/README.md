@@ -121,8 +121,8 @@ YNR 192、关闭锐化/TNR。`exposure_max_us` 可在 open 前指定，必须为
 调用方可在 `tide_cam_config_init()` 后显式调用 `tide_cam_config_load_file(path, &config, error, size)`；
 文件缺失返回 `TIDE_CAM_NOT_FOUND`，保持默认值，格式错误则返回错误且不修改 config。
 录制器和 SchurVINS 默认读取 `/mnt/data/tide-configurator/camera.conf`，可通过
-`TIDE_CAM_CONFIG_PATH` 指定其他路径。`tide_cam_settings get|set PATH [值]` 使用同一解析函数，
-其中 `set` 原子替换设备文件；修改后重新启动采集生效。
+`TIDE_CAM_CONFIG_PATH` 指定其他路径。直接用文本编辑器修改文件，例如写入
+`exposure_max_us=1200`；修改后重新启动采集生效。
 
 ## 构建 SG2002
 
@@ -144,7 +144,6 @@ install/tide_cam/
   lib/libtide_cam.a
   lib/cmake/tide_cam/
   bin/tide_cam_capture
-  bin/tide_cam_settings
 ```
 
 也可在已生成 SDK archives 后，用 GCC 11 构建全静态应用：
