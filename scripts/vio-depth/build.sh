@@ -25,7 +25,7 @@ cross="$sdk/host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux
 cp "$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static/bin/"{schurvins_camera,fsin.sh} "$out/bin/"
 cp "$sdk/scripts/schurvins/prepare-imu.sh" "$out/bin/"
 cp "$sdk/scripts/schurvins/tidesense.yaml" "$out/calibration.yaml"
-cp "$sdk/scripts/depth/sensor_cfg.ini" "$out/"
+cp "$sdk/build/boards/cv181x/sg2002_tidesense_arm64_sd/sensor_cfg.ini" "$out/"
 cp "$here/run.sh" "$here/README.md" "$here/VALIDATION.md" "$here/receive.py" "$out/"
 case "${SCHUR_ROS_BACKEND:-micro-ros}" in
   native-dds) vio_package=schurvins-gcc11-native-dds ;;
