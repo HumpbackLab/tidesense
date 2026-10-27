@@ -19,8 +19,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 TIDESENSE_DEPTH_PROFILE="$tmp/stages.csv" "$base/tidesense_depth" \
-  --calibration "$package/calibration.yaml" --sensor-ini "$package/sensor_cfg.ini" \
-  --camera-helper "$package/bin/schurvins_camera" --width "$width" --fps 20 \
+  --calibration "$package/calibration.yaml" --width "$width" --fps 20 \
   >"$tmp/run.log" 2>&1 &
 app_pid=$!
 echo "$app_pid" > "$tmp/app.pid"

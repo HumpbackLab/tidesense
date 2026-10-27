@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "depth.hpp"
 #include "depth_ros.hpp"
-#include "live_camera.hpp"
+#include "tide_camera.hpp"
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -26,17 +26,15 @@ uint64_t integer(const std::string& s) {
 }
 int main(int argc, char** argv) try {
   const auto bin = executableDirectory();
-  std::string calibration=bin+"/../calibration.yaml", ini=bin+"/../sensor_cfg.ini";
-  std::string helper=bin+"/schurvins_camera";
+  std::string calibration=bin+"/../calibration.yaml";
   int width=320, disparities=0;
   double fps=20;
   uint64_t frames=0;
   for (int i=1; i<argc; ++i) {
     std::string option=argv[i];
     if (option == "--help") {
-      std::cout << "tidesense_depth [--calibration SCHUR.yaml] [--sensor-ini FILE]\n"
+      std::cout << "tidesense_depth [--calibration SCHUR.yaml]\n"
         "  [--width 320|640] [--disparities 16..WIDTH-16] [--fps 0.1..20] [--frames N]\n"
-        "  [--camera-helper FILE]\n"
         "Default: 320x200, D32, block15, 20Hz selection from FSIN 20Hz.\n"
         "micro-ROS: SCHUR_MICRO_ROS_AGENT=HOST_IP, optional SCHUR_MICRO_ROS_PORT/DOMAIN.\n"
         "Topics: /tidesense/depth/image_raw (16UC1 mm, 0 invalid), depth/camera_info.\n";
@@ -45,8 +43,6 @@ int main(int argc, char** argv) try {
     if (++i == argc) throw std::runtime_error("Missing option value");
     std::string value=argv[i];
     if (option == "--calibration") calibration=value;
-    else if (option == "--sensor-ini") ini=value;
-    else if (option == "--camera-helper") helper=value;
     else if (option == "--frames") frames=integer(value);
     else if (option == "--width" || option == "--disparities") {
       auto n=integer(value);
@@ -74,7 +70,11 @@ int main(int argc, char** argv) try {
   sigaction(SIGINT,&sa,nullptr); sigaction(SIGTERM,&sa,nullptr);
   // Preserve acquisition time, mapped once into board realtime for ROS headers.
   const int64_t offset=int64_t(now(CLOCK_REALTIME))-int64_t(now(CLOCK_MONOTONIC));
-  LiveCamera camera(helper,ini);
+  tide_cam_config camera_config;
+  tide_cam_config_init(&camera_config);
+  camera_config.mode={640,400,TIDE_CAM_MONO8};
+  loadCameraSettings(camera_config);
+  TideCamera camera(camera_config);
   const uint64_t period=uint64_t(std::llround(1e9/fps));
   uint64_t next=0, processed=0, queued=0, first=0, last=0;
   double compute_ms=0;
@@ -88,6 +88,7 @@ int main(int argc, char** argv) try {
     if (!(h.flags & CAMERA_FSIN)) throw std::runtime_error("Depth requires hw_sync=1 on both cameras");
     const uint64_t skew=h.left_ns>h.right_ns ? h.left_ns-h.right_ns : h.right_ns-h.left_ns;
     if (skew>10000000) throw std::runtime_error("Stereo VI timestamp skew exceeds 10ms");
+    if (!first) std::cout << "camera: first pair sequence=" << h.sequence << std::endl;
     const uint64_t stamp=info.reference ? h.right_ns : h.left_ns;
     if (stamp<next) continue;
     if (!next) next=stamp;
@@ -114,6 +115,6 @@ int main(int argc, char** argv) try {
   std::cout << "Depth processed=" << processed << " queued=" << queued
             << " mean_compute_ms=" << (processed ? compute_ms/processed : 0)
             << " selected_hz=" << (last>first ? (processed-1)*1e9/(last-first) : 0) << std::endl;
-  if (status && status!=128+SIGTERM) throw std::runtime_error("Camera helper failed");
+  if (status) throw std::runtime_error("tide_cam failed during cleanup");
   return 0;
 } catch (const std::exception& e) { std::cerr << "Depth error: " << e.what() << '\n'; return 1; }

@@ -12,18 +12,18 @@ esac
 [[ -f "$stage/lib/libopencv_calib3d.a" && -f "$sdk/install/micro-ros/firmware/build/libmicroros.a" ]] || {
   echo 'Build dependencies first: SCHUR_WITH_MICRO_ROS=ON scripts/schurvins/build.sh' >&2; exit 1;
 }
+"$sdk/tide_cam/build.sh"
 cmake -S "$here" -B "$build" -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE="$here/../schurvins/a53-gcc11-toolchain.cmake" \
   -DCMAKE_PREFIX_PATH="$stage" -DDEPTH_BUILD_TESTS=ON \
   -DDEPTH_STEREOBM_ALL64="${DEPTH_STEREOBM_ALL64:-ON}"
 cmake --build "$build" -j"${JOBS:-4}"
-"$here/../schurvins/build-camera.sh"
 mkdir -p "$out/bin" "$out/licenses"
+rm -f "$out/bin/schurvins_camera" "$out/bin/fsin.sh" "$out/sensor_cfg.ini"
 cross="$sdk/host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
 "${cross}strip" --strip-unneeded -o "$out/bin/tidesense_depth" "$build/tidesense_depth"
-cp "$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static/bin/"{schurvins_camera,fsin.sh} "$out/bin/"
 cp "$here/../schurvins/tidesense.yaml" "$out/calibration.yaml"
-cp "$here/run.sh" "$here/sensor_cfg.ini" "$here/README.md" "$here/VALIDATION.md" \
+cp "$here/run.sh" "$here/README.md" "$here/VALIDATION.md" \
   "$here/PERFORMANCE.md" "$here/OPTIMIZATION.md" "$here/receive.py" "$out/"
 cp "$sdk/install/schurvins-build/deps/opencv-3.4.20/LICENSE" "$out/licenses/OpenCV-LICENSE"
 cp "$sdk/install/schurvins-build/deps/yaml-cpp/LICENSE" "$out/licenses/yaml-cpp-LICENSE"
@@ -33,6 +33,6 @@ if [[ ${DEPTH_STEREOBM_ALL64:-ON} = ON ]]; then
 else
   rm -f "$out/STEREOBM-BUILD.json"
 fi
-printf 'DEPTH_STEREOBM_ALL64=%s\nCAMERA_CACHE_DEFAULT=1\n' "${DEPTH_STEREOBM_ALL64:-ON}" > "$out/BUILD-INFO"
+printf 'DEPTH_STEREOBM_ALL64=%s\nCAMERA_SOURCE=tide_cam\n' "${DEPTH_STEREOBM_ALL64:-ON}" > "$out/BUILD-INFO"
 tar -C "$(dirname "$out")" -cf "$out-a53.tar" "$(basename "$out")"
 echo "$out-a53.tar"
