@@ -1,8 +1,0 @@
-# A4 landscape, 100% printing; measure printed black tag edges.
-# Kalibr tag36h11, 2-cell black border; IDs 0..23.
-# ID 0 bottom-left; IDs increase left-to-right, then bottom-to-top.
-target_type: aprilgrid
-tagCols: 6
-tagRows: 4
-tagSize: 0.032
-tagSpacing: 0.3

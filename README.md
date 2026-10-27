@@ -65,6 +65,9 @@ cd tidesense
 ./scripts/repo_clone.sh --gitclone ./scripts/subtree.xml
 ```
 
+`tide_configurator/` 是独立的 GPLv3 submodule。`repo_clone.sh` 会在克隆清单中的子库后，
+递归初始化主仓库及各子库的 submodule，并检出各自父仓库记录的提交。
+
 - 更新所有子库（在已有工程的根目录执行）：
 
 从 `scripts/subtree.xml` 读取子库路径，依次在各子库当前分支执行 `git pull`；某个子库更新失败时停止循环。此命令不更新根仓库。
@@ -80,6 +83,8 @@ for project in ET.parse("scripts/subtree.xml").getroot().findall("project"):
     print(project.get("path") or project.attrib["name"])
 PY
 )
+git submodule sync --recursive
+git submodule update --init --recursive --checkout
 ```
 
 - 编译

@@ -1,0 +1,4 @@
+[submodule "tide_configurator"]
+	path = tide_configurator
+	url = https://github.com/HumpbackLab/tide_configurator.git
+	branch = master

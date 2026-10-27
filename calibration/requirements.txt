@@ -1,4 +1,0 @@
-PyYAML
-numpy
-zstandard
-rosbags==0.9.23
