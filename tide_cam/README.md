@@ -126,6 +126,9 @@ tide_cam/build.sh
 ```
 
 使用 SDK GCC 6 构建所需 SDK archives 及库，不构建 SchurVINS/OpenCV/ROS。
+构建脚本会应用 `patches/sg2002-isp-mono.patch` 并重建 `libisp.a`：RGB CAC
+遵从用户配置，TNR 关闭时仍给内核提供合法的 RGB map 块大小。旧版 ISP 在 OV9281
+关闭去马赛克和 TNR 后会反复打印两条警告；重复构建不会重复应用补丁。
 默认产物：
 
 ```text

@@ -81,6 +81,7 @@ static int ov9281_isp_profile(VI_PIPE pipe, int sharp, int tnr)
   ISP_TRY(CVI_ISP_Get##name##Attr(pipe, &attr)); attr.Enable = (value); \
   ISP_TRY(CVI_ISP_Set##name##Attr(pipe, &attr)); } while (0)
  ISP_ENABLE(ISP_DEMOSAIC_ATTR_S, Demosaic, CVI_FALSE);
+ ISP_ENABLE(ISP_RGBCAC_ATTR_S, RGBCAC, CVI_FALSE);
  ISP_ENABLE(ISP_CCM_ATTR_S, CCM, CVI_FALSE);
  ISP_ENABLE(ISP_CNR_ATTR_S, CNR, CVI_FALSE);
  ISP_ENABLE(ISP_MONO_ATTR_S, Mono, CVI_TRUE);
