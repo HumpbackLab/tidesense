@@ -111,6 +111,7 @@ int main(int argc, char** argv) {
       "    Replay uses aligned timestamps and applies configured IMU intrinsics once; no hardware/ROS required.\n"
       "  schurvins_stereo --vio-smoke IMU_DEVICE [FRAMES]\n"
       "Capture uses tide_cam in-process, with dimensions from calibration and hardware-triggered cadence.\n"
+      "Camera settings: TIDE_CAM_CONFIG_PATH (default /mnt/data/tide-configurator/camera.conf).\n"
       "For calibration, record raw data with tidesense_record and export to Kalibr; no separate capture mode.\n"
       "VIO modes acquire SC7U22 accel/gyro at 200Hz. Use run.sh with IMU_DEVICE=auto.\n"
       "IMU prediction defaults ON: IMU-rate ROS poses; POSES.csv stays visual-rate.\n"
@@ -174,6 +175,7 @@ int main(int argc, char** argv) {
       throw std::runtime_error("Use real calibration for --camera/--vio; test geometry is only allowed in smoke modes");
     tide_cam_config camera_config; tide_cam_config_init(&camera_config);
     if (camera) {
+      loadCameraSettings(camera_config);
       camera_config.mode.width=cams->getCamera(0).imageWidth();
       camera_config.mode.height=cams->getCamera(0).imageHeight();
       if (cams->getCamera(1).imageWidth()!=camera_config.mode.width ||

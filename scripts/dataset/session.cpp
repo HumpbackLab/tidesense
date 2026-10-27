@@ -60,6 +60,7 @@ struct Shared {
  std::deque<ImuSample> history;
  uint64_t pairs=0,first=0,last=0,duration=0,captured=0;
  bool stop=false,exit=false,complete=false;
+ uint32_t exposure_max_us=500;
 };
 std::string status(const Shared& s,bool ok,const std::string& error) {
  std::ostringstream o; o << std::setprecision(17);
@@ -68,7 +69,8 @@ std::string status(const Shared& s,bool ok,const std::string& error) {
    << ",\"error\":" << quoted(error) << ",\"output\":" << quoted(s.path)
    << ",\"pairs\":" << s.pairs << ",\"captured\":" << s.captured
    << ",\"first_ns\":" << s.first << ",\"elapsed\":" << (s.last>s.first?(s.last-s.first)*1e-9:0)
-   << ",\"complete\":" << (s.complete?"true":"false");
+   << ",\"complete\":" << (s.complete?"true":"false")
+   << ",\"exposure_max_us\":" << s.exposure_max_us;
  if (s.latest.width) {
   const auto& h=s.latest;
   o << ",\"width\":" << h.width << ",\"height\":" << h.height
@@ -183,6 +185,7 @@ int datasetSession(int argc,char** argv) {
  try {
   std::string socketPath="/run/tidesense-record.sock",device="auto",httpToken;
   tide_cam_config config; tide_cam_config_init(&config); config.queue=TIDE_CAM_FIFO; config.buffer_count=8;
+  loadCameraSettings(config);
   for (int i=1;i<argc;i+=2) {
    if (i+1>=argc) throw std::runtime_error("Missing session option value");
    std::string option=argv[i],value=argv[i+1];
@@ -201,6 +204,7 @@ int datasetSession(int argc,char** argv) {
   if (parent==1 || getppid()!=parent || interrupted) return 0;
   ConsoleLevel console;
   Shared shared;
+  shared.exposure_max_us=config.exposure_max_us;
   TideCamera camera(config); LivePair pair;
   if (!camera.next(pair,interrupted)) return 1;
   PreviewServer preview(config,httpToken);shared.preview=&preview;

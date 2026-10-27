@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #define TIDE_CAM_MAX_CAMERAS 4u
+#define TIDE_CAM_DEFAULT_EXPOSURE_MAX_US 500u
 
 typedef struct tide_cam tide_cam;
 
@@ -21,7 +22,8 @@ typedef enum {
     TIDE_CAM_TIMEOUT = -6,
     TIDE_CAM_STOPPED = -7,
     TIDE_CAM_OVERFLOW = -8,
-    TIDE_CAM_DISCONTINUITY = -9
+    TIDE_CAM_DISCONTINUITY = -9,
+    TIDE_CAM_NOT_FOUND = -10
 } tide_cam_status;
 
 typedef enum { TIDE_CAM_MONO8 = 1 } tide_cam_pixel_format;
@@ -87,6 +89,10 @@ typedef struct {
 } tide_cam_stats;
 
 void tide_cam_config_init(tide_cam_config *config);
+/* Explicitly apply device settings from a key=value file. A missing file returns
+ * NOT_FOUND and leaves config unchanged; malformed files return INVALID. */
+int tide_cam_config_load_file(const char *path, tide_cam_config *config,
+                              char *error, uint32_t error_size);
 /* Selects free-running capture and the backend's default free-run frame rate. */
 void tide_cam_config_init_free_run(tide_cam_config *config);
 int tide_cam_query_caps(tide_cam_caps *caps);

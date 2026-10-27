@@ -44,7 +44,7 @@ void tide_cam_config_init(tide_cam_config *c)
     }
     c->queue = TIDE_CAM_LATEST;
     c->buffer_count = 4;
-    c->exposure_max_us = 500;
+    c->exposure_max_us = TIDE_CAM_DEFAULT_EXPOSURE_MAX_US;
 }
 
 void tide_cam_config_init_free_run(tide_cam_config *c)
@@ -333,6 +333,7 @@ const char *tide_cam_status_string(int status)
     case TIDE_CAM_STOPPED: return "Capture stopped";
     case TIDE_CAM_OVERFLOW: return "Capture queue overflow";
     case TIDE_CAM_DISCONTINUITY: return "Camera sequence or timestamp discontinuity";
+    case TIDE_CAM_NOT_FOUND: return "Configuration file not found";
     default: return "Unknown error";
     }
 }

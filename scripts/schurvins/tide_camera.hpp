@@ -19,3 +19,4 @@ class TideCamera {
   tide_cam* camera_=nullptr;
 };
 YAML::Node cameraConfiguration(const tide_cam_config& config);
+void loadCameraSettings(tide_cam_config& config);

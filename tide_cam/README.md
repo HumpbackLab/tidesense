@@ -37,7 +37,7 @@ SG2002 VI → 缓存失效 → 一次复制到库的缓冲池 → 帧引用 → 
 ```
 
 库在本进程的后台线程中采集，没有常驻相机子进程、socket 传图或图像编码。
-应用通过结构体传参；库不解析 INI，不调用 `schurvins_camera`、`fsin.sh`、ROS 或 VIO。
+应用通过结构体传参；库不会自动读取配置文件，也不调用 `schurvins_camera`、`fsin.sh`、ROS 或 VIO。
 板级接线及 SDK 配置完全封装在 `src/sg2002/` 中，不依赖 `scripts/schurvins/` 的文件。
 SDK 自身仍有初始化日志、可选 tuning bin 读取及历史 `devmem` shell 调用；这些不属于
 库的配置入口，也不承诺整个厂商 SDK 初始化过程完全没有临时子进程。
@@ -117,6 +117,13 @@ YNR 192、关闭锐化/TNR。`exposure_max_us` 可在 open 前指定，必须为
 例如自由运行 60 fps 时不能设置 20000 us。实际曝光仍受驱动上限约束并按行周期量化。
 库不缩放、不旋转、不去畸变。
 
+设备运行设置使用独立的 `key=value` 文件，目前只接受 `exposure_max_us=1..50000`。
+调用方可在 `tide_cam_config_init()` 后显式调用 `tide_cam_config_load_file(path, &config, error, size)`；
+文件缺失返回 `TIDE_CAM_NOT_FOUND`，保持默认值，格式错误则返回错误且不修改 config。
+录制器和 SchurVINS 默认读取 `/mnt/data/tide-configurator/camera.conf`，可通过
+`TIDE_CAM_CONFIG_PATH` 指定其他路径。`tide_cam_settings get|set PATH [值]` 使用同一解析函数，
+其中 `set` 原子替换设备文件；修改后重新启动采集生效。
+
 ## 构建 SG2002
 
 在工程根目录执行：
@@ -137,6 +144,7 @@ install/tide_cam/
   lib/libtide_cam.a
   lib/cmake/tide_cam/
   bin/tide_cam_capture
+  bin/tide_cam_settings
 ```
 
 也可在已生成 SDK archives 后，用 GCC 11 构建全静态应用：

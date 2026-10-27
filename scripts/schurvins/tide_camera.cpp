@@ -1,11 +1,22 @@
 #include "tide_camera.hpp"
 #include <iostream>
 #include <memory>
+#include <cstdlib>
+
+void loadCameraSettings(tide_cam_config& config) {
+ const char* path=std::getenv("TIDE_CAM_CONFIG_PATH");
+ if (!path || !*path) path="/mnt/data/tide-configurator/camera.conf";
+ char error[256]{};
+ int status=tide_cam_config_load_file(path,&config,error,sizeof(error));
+ if (status && status!=TIDE_CAM_NOT_FOUND)
+  throw std::runtime_error(std::string("Camera settings: ")+error);
+}
 
 TideCamera::TideCamera(const tide_cam_config& config) {
  char message[256]{};
  int status=tide_cam_open(&config,&camera_,message,sizeof(message));
  if (status) throw std::runtime_error(std::string("tide_cam open: ")+tide_cam_status_string(status)+": "+message);
+ std::cout << "camera_exposure_max_us=" << config.exposure_max_us << '\n';
 }
 TideCamera::~TideCamera() {
  if (camera_) {

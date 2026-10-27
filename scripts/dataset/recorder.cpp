@@ -14,7 +14,7 @@ int main(int argc,char** argv) {
    if (option=="--help") {
     std::cout << "tidesense_record --output NEW_DIR [--seconds N] [--width W] [--height H]\n"
      "  [--imu auto|/dev/iio:deviceN] [--calibration SCHUR.yaml] [--queue-pairs 1..128]\n"
-     "Hardware-synced stereo / 200Hz IMU via tide_cam; no INI or helper.\n"
+     "Hardware-synced stereo / 200Hz IMU via tide_cam. Camera settings: TIDE_CAM_CONFIG_PATH.\n"
      "Session: --session --http-token HEX32 [--socket PATH] [--imu DEVICE] [--width W] [--height H]\n"
      "SSH transport: --relay SOCKET (for Unix socket connections, not capture)\n"
      "Use the same raw recording for datasets, calibration and VIO replay. Ctrl-C stops and flushes.\n"; return 0;
@@ -37,6 +37,7 @@ int main(int argc,char** argv) {
    } else throw std::runtime_error("Unknown option: "+option);
   }
   if (dir.empty()) throw std::runtime_error("--output NEW_DIR is required");
+  loadCameraSettings(camera_config);
   int64_t offset=0;
   if (!calibration.empty()) {
    auto n=YAML::LoadFile(calibration);

@@ -4,8 +4,42 @@
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+
+static void test_config_file(void)
+{
+    char path[] = "/tmp/tide-cam-config-XXXXXX";
+    int fd = mkstemp(path);
+    assert(fd >= 0);
+    close(fd);
+    tide_cam_config config;
+    tide_cam_config_init(&config);
+    char error[256];
+    FILE *file = fopen(path, "w");
+    assert(file);
+    assert(fputs("# Camera setting\nexposure_max_us=2500\n", file) >= 0);
+    assert(!fclose(file));
+    assert(!tide_cam_config_load_file(path, &config, error, sizeof(error)));
+    assert(config.exposure_max_us == 2500);
+    file = fopen(path, "w");
+    assert(file);
+    assert(fputs("exposure_max_us=0\n", file) >= 0);
+    assert(!fclose(file));
+    assert(tide_cam_config_load_file(path, &config, error, sizeof(error)) == TIDE_CAM_INVALID);
+    assert(config.exposure_max_us == 2500 && strstr(error, "exposure_max_us"));
+    file = fopen(path, "w");
+    assert(file);
+    assert(fputs("exposure_max_us=1200\nunknown=1\n", file) >= 0);
+    assert(!fclose(file));
+    assert(tide_cam_config_load_file(path, &config, error, sizeof(error)) == TIDE_CAM_INVALID);
+    assert(config.exposure_max_us == 2500);
+    assert(!unlink(path));
+    assert(tide_cam_config_load_file(path, &config, error, sizeof(error)) == TIDE_CAM_NOT_FOUND);
+    assert(config.exposure_max_us == 2500);
+}
 
 static tide_cam *open_camera(tide_cam_queue queue, uint32_t buffers)
 {
@@ -194,6 +228,7 @@ static void test_stop_and_failure(void)
 }
 int main(void)
 {
+    test_config_file();
     test_validation();
     test_free_run_rates();
     test_latest_and_lease();
