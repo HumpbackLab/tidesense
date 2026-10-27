@@ -22,5 +22,7 @@ ${CROSS_COMPILE}gcc -DOV9281_YNR_STRENGTH="$ynr_strength" -O2 -Wall -Wextra -Wer
  -lsample -lsys -lvi -lvo -lvpss -lrgn -lgdc -lvenc -lcvi_bin -lcvi_bin_isp \
  -lisp -lisp_algo -lae -laf -lawb -lsns_full -lini \
  -Wl,--end-group -Wl,-Bdynamic -lpthread -lm -ldl -latomic -lrt
+mkdir -p "$sdk/install/schurvins-camera-build"
+cp "$out/schurvins_camera" "$sdk/install/schurvins-camera-build/schurvins_camera.sym"
 ${CROSS_COMPILE}strip "$out/schurvins_camera"
 cp scripts/ov9281/fsin.sh "$out/fsin.sh"

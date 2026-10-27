@@ -29,7 +29,8 @@ class ExportTest(unittest.TestCase):
                 f.write(bytes([i])*e.PIXELS + bytes([255-i])*e.PIXELS)
         (self.src/'imu.csv').write_text('#timestamp_ns,gx,gy,gz,ax,ay,az\n'+''.join(
             f'{950000000+i*5000000},0.1,0.2,0.3,1,2,9.8\n' for i in range(41)))
-        (self.src/'calibration.yaml').write_text(yaml.safe_dump(dict(cameras=[{}, {}], live_camera_time_offset_ns=10000000,
+        cameras = [dict(camera=dict(image_width=640, image_height=400)) for _ in range(2)]
+        (self.src/'calibration.yaml').write_text(yaml.safe_dump(dict(cameras=cameras, live_camera_time_offset_ns=10000000,
                                                                   imu_params={'input_domain':'raw_si'})))
 
     def test_roundtrip_bag_and_png(self):
@@ -120,9 +121,52 @@ class ExportTest(unittest.TestCase):
         self.assertFalse(report['schur_replay_ready'])
         self.assertFalse((out/'replay.yaml').exists())
 
+    def test_other_resolutions_bag_and_png(self):
+        import numpy as np
+        import zstandard
+        from rosbags.highlevel import AnyReader
+        (self.src/'calibration.yaml').unlink()
+        for width, height in ((640, 480), (1280, 800)):
+            with self.subTest(resolution=(width, height)):
+                pixels = np.arange(width * height, dtype=np.uint8).reshape(height, width)
+                pair = np.concatenate((pixels, 255-pixels), axis=0)
+                residual = pair.copy()
+                residual[:, 1:] = pair[:, 1:] - pair[:, :-1]
+                with (self.src/'frames.bin').open('wb') as f:
+                    f.write(b'TIDESENSE_ZST_V1\n')
+                    for i in range(3):
+                        t = 1000000000+i*50000000
+                        header = e.HEADER.pack(0x54444341, 1, width, height, i+1, t, t+2000000, i+10, i+10, 1, 0)
+                        block = zstandard.ZstdCompressor(write_checksum=True).compress(header+residual.tobytes())
+                        f.write(struct.pack('<I', len(block))+block)
+                out = self.root/f'export-{width}-{height}'
+                report = e.export(self.src, out, write_bag=True)
+                self.assertEqual(report['resolution'], [width, height])
+                png = (out/'mav0/cam0/data/1000000000.png').read_bytes()
+                self.assertEqual(struct.unpack_from('>II', png, 16), (width, height))
+                with AnyReader([out/'dataset.bag']) as reader:
+                    count = 0
+                    for conn, _, raw in reader.messages():
+                        if conn.topic == '/imu0': continue
+                        image = reader.deserialize(raw, conn.msgtype)
+                        self.assertEqual((image.width, image.height, image.step), (width, height, width))
+                        expected = pixels if conn.topic == '/cam0/image_raw' else 255-pixels
+                        self.assertEqual(bytes(image.data), expected.tobytes())
+                        count += 1
+                    self.assertEqual(count, 6)
+
     def test_offset_requires_imu_coverage(self):
         with self.assertRaisesRegex(ValueError, 'bracket'):
             e.export(self.src, self.root/'bad', offset_override=100000000)
+
+    def test_reject_calibration_resolution_mismatch(self):
+        path = self.src/'calibration.yaml'
+        config = yaml.safe_load(path.read_text())
+        config['cameras'][1]['camera']['image_height'] = 480
+        path.write_text(yaml.safe_dump(config))
+        with self.assertRaisesRegex(ValueError, 'Calibration dimensions'):
+            e.export(self.src, self.root/'bad')
+        self.assertFalse((self.root/'bad').exists())
 
     def test_legacy_configuration_requires_explicit_migration(self):
         path=self.src/'calibration.yaml'

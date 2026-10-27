@@ -74,6 +74,17 @@ int main(int argc, char **argv) {
  SAMPLE_INI_CFG_S ini = {0}; SAMPLE_VI_CONFIG_S vi = {0}; VB_CONFIG_S vb = {0};
  SIZE_S size[2]; VIDEO_FRAME_INFO_S frame[2] = {0};
  int held[2] = {0}, sys_ready = 0, vi_ready = 0, prepared = 0, rc = 1;
+ const char *cache_env = getenv("SCHUR_CAMERA_CACHE");
+ const char *verify_env = getenv("SCHUR_CAMERA_VERIFY_CACHE");
+ if ((cache_env && strcmp(cache_env, "0") && strcmp(cache_env, "1")) ||
+     (verify_env && strcmp(verify_env, "0") && strcmp(verify_env, "1"))) {
+  fprintf(stderr, "camera: SCHUR_CAMERA_CACHE/VERIFY_CACHE must be 0 or 1\n"); close(lock); return 2;
+ }
+ const int cached = !cache_env || !strcmp(cache_env, "1");
+ const int verify_cache = verify_env && !strcmp(verify_env, "1");
+ if (verify_cache && !cached) { fprintf(stderr, "camera: cache verification requires cached mapping\n"); close(lock); return 2; }
+ uint64_t verified_images = 0;
+ fprintf(stderr, "camera: cached_mapping=%d verify_cache=%d\n", cached, verify_cache);
  unsigned char *pixels = NULL;
  uint64_t sent = 0, rejected = 0, prev[2] = {0}, first = 0, last = 0;
  CHECK(SAMPLE_COMM_VI_SetIniPath(argv[2])); CHECK(SAMPLE_COMM_VI_ParseIni(&ini));
@@ -166,11 +177,29 @@ int main(int argc, char **argv) {
   for (int p = 0; p < 2; ++p) {
    VIDEO_FRAME_S *f = &frame[p].stVFrame;
    unsigned int len = f->u32Stride[0] * 400;
-   const unsigned char *y = CVI_SYS_Mmap(f->u64PhyAddr[0], len);
+   const unsigned char *y = cached ? CVI_SYS_MmapCache(f->u64PhyAddr[0], len) : CVI_SYS_Mmap(f->u64PhyAddr[0], len);
    if (!y) goto out;
+   /* VI DMA owns the buffer until dequeue. Discard old CPU cache lines before
+    * reading this held frame; never flush stale lines back over a fresh image. */
+   if (cached && CVI_SYS_IonInvalidateCache(f->u64PhyAddr[0], (void *)y, len)) {
+    CVI_SYS_Munmap((void *)y, len);
+    fprintf(stderr, "camera: VI cache invalidation failed\n"); goto out;
+   }
    for (unsigned int row = 0; row < 400; ++row)
     memcpy(pixels + p * 640 * 400 + row * 640, y + row * f->u32Stride[0], 640);
    CVI_SYS_Munmap((void *)y, len);
+   if (verify_cache) {
+    /* Diagnostic only: compare the SAME held DMA frame through an uncached
+     * mapping, including buffer reuse across successive camera frames. */
+    const unsigned char *uncached = CVI_SYS_Mmap(f->u64PhyAddr[0], len);
+    if (!uncached) goto out;
+    int mismatch = 0;
+    for (unsigned int row = 0; row < 400; ++row)
+     if (memcmp(pixels + p * 640 * 400 + row * 640, uncached + row * f->u32Stride[0], 640)) { mismatch = 1; break; }
+    CVI_SYS_Munmap((void *)uncached, len);
+    if (mismatch) { fprintf(stderr, "camera: cached/uncached pixels differ on pipe %d\n", p); goto out; }
+    ++verified_images;
+   }
    CHECK(CVI_VI_ReleaseChnFrame(0, p, &frame[p])); held[p] = 0;
   }
   if (warmup) { --warmup; continue; }
@@ -185,6 +214,7 @@ int main(int argc, char **argv) {
  }
  rc = sent ? 0 : 1;
 out:
+ if (verify_cache) fprintf(stderr, "camera: cache_verified_images=%llu\n", (unsigned long long)verified_images);
  if (prepared && fsin("stop")) { fprintf(stderr, "camera: failed to stop FSIN\n"); rc = 1; }
  for (int p = 0; p < 2; ++p) if (held[p]) CVI_VI_ReleaseChnFrame(0, p, &frame[p]);
  if (vi_ready) { SAMPLE_COMM_VI_DestroyIsp(&vi); SAMPLE_COMM_VI_DestroyVi(&vi); }

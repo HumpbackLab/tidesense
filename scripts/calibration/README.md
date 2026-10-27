@@ -1,369 +1,160 @@
-# TideSense A4 双目标定板与 Kalibr 标定流程
+# TideSense 标定流程
 
-电脑端命令均在工程根目录执行，采集数据和标定结果保存到 `cali/`；
-板端命令按对应章节进入设备部署目录。
+标定复用通用原始录制器 `tidesense_record`，与数据集使用相同的图像、IMU、时间戳和
+无损存储格式。板端无需运行 VIO、ROS、Agent 或单独的标定发布程序。
 
-打印文件：[tidesense-aprilgrid-a4-6x4-32mm.pdf](tidesense-aprilgrid-a4-6x4-32mm.pdf)。
-Kalibr 配置：[tidesense-aprilgrid-a4-6x4-32mm.yaml](tidesense-aprilgrid-a4-6x4-32mm.yaml)。
-PNG 仅用于预览，请打印 PDF。
+一次录制可以先求双目参数，再求相机–IMU 参数。图像覆盖和运动激励不足时需要补录，
+不能仅用录制时长或优化退出成功判断标定质量。
 
-## 使用 Podman 一键标定已录制的 ROS 2 bag
+## 标定板
 
-容器构建与自动转换/标定脚本见 [Podman / Kalibr 使用说明](kalibr/README.md)。
-主机不需要安装 ROS 1：
+打印 [A4 AprilGrid PDF](tidesense-aprilgrid-a4-6x4-32mm.pdf)，配套
+[target YAML](tidesense-aprilgrid-a4-6x4-32mm.yaml)。PNG 仅用于预览。
 
-```bash
-# 仅首次搭建需要构建；当前机器已构建完成。
-scripts/calibration/kalibr/build.sh
-```
+- A4 横向，297×210 mm，打印选择实际大小 / 100%，关闭适合页面或缩放。
+- tag36h11，6 列×4 行，ID 0–23；ID 0 在左下角，同一行向右递增，再向上一行。
+- 标签外黑边边长 32 mm，间距 9.6 mm；`tagSize: 0.032`，`tagSpacing: 0.3`。
+- 标签阵列外边缘 240×156.8 mm，包含外围角点黑块为 259.2×176 mm。
+- 将图案贴在平整、坚硬的哑光板上，避免翘曲、反光或手遮挡。
+- 打印后核对底部 100 mm 尺标和标签宽高。等比缩放时应重印或按实测尺寸修正
+  `tagSize`；横纵比例不一致时重新制作。
 
-## 规格
+标定与运行使用相同镜头焦点、图像方向、分辨率和 ISP 设置。
+右相机倒装 180° 保留在真实外参中，采集程序不旋转图像。
 
-- A4 横向，297 × 210 mm，单页矢量图。
-- AprilGrid：6 列 × 4 行，tag36h11，ID 0–23。
-- 使用 Kalibr 官方生成器的两格黑边和对称角点黑方块。
-- ID 0 在左下角；同一行向右递增，再向上一行。
-- 单个标签黑色外边缘之间的边长：32 mm；标签间距：9.6 mm。
-- `tagSize: 0.032`（米），`tagSpacing: 0.3`（9.6 / 32，无单位）。
-- 标签阵列外边缘范围：240 × 156.8 mm；包含外围角点黑方块：259.2 × 176 mm。
-- 图案居中，左右留白 18.9 mm，上下留白 17 mm；文字和尺标位于留白内。
+## 板端录制
 
-## 打印与使用
-
-1. 选择 **A4、横向、实际大小 / 100%**。关闭“适合页面”、缩放、海报拼接。
-2. 使用清晰黑白打印，贴在平整、坚硬的哑光板上，避免翘曲、气泡和反光覆膜。
-3. 打印后量取底部两刻线间距，应为 **100 mm**；再检查标签宽、高均为 **32 mm**。
-   长距离复核可测整排标签的左右黑边，长度应为 **240 mm**。
-4. 如果存在均匀缩放，应重新按原尺寸打印，或把 YAML 的 `tagSize` 改为实测米数；
-   等比缩放时 `tagSpacing` 仍为 0.3。若横纵比例不同或纸张不平，请重新制作。
-5. 两颗 OV9281 共用这一张板。用实际 VIO 所采用的分辨率、裁剪及固定镜头设置采集标定数据。
-   让左右相机都有清晰可辨的共同标签，并采集不同位置、倾角和距离，覆盖画面中央与边缘。
-   A4 的可用距离取决于镜头视场、对焦和图像中标签像素数，不能仅凭 50 mm 基线确定。
-6. Kalibr 命令中设置 `--target` 为上述 YAML。采集场景中隐藏其他 AprilTag。
-
-## 标定前先确定图像方向
-
-前半部分完成双目内参、畸变和外参标定；后面的“相机–IMU 联合标定”章节说明
-如何使用 `--imu auto` 同步录制 IMU，进一步估计相机–IMU 外参和时间偏移。
-
-- 左相机：I2C 7 位地址 `0x10`、2 lane；右相机：`0x60`、1 lane；设计基线 50 mm。
-- 如果一颗绕光轴倒装 180°，但两颗仍朝向同一方向，Kalibr 可以直接标定一正一倒的图像。
-  倒装会体现在双目旋转外参中，不需要为了 Kalibr 专门修改寄存器。
-- 也可以先把倒装相机的输出转正，再采集标定数据。180° 对应水平和垂直同时翻转，
-  只翻转一个方向会成为镜像。具体 OV9281 寄存器配置需按手册与驱动确认，本流程不修改寄存器。
-- **先选定最终运行时的图像方向、分辨率、裁剪和镜头焦点，再标定。** 标定与 SchurVINS
-  运行必须使用相同图像配置；标定后改方向或裁剪，应重新标定，不能直接沿用旧参数。
-  Kalibr 支持倒装不代表当前 SchurVINS 的匹配实现已验证支持该安装方式。
-
-## 标定板放多远、怎么移动
-
-以下距离和像素数是针对这张 A4 板、640×400 图像的**采集建议起点，不是镜头规格或已实测的有效范围**。
-尚未给定镜头视场和最近清晰距离，应同时观察左右图像调整：
-
-| 项目 | 建议 |
-| --- | --- |
-| 初始位置 | 板面距镜头约 **40–60 cm**，先正对双目共同视野中央 |
-| 远近变化 | 清晰且可见的前提下，尝试约 **30–80 cm**；太近失焦/出框就后退，太远标签太小就靠近 |
-| 图案大小 | 正对时让 240 mm 宽的标签阵列约占画面宽度 **50%–80%**；不要只拍中央一小块 |
-| 标签清晰度 | 单个标签外黑边边长尽量达到 **约 30–40 像素或更多**，这是操作参考，不是检测器硬阈值；最终看实际角点检测 |
-| 倾斜 | 围绕水平轴、竖直轴分别尝试约 **±15°、±30°**，再加入画面内旋转；避免侧得太厉害导致标签变窄 |
-| 采集时长 | 先用 **5 对/秒采集 60–120 秒**，约 300–600 对输入；姿态覆盖比重复帧数更重要 |
-
-固定 TideSense，移动标定板。推荐顺序：
-
-1. 中央正对，调整距离和照明，让两颗相机都能看到清晰的共同标签。
-2. 把板缓慢移到画面的左、右、上、下和四角，覆盖两颗相机的边缘区域。
-   边缘采样可让部分板出框，但需要足够标签可检测，并保留大量两路共同观测。
-3. 在不同位置加入左右倾斜、上下倾斜和少量画面内旋转；不要全程板面平行于相机。
-4. 再改变远近距离，重复若干倾斜姿态。移动到一个姿态后短暂停稳约 0.5–1 秒，减少运动模糊。
-5. 保持均匀照明，避免黑块反光、白纸过曝、手遮住标签或纸板弯曲；背景隐藏其他 AprilTag。
-
-若已知水平视场角 θ，正对时可粗估距离：`d ≈ 0.240 / (2 × q × tan(θ/2))`，
-其中 q 是标签阵列占图像宽度的比例。公式未考虑畸变和倾斜，只帮助找初始位置；
-最终以双目预览的清晰度、共同视野和 Kalibr 检测结果为准，不能由 50 mm 基线推算拍摄距离。
-
-## 1. 准备程序和主机环境
-
-以下使用 **本机 ROS 2 Humble + micro-ROS Agent** 采集，随后在独立的 ROS 1 / Kalibr
-环境中处理。主机需已安装 Agent、`rqt_image_view`、`rosbag2` 和 `rmw_cyclonedds_cpp`；
-Agent 安装与可选构建说明见 [MICRO-ROS.md](../schurvins/MICRO-ROS.md)。
-本机与板端通过 USB RNDIS 相通：板端 `192.168.123.99`，示例本机地址 `192.168.123.2`。
-**Agent 地址填写本机的实际 RNDIS IPv4，不是板端 `.99`。**
-
-如尚未构建，在 SDK 根目录执行：
+构建和部署见 [通用录制器说明](../dataset/README.md)。默认镜像预装于
+`/mnt/data/tidesense-dataset`，以 root 在板端执行：
 
 ```sh
-SCHUR_WITH_MICRO_ROS=ON scripts/schurvins/build.sh
+cd /mnt/data/tidesense-dataset
+./run.sh --output /mnt/data/calib-motion --seconds 120
 ```
 
-将生成的 micro-ROS 程序包解压到板端；以下假设程序目录为
-`/mnt/data/schurvins-gcc11-static-micro-ros`，相机配置为 `/mnt/data/sensor_cfg.ini`。
-按实际部署路径修改。两颗相机都必须启用 `hw_sync=1`，启动前停止其他占用相机的程序。
-录制前确认板端时间正确；标定过程中不改相机方向、裁剪和焦点。
+目录必须不存在，父目录需存在；Ctrl-C 也可提前正常停止。首次标定不用传
+`--calibration`。相机、IMU 和 FSIN 需要由当前进程独占，先停止其他采集程序并关闭 PFC 预览。
+SD 使用 async 挂载。等日志出现 `COMPLETE` 后再复制数据，异常停止的数据保留 `INCOMPLETE`。
 
-以下主机命令使用 SDK 中的 XML；若主机没有 SDK，可改用程序包中同名 XML 的绝对路径。
-XML 适用于 **Agent、预览和录包在同一台电脑**：电脑内 DDS 使用 loopback，
-板端 XRCE 使用 RNDIS。主机需允许至少 2 MiB socket 接收缓冲，具体网络要求见
-[采集模式文档](../schurvins/CALIBRATION.md)。
+默认采集双目 640×400 mono8、硬件触发约 20 Hz、SC7U22 200 Hz 原始 SI 数据。
+图像时间为各自的 monotonic VI 到达时间，IMU 为 INT1 时间戳；不应用旧内参、
+IMU 尺度校正或相机–IMU 时间补偿。硬件同步频率由触发源决定，没有录制 fps 设置。
+`camera-config.yaml` 和 `imu-source.yaml` 保存采集参数，无需相机 INI。
 
-## 2. 本机启动 Agent
+`--width` / `--height` 可选择 640×480 或 1280×800；每种尺寸应有对应的真实标定。
+本板 1280×800 长时间无损录制受压缩和 SD 吞吐限制，不能保证持续 20 Hz，队列满时会报错。
+日常标定优先使用实际 VIO 运行的尺寸，并确认整个所需时段能完整录制。
 
-本机终端 A（端口 8888 已有 Agent 时直接复用）：
+## 如何运动
 
-```sh
-source scripts/calibration/ros2-env.sh
-export FASTRTPS_DEFAULT_PROFILES_FILE=scripts/schurvins/micro_ros/calibration-agent.xml
-ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
-```
+固定 AprilGrid，移动整个设备，保持两颗相机都有足够可识别的共同标签。
+针对 A4 板与 640×400 图像，可以先从约 40–60 cm 开始，按实际清晰度、视场及标签像素调整。
+这些距离是操作起点，不是镜头规格，也不能由 50 mm 基线直接推算。
 
-## 3. 板端启动双目采集
+1. 开始时静止几秒，观察两路图像是否清晰。
+2. 缓慢改变位置、远近和板面倾角，让标签覆盖两路画面中央、边缘和四角。
+3. 分别加入三轴平滑往返旋转和各方向平移，保持图案可检测；避免只绕单轴或只在平面内运动。
+4. 结束前再静止几秒。使用明亮均匀照明，避免运动模糊、冲击及其他 AprilTag 干扰。
 
-SSH 登录板子后，在板端执行：
+建议先录 60–120 秒，再通过角点覆盖、IMU 激励和求解报告判断是否充分。
+相机内参阶段会从同一份录制取图，联合阶段保留连续 IMU，不需要再次启动专用采集程序。
 
-```sh
-cd /mnt/data/schurvins-gcc11-static-micro-ros
-SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
-  SCHUR_MICRO_ROS_DOMAIN=0 \
-  ./run.sh --calibrate /mnt/data/sensor_cfg.ini --fps 5
-```
+## 电脑端导出
 
-`--fps` 是图像对/秒，必填，支持 0.1–20；默认持续运行，Ctrl-C 退出。
-相机硬件仍以 FSIN 20 Hz 采集，程序成对抽帧发布；不会启动 VIO，未传 `--imu` 时不启动 IMU。
-如需有限采集并保存原始 VI 时间戳诊断，可改为：
-
-## 4. 本机预览、检查、录包
+主机不需要 ROS。首次准备 Python 环境：
 
 ```sh
-source scripts/calibration/ros2-env.sh
-```
-
-终端 B 打开预览；可开两个窗口分别选择左右话题：
-
-```sh
-ros2 daemon stop
-ros2 run rqt_image_view rqt_image_view
-```
-
-| 话题 | 相机 | 图像 |
-| --- | --- | --- |
-| `/tidesense/left/image_raw` | 左，0x10，2 lane | `sensor_msgs/msg/Image`，mono8，640×400 |
-| `/tidesense/right/image_raw` | 右，0x60，1 lane | `sensor_msgs/msg/Image`，mono8，640×400 |
-
-新终端设置上述 ROS 2 环境后，可分别运行 `ros2 topic hz /tidesense/left/image_raw`
-和 `ros2 topic hz /tidesense/right/image_raw` 检查接收频率。确认两路持续更新、清晰后录包：
-
-```sh
+python3 -m venv .venv-dataset
+.venv-dataset/bin/pip install PyYAML numpy zstandard rosbags==0.9.23
 mkdir -p cali
-ros2 bag record --storage sqlite3 -o cali/tidesense-stereo-calib \
-  /tidesense/left/image_raw /tidesense/right/image_raw
+scp -O -r root@192.168.123.99:/mnt/data/calib-motion cali/
+.venv-dataset/bin/python scripts/dataset/export.py \
+  cali/calib-motion cali/calib-export --time-offset-ns 0 --bag
 ```
 
-一键标定双目：
+导出目录必须不存在。程序核对压缩校验和、尺寸、连续帧序、IMU 时间间隔、首尾覆盖和完成标记，
+输出无损 PNG、EuRoC 布局和 `dataset.bag`。`--time-offset-ns 0` 明确保留未补偿时间轴，
+即使录制中保存过旧标定也不带入旧 shift。
 
-```bash
-scripts/calibration/kalibr.sh cali/tidesense-stereo-calib \
-  --output cali/tidesense-stereo-calib-kalibr
+ROS 1 bag 话题为 `/cam0/image_raw`、`/cam1/image_raw`、`/imu0`。
+左右图像使用左 VI 时间作为同步帧组时间，各自原始 VI 时间另保留在 `frames.csv`。
+消息和 bag 索引使用采集时间，不使用 USB 或网络接收时间。
+
+## 双目标定
+
+首次构建计算环境，见 [Podman / Kalibr 说明](kalibr/README.md)：
+
+```sh
+scripts/calibration/kalibr/build.sh
+scripts/calibration/kalibr.sh cali/calib-export/dataset.bag --output cali/cameras
 ```
 
-鱼眼镜头使用 `pinhole-equi`，两个模型参数分别对应左、右摄像头：
+默认目标为上述 A4 AprilGrid，模型为两路 `pinhole-radtan`。
+鱼眼镜头可按实际模型选择：
 
-```bash
-scripts/calibration/kalibr.sh cali/tidesense-stereo-calib \
-  --models pinhole-equi pinhole-equi \
-  --output cali/tidesense-stereo-calib-kalibr
+```sh
+scripts/calibration/kalibr.sh cali/calib-export/dataset.bag \
+  --lens fisheye --output cali/cameras-equi
 ```
 
-以上两种模型命令按镜头选择其一。每次录制和标定使用新的输出目录；
-更换结果目录时，同步修改下文 `--cam` 和部署命令中的路径。
-
-结果中为 `camera_model: pinhole`、`distortion_model: equidistant`。
-后续相机–IMU 联合标定的 `--cam` 应引用这次生成的 `stereo-camchain.yaml`，
-不再传 `--models`。模型切换需要重新估计参数，不能直接改旧 YAML 的模型名称。
-当前 SchurVINS 自动导出和 OpenVINS 实时配置转换仍只接受 radtan；
-鱼眼结果应用到这些入口前需要适配转换脚本。
+只选择适合实际镜头的一种模型；切换模型需要重新估计，不能修改旧结果的模型名称冒充新标定。
+输出包括 `stereo-camchain.yaml`、报告 PDF、残差摘要、输入校验和日志。
+输入原始数据只读，结果目录拒绝覆盖。已有 ROS 2 bag 目录仍可使用相同入口。
 
 ## 相机–IMU 联合标定
 
-### 联合采集与录包
-
-先完成上述双目标定，保留 `camchain-*.yaml`。确认板上已经安装 SC7U22 IIO/INT1 内核和
-新版 micro-ROS 程序包。Agent 和主机 ROS 2 环境设置沿用前文。
-
-板端运行（推荐图像 20 对/秒、IMU 200 Hz）：
+使用同一份运动录制和刚生成的 camchain：
 
 ```sh
-cd /mnt/data/schurvins-gcc11-static-micro-ros
-SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
-  ./run.sh --calibrate /mnt/data/sensor_cfg.ini --fps 20 --imu auto
+scripts/calibration/kalibr.sh cali/calib-export/dataset.bag \
+  --imu-cam --cam cali/cameras/stereo-camchain.yaml \
+  --imu cali/sc7u22-imu.yaml --output cali/imucam
 ```
 
-`--imu auto` 启用 IMU，也可指定 `--imu /dev/iio:device0`。不加此参数则保持纯双目模式。
-`--fps` 只改变图像发布频率，IMU 固定为 200 Hz。
+`sc7u22-imu.yaml` 需要已测定的采样率和四个噪声参数，其 `rostopic` 填 `/imu0`。
+模板 [sc7u22-imu.yaml.example](sc7u22-imu.yaml.example) 中的 null 不能直接用于正式标定。
+IMU 噪声参数应来自已有有效测量；短运动录制不能代替长时间静止噪声分析。
+现有静止 ROS bag 可继续通过 `kalibr.sh ... --allan` 分析，ROS 1 文件需显式给出
+`--imu-topic /imu0`。
 
-主机新终端：
-
-```sh
-source scripts/calibration/ros2-env.sh
-mkdir -p cali
-ros2 bag record --storage sqlite3 -o cali/tidesense-imucam \
-  /tidesense/left/image_raw /tidesense/right/image_raw /tidesense/imu
-```
-
-### 板子怎么运动
-
-这一步**固定 AprilGrid，手持整个 TideSense 运动**。先从约 40–60 cm 的清晰共同视野开始，
-实际距离按前文的画面占比和标签像素大小调整。镜头、图像方向、裁剪与双目标定时保持一致。
-
-- 建议录制约 60–120 秒，开始和结束各留几秒静止数据。
-- 在标定板持续可见的前提下，分别绕三个轴做平滑往返旋转，再加入各轴的平移和组合运动。
-- 幅度以保持可见、清晰为准，避免只绕一个轴、只做平面运动或全程静止。
-- 不要猛烈抖动或撞击；提高均匀照明、减少运动模糊。
-
-20 Hz 图像 / 200 Hz IMU 与多轴激励依据
-[Kalibr 官方联合标定说明](https://github.com/ethz-asl/kalibr/wiki/Camera-IMU-calibration)。
-上述距离和时长是采集起点，仍需通过角点覆盖和结果报告判断数据质量。
-
-### IMU 参数与 Kalibr 命令
-
-#### 一键 Allan 分析静止 ROS 2 bag
-
-```sh
-scripts/calibration/kalibr.sh cali/sc7u22-static --allan
-```
-
-建议传感器预热后，保持板子和温度稳定，延长静止记录以观察长时间漂移。
-[Kalibr 官方](https://github.com/ethz-asl/kalibr/wiki/IMU-Noise-Model)建议约 15–24 小时静止数据
-
-#### 使用噪声参数进行联合标定
-
-```sh
-scripts/calibration/kalibr.sh cali/tidesense-imucam \
-  --imu-cam \
-  --cam cali/tidesense-stereo-calib-kalibr/stereo-camchain.yaml \
-  --imu cali/sc7u22-imu.yaml \
-  --output cali/tidesense-imucam-kalibr
-```
-
-替换 `--cam` 为双目标定结果、`--imu` 为已填好实测噪声参数的文件。
-相机话题、模型和分辨率从 camchain 读取，IMU 话题从 IMU YAML 的 `rostopic` 读取；
-联合模式不再传 `--topics` / `--models`。可用 `--target` 指定实际打印的标定板。
-
-脚本自动校验并转换 ROS 2 bag，再运行 `kalibr_calibrate_imu_camera --imu-models scale-misalignment`。
-默认固定陀螺加速度敏感项 A 为零；加 `--estimate-g-sensitivity` 可进行对照。
-`--imu-models calibrated` 仅用于内参已校准的输入。所有新采集均保存标称 SI 数据。
-转换保留所有 IMU 样本及 header 时间戳；图像仅保留时间戳精确匹配的左右帧对，
-bag 索引时间取各自 header 时间，不取网络接收时间。检查分辨率与已有内参是否一致、
-IMU 时间戳递增且与图像重叠，拒绝噪声参数为 null 或非正数的模板。
-采集和转换保持 IMU SI 原值；联合拟合估计内参，运行配置在估计器入口应用逆模型。
+联合模式默认使用 `scale-misalignment`，拟合原始 SI 输入的 IMU 内参、相机–IMU 外参和时间偏移，
+默认固定陀螺加速度敏感项为零。脚本只支持 `scale-misalignment`，不再接受 `calibrated`。
+相机话题、模型和分辨率从 camchain 读取，不再传 `--topics` / `--lens`。
+相机内参和联合阶段必须使用相同图像方向、裁剪及尺寸。
 
 ## 将 Kalibr 结果用于 SchurVINS
 
-### 一键生成运行配置
+联合标定成功后自动生成 `schurvins.yaml`。已有结果也可单独转换：
 
-`--imu-cam` 联合标定成功后，脚本自动在结果目录生成 **`schurvins.yaml`**，
-同时保存转换脚本 `export_schurvins.py` 和日志 `schurvins-export.log`。
-转换在已有 Kalibr 容器内运行，不需要重建镜像。仅双目标定缺少相机–IMU 外参，
-不能生成完整 VIO 配置；`--allan` 和 `--convert-only` 不生成此文件。
-
-已经标定完成的结果无需重跑，直接在本机执行：
-
-```bash
-scripts/calibration/kalibr.sh --export-schurvins \
-  cali/tidesense-imucam-kalibr-20260922-221039
+```sh
+scripts/calibration/kalibr.sh --export-schurvins cali/imucam
 ```
 
-该目录必须包含 `imucam-camchain-imucam.yaml` 和 `imucam-imu.yaml`。
-此模式不需要原始 bag、ROS 或 Podman；本机 Python 3 需要 `numpy` 和 `PyYAML`
-（Ubuntu 包名 `python3-numpy`、`python3-yaml`）。默认写入该目录的 `schurvins.yaml`。
-**不覆盖已有文件**；如果目录中已有之前转换的配置，可指定另一个输出文件：
+默认输出文件已存在时拒绝覆盖，可用 `--output /path/to/new.yaml` 指定新文件。
+转换支持当前三种采集尺寸，两颗相机必须尺寸相同；保留每颗相机各自的内参和畸变，
+将 `T_cam_imu` 取逆得到 `T_B_C`。不要用设计的 50 mm 基线替换实测外参。
 
-```bash
-scripts/calibration/kalibr.sh --export-schurvins \
-  cali/tidesense-imucam-kalibr-20260922-221039 \
-  --output /tmp/tidesense-schurvins.yaml
-```
+时间关系为 `t_imu = t_cam + shift`，只将 cam0 的 shift 应用一次到实时帧组时间，
+保持 `delay_imu_cam: 0`。运行时在估计器入口对标称 SI 数据应用一套统一 IMU 内参；
+不将某次标定 bag 的拟合零偏固化为长期启动偏置。
 
-注意：此模式的 `--output` 是 YAML **文件路径**，其父目录需已存在；
-标定模式的 `--output` 仍是新建的结果**目录**。
+电脑端复制配置，然后板端启动：
 
-### 参数如何转换
-
-| Kalibr 参数 | SchurVINS 参数 / 处理 |
-| --- | --- |
-| `cam0` / `cam1` | `cameras[0]` / `cameras[1]`；必须分别为左 / 右相机 |
-| `intrinsics: [fx, fy, cx, cy]` | `camera.intrinsics.data`，顺序不变 |
-| `distortion_coeffs: [k1, k2, p1, p2]` | `camera.distortion.parameters.data`；`radtan` 映射到 `radial-tangential` |
-| `resolution: [width, height]` | `image_width` / `image_height` |
-| 每颗相机的 `T_cam_imu` | **取逆矩阵**得到 `T_B_C`，以行优先展开；B 是 SC7U22 芯片 IMU 坐标系 |
-| cam0 的 `timeshift_cam_imu`（秒） | 乘 `1e9` 四舍五入为 `live_camera_time_offset_ns`；保留正负号 |
-| `gyroscope_noise_density` | `imu_params.sigma_omega_c` |
-| `accelerometer_noise_density` | `imu_params.sigma_acc_c` |
-| `gyroscope_random_walk` | `imu_params.sigma_omega_bias_c` |
-| `accelerometer_random_walk` | `imu_params.sigma_acc_bias_c` |
-
-四个噪声参数直接取联合标定输出 `imucam-imu.yaml` 的 `imu0`，不额外乘除采样率。
-SC7U22 实际测量频率可略低于 200 Hz，转换允许 190–210 Hz，运行配置固定
-`imu_rate: 200`。重力设为 `9.80665`，量程按当前 ±16g / ±2000°/s 设置。
-`imu_initialization` 的速度与残余偏置初值为零，初始化标准差采用运行入口示例默认值；
-这些是启动参数，不是 Kalibr 标定结果。
-
-时间关系为 `t_imu = t_cam + shift`。实时输入以左相机时间代表同步帧对，
-因此只应用 cam0 的时间补偿，保持 `delay_imu_cam: 0.0`，避免重复修正。
-转换日志列出左右相机各自的 shift；差异超过 1 ms 时提示检查同步与标定，
-不会分别移动两颗相机的图像。未输出时间标定字段时补偿为零。
-
-转换支持当前 TideSense 的 **640×400、双 pinhole-radtan 或 pinhole-equidistant、单 calibrated 或 scale-misalignment IMU**。
-它检查旋转矩阵、非零基线、双目/IMU 外参一致性、IMU 坐标系和噪声参数。
-非有限数、非正噪声、不支持的模型或分辨率会报错；自动转换失败时，已完成的
-Kalibr 原始结果仍保留，可检查 `schurvins-export.log`。转换通过只说明配置符合入口要求，
-仍应检查 Kalibr 报告中的重投影误差、惯性残差和运动激励。
-
-相机倒装 180° 已包含在外参中，转换不旋转图像；运行时保持标定时的图像方向、
-分辨率和裁剪。不要把物理基线 50 mm 直接写回替代实测外参。
-
-### 部署并运行（关闭 micro-ROS）
-
-本机复制生成的配置到已安装的程序目录：
-
-```bash
-scp -O cali/tidesense-imucam-kalibr/schurvins.yaml \
+```sh
+scp -O cali/imucam/schurvins.yaml \
   root@192.168.123.99:/mnt/data/schurvins-gcc11-static-micro-ros/tidesense.yaml
-```
-
-如果上一步指定了 `--output`，这里改用对应文件路径。关闭 PFC 实时预览网页并等待
-约 3 秒释放 IMU，停止标定发布/其他 IMU 采集程序，然后在板端执行：
-
-```sh
+# 以下在板端执行
 cd /mnt/data/schurvins-gcc11-static-micro-ros
-export SCHUR_MICRO_ROS=0
-./run.sh --vio tidesense.yaml /mnt/data/sensor_cfg.ini auto /tmp/vio-poses.csv 0
+SCHUR_MICRO_ROS=0 ./run.sh --vio tidesense.yaml auto /tmp/vio-poses.csv 0
 ```
 
-`0` 表示持续运行，Ctrl-C 停止。开始时保持静止，两颗镜头共同看向有纹理的场景。
-位姿先写 `/tmp`，避免当前 SD 同步写盘影响实时性能；需要保留时在结束后复制出来。
+运行前检查 Kalibr 的角点覆盖、重投影残差、惯性残差、时间偏移和重复标定稳定性。
+转换通过只说明参数满足运行入口要求，不能代替独立的 VIO 精度验证。
 
-LiveImu 采集标称 SI 数据，运行时仅加载 `schurvins.yaml` 中的一套 IMU 内参，
-不需要额外校准文件或校准环境变量。`imu_initialization.acc_bias` 和 `omega_bias`
-表示当前运行的残余零偏；导出器不把标定 bag 中拟合的零偏固定为长期偏移。
+## 来源与重建
 
-转换回归测试：
-
-```bash
-python3 scripts/calibration/kalibr/test_export_schurvins.py
-```
-
-## 来源、重建与验证
-
-编码、位顺序、黑边及角点布局依据 [Kalibr 官方生成器](https://github.com/ethz-asl/kalibr/blob/1f60227442d25e36365ef5f72cd80b9666d73467/aslam_offline_calibration/kalibr/python/kalibr_create_target_pdf)。
-参数定义见 [Kalibr calibration targets](https://github.com/ethz-asl/kalibr/wiki/calibration-targets)。
-本目录脚本调整了 A4 页面布局，并加入尺寸核对尺。
-
-安装 PyMuPDF 后可重建：
-
-```sh
-python3 scripts/calibration/generate_aprilgrid_a4.py
-```
-
-已验证：PDF 为单页 A4 横向；300 dpi 渲染后，OpenCV 4.10 的 AprilTag 36h11
-检测器（`markerBorderBits=2`）识别出全部 24 个 ID，且位置与 YAML 的行列顺序一致。
-这验证了电子文件，不代表已验证实际打印误差或实拍标定精度。
+AprilGrid 编码和布局依据 [Kalibr 目标生成器](https://github.com/ethz-asl/kalibr/blob/1f60227442d25e36365ef5f72cd80b9666d73467/aslam_offline_calibration/kalibr/python/kalibr_create_target_pdf)。
+参考 [标定板说明](https://github.com/ethz-asl/kalibr/wiki/calibration-targets)、
+[相机–IMU 标定](https://github.com/ethz-asl/kalibr/wiki/Camera-IMU-calibration)、
+[IMU 噪声模型](https://github.com/ethz-asl/kalibr/wiki/IMU-Noise-Model)。
+安装 PyMuPDF 后可执行 `python3 scripts/calibration/generate_aprilgrid_a4.py` 重建打印文件。

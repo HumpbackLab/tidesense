@@ -1,0 +1,1914 @@
+{
+  "device": "RV1103 Cortex-A7 1104MHz, RKIVE pyramid+LK",
+  "samples_per_run": 400,
+  "trials": {
+    "fp32-400": {
+      "benchmark": {
+        "benchmark": "openvins-full-replay",
+        "initialization": "native",
+        "outlier_gate": true,
+        "dynamic_imu_boundary": true,
+        "backend_precision": "fp32",
+        "profile": "mono",
+        "max_slam": 0,
+        "chi2_tested": 4192,
+        "chi2_rejected": 64,
+        "active_retriangulation": 0,
+        "initialized": true,
+        "frames": 495,
+        "samples": 400,
+        "vio_mean_ms": 83.044268927,
+        "vio_p95_ms": 178.59635175,
+        "vio_p95_capacity_fps": 5.599218518,
+        "frontend_mean_ms": 25.682325,
+        "frontend_p95_ms": 36.305,
+        "backend_mean_ms": 56.24215,
+        "backend_p95_ms": 147.3295,
+        "internal_mean_ms": 81.9368,
+        "internal_p95_ms": 177.2855,
+        "pipeline_overhead_mean_ms": 1.107468927,
+        "pipeline_overhead_p95_ms": 1.48721045,
+        "propagation_mean_ms": 2.90165,
+        "msckf_mean_ms": 52.29285,
+        "slam_update_mean_ms": 0.0,
+        "slam_delayed_mean_ms": 0.0,
+        "retriangulation_marginalization_mean_ms": 1.04765,
+        "cpu_mean_ms": 70.8607825,
+        "cpu_p95_ms": 153.5297,
+        "mean_cpu_parallelism": 0.853289257,
+        "decode_mean_ms": 23.19165407,
+        "state_timestamp": 1403715299.062143,
+        "final_quaternion_xyzw": [
+          -0.829653735,
+          -0.067168932,
+          -0.552749598,
+          0.040384351
+        ],
+        "final_position": [
+          -1.244172931,
+          -2.61538728,
+          0.109724163
+        ],
+        "final_velocity": [
+          -0.049796083,
+          0.224214654,
+          0.069944213
+        ],
+        "covariance_min_diagonal": 8e-09,
+        "covariance_asymmetry_max": 0.0
+      },
+      "ate": {
+        "frames": 405,
+        "duration_s": 20.200000047683716,
+        "alignment": "SE3_no_scale",
+        "position_ate_rmse_m": 0.05108652925117334,
+        "position_ate_max_m": 0.12337788544646426,
+        "estimated_path_m": 6.666916726603179,
+        "truth_path_m": 6.605646333159656,
+        "quaternion_norm_max_error": 2.8087775660878833e-08
+      },
+      "detail": {
+        "measured_frames": 400,
+        "timing_ms": {
+          "decode_ms": {
+            "n": 400,
+            "mean": 23.19165407,
+            "p50": 21.546875,
+            "p95": 31.39276874999999,
+            "maximum": 124.802416
+          },
+          "vio_ms": {
+            "n": 400,
+            "mean": 83.04426892749999,
+            "p50": 71.47860399999999,
+            "p95": 178.5963517499999,
+            "maximum": 411.67525
+          },
+          "cpu_ms": {
+            "n": 400,
+            "mean": 70.86078250000006,
+            "p50": 63.141000000000005,
+            "p95": 153.5297,
+            "maximum": 221.767
+          },
+          "histogram_ms": {
+            "n": 400,
+            "mean": 4.950453275000002,
+            "p50": 4.5586044999999995,
+            "p95": 5.756494049999996,
+            "maximum": 18.97525
+          },
+          "pyramid_ms": {
+            "n": 400,
+            "mean": 3.6690332025000014,
+            "p50": 3.3139165,
+            "p95": 4.258056249999991,
+            "maximum": 16.731459
+          },
+          "detection_ms": {
+            "n": 400,
+            "mean": 5.434048229999999,
+            "p50": 4.1221250000000005,
+            "p95": 11.777237499999998,
+            "maximum": 95.818625
+          },
+          "flow_ms": {
+            "n": 400,
+            "mean": 3.700242269999998,
+            "p50": 3.6941045,
+            "p95": 4.304562499999999,
+            "maximum": 20.791167
+          },
+          "normalize_ms": {
+            "n": 400,
+            "mean": 3.121681369999998,
+            "p50": 3.0382914999999997,
+            "p95": 3.5094503499999985,
+            "maximum": 13.351625
+          },
+          "ransac_ms": {
+            "n": 400,
+            "mean": 1.2600721950000005,
+            "p50": 0.9256040000000001,
+            "p95": 1.9638645499999972,
+            "maximum": 73.548416
+          },
+          "track_other_ms": {
+            "n": 400,
+            "mean": 3.4095876799999996,
+            "p50": 3.2226245000000002,
+            "p95": 4.092200049999996,
+            "maximum": 14.014875
+          },
+          "msckf_clean_ms": {
+            "n": 400,
+            "mean": 0.09369135750000003,
+            "p50": 0.077,
+            "p95": 0.13715589999999994,
+            "maximum": 4.784792
+          },
+          "msckf_triangulate_ms": {
+            "n": 400,
+            "mean": 3.2141331025000004,
+            "p50": 2.6970415,
+            "p95": 7.086799349999999,
+            "maximum": 26.158125
+          },
+          "msckf_system_ms": {
+            "n": 400,
+            "mean": 13.704284282499996,
+            "p50": 10.700958,
+            "p95": 36.77837914999998,
+            "maximum": 86.491709
+          },
+          "msckf_compress_ms": {
+            "n": 400,
+            "mean": 24.429430514999993,
+            "p50": 16.001125000000002,
+            "p95": 84.3675433999999,
+            "maximum": 224.548333
+          },
+          "msckf_ekf_ms": {
+            "n": 400,
+            "mean": 10.485966482499993,
+            "p50": 11.7742915,
+            "p95": 17.67521935,
+            "maximum": 43.602416
+          },
+          "matching_total_ms": {
+            "n": 400,
+            "mean": 8.193257187500006,
+            "p50": 7.7033545,
+            "p95": 10.240854199999996,
+            "maximum": 99.286541
+          },
+          "vio_plus_decode_ms": {
+            "n": 400,
+            "mean": 106.2359229975001,
+            "p50": 93.1876465,
+            "p95": 206.34270384999994,
+            "maximum": 443.275
+          },
+          "frontend_ms": {
+            "n": 400,
+            "mean": 25.682325000000006,
+            "p50": 23.14,
+            "p95": 36.30499999999999,
+            "maximum": 219.48999999999998
+          },
+          "propagation_ms": {
+            "n": 400,
+            "mean": 2.901649999999999,
+            "p50": 2.63,
+            "p95": 3.1324999999999976,
+            "maximum": 14.63
+          },
+          "msckf_ms": {
+            "n": 400,
+            "mean": 52.29285000000001,
+            "p50": 41.39,
+            "p95": 143.7469999999999,
+            "maximum": 357.41
+          },
+          "marginalization_ms": {
+            "n": 400,
+            "mean": 1.047649999999999,
+            "p50": 1.03,
+            "p95": 1.14,
+            "maximum": 10.95
+          },
+          "internal_ms": {
+            "n": 400,
+            "mean": 81.93680000000003,
+            "p50": 70.46000000000001,
+            "p95": 177.2854999999999,
+            "maximum": 410.54
+          },
+          "backend_ms": {
+            "n": 400,
+            "mean": 56.242149999999995,
+            "p50": 45.09,
+            "p95": 147.3294999999999,
+            "maximum": 361.33
+          }
+        },
+        "stage_imu_minus_camera_clock_ms": {
+          "minimum": -2.4404525756835938,
+          "maximum": 0.11491775512695312
+        }
+      },
+      "covariance_min_diagonal": 7.983931737953753e-09,
+      "covariance_max_asymmetry": 7.275957614183426e-12,
+      "difference_from_fp64": {
+        "position_rms_m": 0.015457038895534837,
+        "position_final_m": 0.0060783817996041874,
+        "attitude_final_deg": 0.2265804697757278
+      }
+    },
+    "fp32-householder-400": {
+      "benchmark": {
+        "benchmark": "openvins-full-replay",
+        "initialization": "native",
+        "outlier_gate": true,
+        "dynamic_imu_boundary": true,
+        "backend_precision": "fp32",
+        "profile": "mono",
+        "max_slam": 0,
+        "chi2_tested": 4192,
+        "chi2_rejected": 64,
+        "active_retriangulation": 0,
+        "initialized": true,
+        "frames": 495,
+        "samples": 400,
+        "vio_mean_ms": 61.236448462,
+        "vio_p95_ms": 101.64968365,
+        "vio_p95_capacity_fps": 9.837708924,
+        "frontend_mean_ms": 24.3745,
+        "frontend_p95_ms": 32.9755,
+        "backend_mean_ms": 35.749425,
+        "backend_p95_ms": 75.284,
+        "internal_mean_ms": 60.136525,
+        "internal_p95_ms": 100.514,
+        "pipeline_overhead_mean_ms": 1.099923463,
+        "pipeline_overhead_p95_ms": 1.4277771,
+        "propagation_mean_ms": 2.7315,
+        "msckf_mean_ms": 31.991825,
+        "slam_update_mean_ms": 0.0,
+        "slam_delayed_mean_ms": 0.0,
+        "retriangulation_marginalization_mean_ms": 1.0261,
+        "cpu_mean_ms": 54.54044,
+        "cpu_p95_ms": 92.9696,
+        "mean_cpu_parallelism": 0.89065322,
+        "decode_mean_ms": 22.329418897,
+        "state_timestamp": 1403715299.062143,
+        "final_quaternion_xyzw": [
+          -0.829653024,
+          -0.067186647,
+          -0.552747692,
+          0.0403956
+        ],
+        "final_position": [
+          -1.244052561,
+          -2.61543191,
+          0.109764651
+        ],
+        "final_velocity": [
+          -0.049774401,
+          0.224202149,
+          0.069961102
+        ],
+        "covariance_min_diagonal": 8e-09,
+        "covariance_asymmetry_max": 0.0
+      },
+      "ate": {
+        "frames": 405,
+        "duration_s": 20.200000047683716,
+        "alignment": "SE3_no_scale",
+        "position_ate_rmse_m": 0.05108366300016387,
+        "position_ate_max_m": 0.12337752720566471,
+        "estimated_path_m": 6.666730368997417,
+        "truth_path_m": 6.605646333159656,
+        "quaternion_norm_max_error": 3.825994665529464e-08
+      },
+      "detail": {
+        "measured_frames": 400,
+        "timing_ms": {
+          "decode_ms": {
+            "n": 400,
+            "mean": 22.32941889749998,
+            "p50": 21.5308335,
+            "p95": 26.742712849999993,
+            "maximum": 86.114583
+          },
+          "vio_ms": {
+            "n": 400,
+            "mean": 61.23644846249996,
+            "p50": 58.465604,
+            "p95": 101.64968365,
+            "maximum": 190.736
+          },
+          "cpu_ms": {
+            "n": 400,
+            "mean": 54.54044,
+            "p50": 52.727999999999994,
+            "p95": 92.96959999999997,
+            "maximum": 127.733
+          },
+          "histogram_ms": {
+            "n": 400,
+            "mean": 4.7634139625000005,
+            "p50": 4.5596250000000005,
+            "p95": 5.082787199999999,
+            "maximum": 21.682792
+          },
+          "pyramid_ms": {
+            "n": 400,
+            "mean": 3.3822884299999982,
+            "p50": 3.296417,
+            "p95": 3.442730949999999,
+            "maximum": 14.793041
+          },
+          "detection_ms": {
+            "n": 400,
+            "mean": 5.152082377499999,
+            "p50": 4.0175625,
+            "p95": 11.701841049999999,
+            "maximum": 21.839125
+          },
+          "flow_ms": {
+            "n": 400,
+            "mean": 3.6267196724999975,
+            "p50": 3.692354,
+            "p95": 4.20275625,
+            "maximum": 4.810459
+          },
+          "normalize_ms": {
+            "n": 400,
+            "mean": 3.0183548100000017,
+            "p50": 3.0207915,
+            "p95": 3.4279576999999994,
+            "maximum": 10.038
+          },
+          "ransac_ms": {
+            "n": 400,
+            "mean": 1.044506452499999,
+            "p50": 0.910146,
+            "p95": 1.8006332999999985,
+            "maximum": 11.101709
+          },
+          "track_other_ms": {
+            "n": 400,
+            "mean": 3.2536677699999985,
+            "p50": 3.2223335,
+            "p95": 3.7722423,
+            "maximum": 12.021334
+          },
+          "msckf_clean_ms": {
+            "n": 400,
+            "mean": 0.08172357000000002,
+            "p50": 0.077584,
+            "p95": 0.138834,
+            "maximum": 0.183458
+          },
+          "msckf_triangulate_ms": {
+            "n": 400,
+            "mean": 2.9762701824999995,
+            "p50": 2.6779374999999996,
+            "p95": 6.635955649999998,
+            "maximum": 11.202334
+          },
+          "msckf_system_ms": {
+            "n": 400,
+            "mean": 12.665261904999998,
+            "p50": 10.263021,
+            "p95": 34.42352079999997,
+            "maximum": 51.067333
+          },
+          "msckf_compress_ms": {
+            "n": 400,
+            "mean": 6.103216857499999,
+            "p50": 4.7989375,
+            "p95": 18.343354799999997,
+            "maximum": 59.904542
+          },
+          "msckf_ekf_ms": {
+            "n": 400,
+            "mean": 9.82893482,
+            "p50": 11.7385625,
+            "p95": 12.1404944,
+            "maximum": 32.652667
+          },
+          "matching_total_ms": {
+            "n": 400,
+            "mean": 7.799058067499995,
+            "p50": 7.6935835,
+            "p95": 9.5577268,
+            "maximum": 17.859917
+          },
+          "vio_plus_decode_ms": {
+            "n": 400,
+            "mean": 83.56586736000001,
+            "p50": 80.39893799999999,
+            "p95": 128.66157535,
+            "maximum": 214.27641699999998
+          },
+          "frontend_ms": {
+            "n": 400,
+            "mean": 24.37450000000001,
+            "p50": 22.915,
+            "p95": 32.9755,
+            "maximum": 47.68
+          },
+          "propagation_ms": {
+            "n": 400,
+            "mean": 2.731500000000001,
+            "p50": 2.66,
+            "p95": 3.0,
+            "maximum": 7.550000000000001
+          },
+          "msckf_ms": {
+            "n": 400,
+            "mean": 31.991825000000016,
+            "p50": 29.875,
+            "p95": 70.80399999999997,
+            "maximum": 129.41
+          },
+          "marginalization_ms": {
+            "n": 400,
+            "mean": 1.0260999999999991,
+            "p50": 1.035,
+            "p95": 1.14,
+            "maximum": 4.39
+          },
+          "internal_ms": {
+            "n": 400,
+            "mean": 60.136525000000034,
+            "p50": 57.435,
+            "p95": 100.514,
+            "maximum": 182.42
+          },
+          "backend_ms": {
+            "n": 400,
+            "mean": 35.74942499999998,
+            "p50": 33.765,
+            "p95": 75.28399999999998,
+            "maximum": 136.57
+          }
+        },
+        "stage_imu_minus_camera_clock_ms": {
+          "minimum": -2.440214157104492,
+          "maximum": 0.11491775512695312
+        }
+      },
+      "covariance_min_diagonal": 7.983492089636002e-09,
+      "covariance_max_asymmetry": 1.8189894035458565e-12,
+      "difference_from_fp64": {
+        "position_rms_m": 0.015457731305849362,
+        "position_final_m": 0.006073491116451435,
+        "attitude_final_deg": 0.2241677181323809
+      }
+    },
+    "fp32-packed-400": {
+      "benchmark": {
+        "benchmark": "openvins-full-replay",
+        "initialization": "native",
+        "outlier_gate": true,
+        "dynamic_imu_boundary": true,
+        "backend_precision": "fp32",
+        "profile": "mono",
+        "max_slam": 0,
+        "chi2_tested": 4195,
+        "chi2_rejected": 65,
+        "active_retriangulation": 0,
+        "initialized": true,
+        "frames": 495,
+        "samples": 400,
+        "vio_mean_ms": 76.540051905,
+        "vio_p95_ms": 155.73798365,
+        "vio_p95_capacity_fps": 6.42104114,
+        "frontend_mean_ms": 24.489425,
+        "frontend_p95_ms": 33.664,
+        "backend_mean_ms": 50.9653,
+        "backend_p95_ms": 131.9515,
+        "internal_mean_ms": 75.46695,
+        "internal_p95_ms": 154.3495,
+        "pipeline_overhead_mean_ms": 1.073101905,
+        "pipeline_overhead_p95_ms": 1.45624345,
+        "propagation_mean_ms": 2.822075,
+        "msckf_mean_ms": 47.1222,
+        "slam_update_mean_ms": 0.0,
+        "slam_delayed_mean_ms": 0.0,
+        "retriangulation_marginalization_mean_ms": 1.021025,
+        "cpu_mean_ms": 69.0813225,
+        "cpu_p95_ms": 149.7094,
+        "mean_cpu_parallelism": 0.902551289,
+        "decode_mean_ms": 22.557483975,
+        "state_timestamp": 1403715299.062143,
+        "final_quaternion_xyzw": [
+          -0.82962892,
+          -0.067318178,
+          -0.552760271,
+          0.040499395
+        ],
+        "final_position": [
+          -1.245369704,
+          -2.615629389,
+          0.110486211
+        ],
+        "final_velocity": [
+          -0.049901882,
+          0.224395114,
+          0.069867018
+        ],
+        "covariance_min_diagonal": 8e-09,
+        "covariance_asymmetry_max": 0.0
+      },
+      "ate": {
+        "frames": 405,
+        "duration_s": 20.200000047683716,
+        "alignment": "SE3_no_scale",
+        "position_ate_rmse_m": 0.05116630397698572,
+        "position_ate_max_m": 0.12359802134525484,
+        "estimated_path_m": 6.668644160188175,
+        "truth_path_m": 6.605646333159656,
+        "quaternion_norm_max_error": 3.629544109706728e-08
+      },
+      "detail": {
+        "measured_frames": 400,
+        "timing_ms": {
+          "decode_ms": {
+            "n": 400,
+            "mean": 22.557483975000014,
+            "p50": 21.545417,
+            "p95": 28.226304149999997,
+            "maximum": 99.510833
+          },
+          "vio_ms": {
+            "n": 400,
+            "mean": 76.54005190499994,
+            "p50": 66.9220415,
+            "p95": 155.73798364999996,
+            "maximum": 282.857167
+          },
+          "cpu_ms": {
+            "n": 400,
+            "mean": 69.08132249999996,
+            "p50": 61.072,
+            "p95": 149.7094,
+            "maximum": 221.474
+          },
+          "histogram_ms": {
+            "n": 400,
+            "mean": 4.8253763825,
+            "p50": 4.5536455,
+            "p95": 5.314138099999999,
+            "maximum": 17.867792
+          },
+          "pyramid_ms": {
+            "n": 400,
+            "mean": 3.3375824675000003,
+            "p50": 3.2905835000000003,
+            "p95": 3.4150371999999996,
+            "maximum": 5.911792
+          },
+          "detection_ms": {
+            "n": 400,
+            "mean": 5.164024012499998,
+            "p50": 3.887625,
+            "p95": 12.045527399999997,
+            "maximum": 20.980166
+          },
+          "flow_ms": {
+            "n": 400,
+            "mean": 3.6772203175,
+            "p50": 3.697458,
+            "p95": 4.2560576999999995,
+            "maximum": 14.415041
+          },
+          "normalize_ms": {
+            "n": 400,
+            "mean": 3.0544966850000033,
+            "p50": 3.045875,
+            "p95": 3.4719705,
+            "maximum": 10.487166
+          },
+          "ransac_ms": {
+            "n": 400,
+            "mean": 0.9808166474999992,
+            "p50": 0.91875,
+            "p95": 1.7131330499999984,
+            "maximum": 5.752542
+          },
+          "track_other_ms": {
+            "n": 400,
+            "mean": 3.3154726949999995,
+            "p50": 3.2350205,
+            "p95": 3.8423440499999995,
+            "maximum": 13.150668
+          },
+          "msckf_clean_ms": {
+            "n": 400,
+            "mean": 0.08215663999999996,
+            "p50": 0.076125,
+            "p95": 0.13924164999999988,
+            "maximum": 0.396375
+          },
+          "msckf_triangulate_ms": {
+            "n": 400,
+            "mean": 3.000859909999999,
+            "p50": 2.6985004999999997,
+            "p95": 6.726080899999999,
+            "maximum": 10.666833
+          },
+          "msckf_system_ms": {
+            "n": 400,
+            "mean": 12.835224797500004,
+            "p50": 10.233562500000001,
+            "p95": 34.81431009999999,
+            "maximum": 57.903416
+          },
+          "msckf_compress_ms": {
+            "n": 400,
+            "mean": 22.40773063999999,
+            "p50": 15.771291999999999,
+            "p95": 76.13701634999995,
+            "maximum": 156.067042
+          },
+          "msckf_ekf_ms": {
+            "n": 400,
+            "mean": 8.449753232500003,
+            "p50": 10.1008545,
+            "p95": 10.418187499999998,
+            "maximum": 21.069416
+          },
+          "matching_total_ms": {
+            "n": 400,
+            "mean": 7.821901345000002,
+            "p50": 7.706854,
+            "p95": 9.5549708,
+            "maximum": 23.9715
+          },
+          "vio_plus_decode_ms": {
+            "n": 400,
+            "mean": 99.09753587999998,
+            "p50": 90.4687295,
+            "p95": 187.100653,
+            "maximum": 329.693292
+          },
+          "frontend_ms": {
+            "n": 400,
+            "mean": 24.489424999999997,
+            "p50": 22.86,
+            "p95": 33.664,
+            "maximum": 68.25
+          },
+          "propagation_ms": {
+            "n": 400,
+            "mean": 2.8220749999999977,
+            "p50": 2.63,
+            "p95": 3.0619999999999976,
+            "maximum": 15.25
+          },
+          "msckf_ms": {
+            "n": 400,
+            "mean": 47.1222,
+            "p50": 38.894999999999996,
+            "p95": 127.64399999999996,
+            "maximum": 242.98
+          },
+          "marginalization_ms": {
+            "n": 400,
+            "mean": 1.0210249999999987,
+            "p50": 1.03,
+            "p95": 1.13,
+            "maximum": 2.99
+          },
+          "internal_ms": {
+            "n": 400,
+            "mean": 75.46695000000004,
+            "p50": 65.955,
+            "p95": 154.34949999999995,
+            "maximum": 280.15000000000003
+          },
+          "backend_ms": {
+            "n": 400,
+            "mean": 50.9653,
+            "p50": 42.595,
+            "p95": 131.95149999999995,
+            "maximum": 247.08
+          }
+        },
+        "stage_imu_minus_camera_clock_ms": {
+          "minimum": -2.447843551635742,
+          "maximum": 0.11515617370605469
+        }
+      },
+      "covariance_min_diagonal": 7.981754812647068e-09,
+      "covariance_max_asymmetry": 7.275957614183426e-12,
+      "difference_from_fp64": {
+        "position_rms_m": 0.015220025600373362,
+        "position_final_m": 0.006763672947692196,
+        "attitude_final_deg": 0.2050277242573704
+      }
+    },
+    "fp32-packed-householder-400": {
+      "benchmark": {
+        "benchmark": "openvins-full-replay",
+        "initialization": "native",
+        "outlier_gate": true,
+        "dynamic_imu_boundary": true,
+        "backend_precision": "fp32",
+        "profile": "mono",
+        "max_slam": 0,
+        "chi2_tested": 4194,
+        "chi2_rejected": 64,
+        "active_retriangulation": 0,
+        "initialized": true,
+        "frames": 495,
+        "samples": 400,
+        "vio_mean_ms": 60.087035338,
+        "vio_p95_ms": 101.9086545,
+        "vio_p95_capacity_fps": 9.812709283,
+        "frontend_mean_ms": 24.570225,
+        "frontend_p95_ms": 33.8625,
+        "backend_mean_ms": 34.42975,
+        "backend_p95_ms": 73.496,
+        "internal_mean_ms": 59.01315,
+        "internal_p95_ms": 100.8745,
+        "pipeline_overhead_mean_ms": 1.073885337,
+        "pipeline_overhead_p95_ms": 1.5025128,
+        "propagation_mean_ms": 2.81395,
+        "msckf_mean_ms": 30.526125,
+        "slam_update_mean_ms": 0.0,
+        "slam_delayed_mean_ms": 0.0,
+        "retriangulation_marginalization_mean_ms": 1.089675,
+        "cpu_mean_ms": 53.200375,
+        "cpu_p95_ms": 90.6485,
+        "mean_cpu_parallelism": 0.885388582,
+        "decode_mean_ms": 22.445442383,
+        "state_timestamp": 1403715299.062143,
+        "final_quaternion_xyzw": [
+          -0.829648745,
+          -0.067224316,
+          -0.552747638,
+          0.040421524
+        ],
+        "final_position": [
+          -1.244168124,
+          -2.615830227,
+          0.109595455
+        ],
+        "final_velocity": [
+          -0.049809463,
+          0.224198176,
+          0.069952507
+        ],
+        "covariance_min_diagonal": 8e-09,
+        "covariance_asymmetry_max": 0.0
+      },
+      "ate": {
+        "frames": 405,
+        "duration_s": 20.200000047683716,
+        "alignment": "SE3_no_scale",
+        "position_ate_rmse_m": 0.051168009039491515,
+        "position_ate_max_m": 0.12370443793937927,
+        "estimated_path_m": 6.666511964267278,
+        "truth_path_m": 6.605646333159656,
+        "quaternion_norm_max_error": 3.490506250702907e-08
+      },
+      "detail": {
+        "measured_frames": 400,
+        "timing_ms": {
+          "decode_ms": {
+            "n": 400,
+            "mean": 22.4454423825,
+            "p50": 21.459375,
+            "p95": 27.820115199999996,
+            "maximum": 89.830125
+          },
+          "vio_ms": {
+            "n": 400,
+            "mean": 60.087035337500026,
+            "p50": 56.622125,
+            "p95": 101.90865449999995,
+            "maximum": 229.994625
+          },
+          "cpu_ms": {
+            "n": 400,
+            "mean": 53.20037499999996,
+            "p50": 50.866,
+            "p95": 90.64849999999997,
+            "maximum": 129.566
+          },
+          "histogram_ms": {
+            "n": 400,
+            "mean": 4.853961894999997,
+            "p50": 4.554083500000001,
+            "p95": 5.149914599999992,
+            "maximum": 21.760667
+          },
+          "pyramid_ms": {
+            "n": 400,
+            "mean": 3.438797359999997,
+            "p50": 3.309396,
+            "p95": 3.5378729499999997,
+            "maximum": 15.114166
+          },
+          "detection_ms": {
+            "n": 400,
+            "mean": 5.165165062499997,
+            "p50": 3.98475,
+            "p95": 12.03692325,
+            "maximum": 19.065084
+          },
+          "flow_ms": {
+            "n": 400,
+            "mean": 3.6438376,
+            "p50": 3.6878335,
+            "p95": 4.23246185,
+            "maximum": 9.163291
+          },
+          "normalize_ms": {
+            "n": 400,
+            "mean": 3.0351183425000006,
+            "p50": 3.0503955,
+            "p95": 3.46473715,
+            "maximum": 9.776084
+          },
+          "ransac_ms": {
+            "n": 400,
+            "mean": 1.0382254275,
+            "p50": 0.917292,
+            "p95": 1.7867065499999997,
+            "maximum": 11.868792
+          },
+          "track_other_ms": {
+            "n": 400,
+            "mean": 3.260672925000003,
+            "p50": 3.198709,
+            "p95": 3.8161669999999988,
+            "maximum": 13.487249
+          },
+          "msckf_clean_ms": {
+            "n": 400,
+            "mean": 0.081835845,
+            "p50": 0.075687,
+            "p95": 0.13972259999999997,
+            "maximum": 0.331333
+          },
+          "msckf_triangulate_ms": {
+            "n": 400,
+            "mean": 2.981458272499999,
+            "p50": 2.666271,
+            "p95": 6.7958624999999975,
+            "maximum": 11.872
+          },
+          "msckf_system_ms": {
+            "n": 400,
+            "mean": 12.503270175000004,
+            "p50": 10.219125,
+            "p95": 34.29111844999999,
+            "maximum": 53.659375
+          },
+          "msckf_compress_ms": {
+            "n": 400,
+            "mean": 6.05936479,
+            "p50": 4.7912085,
+            "p95": 18.315981249999997,
+            "maximum": 59.569708
+          },
+          "msckf_ekf_ms": {
+            "n": 400,
+            "mean": 8.564793852499998,
+            "p50": 10.174938000000001,
+            "p95": 10.488960099999998,
+            "maximum": 45.876833
+          },
+          "matching_total_ms": {
+            "n": 400,
+            "mean": 7.824585430000001,
+            "p50": 7.697521500000001,
+            "p95": 9.557070849999993,
+            "maximum": 20.439708
+          },
+          "vio_plus_decode_ms": {
+            "n": 400,
+            "mean": 82.53247771999997,
+            "p50": 78.201521,
+            "p95": 128.15308329999993,
+            "maximum": 269.98037500000004
+          },
+          "frontend_ms": {
+            "n": 400,
+            "mean": 24.570225,
+            "p50": 23.055,
+            "p95": 33.8625,
+            "maximum": 52.21
+          },
+          "propagation_ms": {
+            "n": 400,
+            "mean": 2.813950000000001,
+            "p50": 2.7,
+            "p95": 2.97,
+            "maximum": 18.06
+          },
+          "msckf_ms": {
+            "n": 400,
+            "mean": 30.526124999999983,
+            "p50": 28.055,
+            "p95": 69.59199999999998,
+            "maximum": 171.46
+          },
+          "marginalization_ms": {
+            "n": 400,
+            "mean": 1.0896749999999993,
+            "p50": 1.03,
+            "p95": 1.14,
+            "maximum": 20.32
+          },
+          "internal_ms": {
+            "n": 400,
+            "mean": 59.013149999999975,
+            "p50": 55.644999999999996,
+            "p95": 100.87449999999998,
+            "maximum": 228.68
+          },
+          "backend_ms": {
+            "n": 400,
+            "mean": 34.429750000000006,
+            "p50": 31.790000000000003,
+            "p95": 73.49600000000001,
+            "maximum": 189.53
+          }
+        },
+        "stage_imu_minus_camera_clock_ms": {
+          "minimum": -2.4471282958984375,
+          "maximum": 0.11587142944335938
+        }
+      },
+      "covariance_min_diagonal": 7.981992844463548e-09,
+      "covariance_max_asymmetry": 7.275957614183426e-12,
+      "difference_from_fp64": {
+        "position_rms_m": 0.01528313536589063,
+        "position_final_m": 0.005710951399412635,
+        "attitude_final_deg": 0.2189165326061801
+      }
+    },
+    "fp32-packed-householder-perf-400": {
+      "benchmark": {
+        "benchmark": "openvins-full-replay",
+        "initialization": "native",
+        "outlier_gate": true,
+        "dynamic_imu_boundary": true,
+        "backend_precision": "fp32",
+        "profile": "mono",
+        "max_slam": 0,
+        "chi2_tested": 4194,
+        "chi2_rejected": 64,
+        "active_retriangulation": 0,
+        "initialized": true,
+        "frames": 495,
+        "samples": 400,
+        "vio_mean_ms": 60.30491692,
+        "vio_p95_ms": 99.42573895,
+        "vio_p95_capacity_fps": 10.057757785,
+        "frontend_mean_ms": 24.6224,
+        "frontend_p95_ms": 33.4915,
+        "backend_mean_ms": 34.62075,
+        "backend_p95_ms": 74.2095,
+        "internal_mean_ms": 59.256,
+        "internal_p95_ms": 98.046,
+        "pipeline_overhead_mean_ms": 1.04891692,
+        "pipeline_overhead_p95_ms": 1.4063045,
+        "propagation_mean_ms": 2.95315,
+        "msckf_mean_ms": 30.619275,
+        "slam_update_mean_ms": 0.0,
+        "slam_delayed_mean_ms": 0.0,
+        "retriangulation_marginalization_mean_ms": 1.048325,
+        "cpu_mean_ms": 53.9600575,
+        "cpu_p95_ms": 92.8922,
+        "mean_cpu_parallelism": 0.89478703,
+        "decode_mean_ms": 22.326316273,
+        "state_timestamp": 1403715299.062143,
+        "final_quaternion_xyzw": [
+          -0.829648745,
+          -0.067224316,
+          -0.552747638,
+          0.040421524
+        ],
+        "final_position": [
+          -1.244168124,
+          -2.615830227,
+          0.109595455
+        ],
+        "final_velocity": [
+          -0.049809463,
+          0.224198176,
+          0.069952507
+        ],
+        "covariance_min_diagonal": 8e-09,
+        "covariance_asymmetry_max": 0.0
+      },
+      "ate": {
+        "frames": 405,
+        "duration_s": 20.200000047683716,
+        "alignment": "SE3_no_scale",
+        "position_ate_rmse_m": 0.051168009039491515,
+        "position_ate_max_m": 0.12370443793937927,
+        "estimated_path_m": 6.666511964267278,
+        "truth_path_m": 6.605646333159656,
+        "quaternion_norm_max_error": 3.490506250702907e-08
+      },
+      "detail": {
+        "measured_frames": 400,
+        "timing_ms": {
+          "decode_ms": {
+            "n": 400,
+            "mean": 22.3263162725,
+            "p50": 21.664854499999997,
+            "p95": 25.416329199999996,
+            "maximum": 65.041083
+          },
+          "vio_ms": {
+            "n": 400,
+            "mean": 60.304916920000025,
+            "p50": 58.3823335,
+            "p95": 99.42573894999998,
+            "maximum": 137.878125
+          },
+          "cpu_ms": {
+            "n": 400,
+            "mean": 53.96005749999999,
+            "p50": 51.596999999999994,
+            "p95": 92.8922,
+            "maximum": 132.386
+          },
+          "histogram_ms": {
+            "n": 400,
+            "mean": 4.8722690600000025,
+            "p50": 4.883813,
+            "p95": 5.14822355,
+            "maximum": 17.788458
+          },
+          "pyramid_ms": {
+            "n": 400,
+            "mean": 3.3920636474999997,
+            "p50": 3.306041,
+            "p95": 3.4561919499999996,
+            "maximum": 16.11575
+          },
+          "detection_ms": {
+            "n": 400,
+            "mean": 5.2197607275,
+            "p50": 3.970604,
+            "p95": 11.88935384999999,
+            "maximum": 16.98025
+          },
+          "flow_ms": {
+            "n": 400,
+            "mean": 3.6456196750000003,
+            "p50": 3.7164159999999997,
+            "p95": 4.2264256499999995,
+            "maximum": 5.604375
+          },
+          "normalize_ms": {
+            "n": 400,
+            "mean": 3.0248859300000017,
+            "p50": 3.0585625,
+            "p95": 3.4313127999999993,
+            "maximum": 11.3015
+          },
+          "ransac_ms": {
+            "n": 400,
+            "mean": 1.0025677425000006,
+            "p50": 0.911313,
+            "p95": 1.8133940999999991,
+            "maximum": 6.750333
+          },
+          "track_other_ms": {
+            "n": 400,
+            "mean": 3.3294012149999985,
+            "p50": 3.259812,
+            "p95": 3.9072541499999995,
+            "maximum": 23.944958
+          },
+          "msckf_clean_ms": {
+            "n": 400,
+            "mean": 0.08341955999999996,
+            "p50": 0.077875,
+            "p95": 0.1395336499999999,
+            "maximum": 0.222542
+          },
+          "msckf_triangulate_ms": {
+            "n": 400,
+            "mean": 2.9732682299999977,
+            "p50": 2.6917915,
+            "p95": 6.7541396,
+            "maximum": 10.035667
+          },
+          "msckf_system_ms": {
+            "n": 400,
+            "mean": 12.6938532575,
+            "p50": 10.3445415,
+            "p95": 34.83743959999996,
+            "maximum": 52.972208
+          },
+          "msckf_compress_ms": {
+            "n": 400,
+            "mean": 6.050671677500002,
+            "p50": 4.9258125,
+            "p95": 18.712501749999998,
+            "maximum": 34.685875
+          },
+          "msckf_ekf_ms": {
+            "n": 400,
+            "mean": 8.481474169999991,
+            "p50": 10.210812,
+            "p95": 10.55901935,
+            "maximum": 24.373708
+          },
+          "matching_total_ms": {
+            "n": 400,
+            "mean": 7.783146890000003,
+            "p50": 7.7215834999999995,
+            "p95": 9.52513365,
+            "maximum": 15.645875
+          },
+          "vio_plus_decode_ms": {
+            "n": 400,
+            "mean": 82.63123319250008,
+            "p50": 80.422708,
+            "p95": 126.63281454999996,
+            "maximum": 195.280166
+          },
+          "frontend_ms": {
+            "n": 400,
+            "mean": 24.622399999999974,
+            "p50": 23.240000000000002,
+            "p95": 33.4915,
+            "maximum": 50.4
+          },
+          "propagation_ms": {
+            "n": 400,
+            "mean": 2.9531500000000013,
+            "p50": 2.8800000000000003,
+            "p95": 3.181999999999998,
+            "maximum": 10.56
+          },
+          "msckf_ms": {
+            "n": 400,
+            "mean": 30.619275000000012,
+            "p50": 28.310000000000002,
+            "p95": 70.4535,
+            "maximum": 105.37
+          },
+          "marginalization_ms": {
+            "n": 400,
+            "mean": 1.0483250000000004,
+            "p50": 1.0399999999999998,
+            "p95": 1.16,
+            "maximum": 4.39
+          },
+          "internal_ms": {
+            "n": 400,
+            "mean": 59.25599999999996,
+            "p50": 57.31,
+            "p95": 98.04599999999998,
+            "maximum": 136.37
+          },
+          "backend_ms": {
+            "n": 400,
+            "mean": 34.62074999999999,
+            "p50": 32.129999999999995,
+            "p95": 74.20949999999998,
+            "maximum": 109.4
+          }
+        },
+        "stage_imu_minus_camera_clock_ms": {
+          "minimum": -2.4471282958984375,
+          "maximum": 0.11587142944335938
+        }
+      },
+      "covariance_min_diagonal": 7.981992844463548e-09,
+      "covariance_max_asymmetry": 7.275957614183426e-12,
+      "difference_from_fp64": {
+        "position_rms_m": 0.01528313536589063,
+        "position_final_m": 0.005710951399412635,
+        "attitude_final_deg": 0.2189165326061801
+      }
+    },
+    "fp64-householder-400": {
+      "benchmark": {
+        "benchmark": "openvins-full-replay",
+        "initialization": "native",
+        "outlier_gate": true,
+        "dynamic_imu_boundary": true,
+        "backend_precision": "fp64",
+        "profile": "mono",
+        "max_slam": 0,
+        "chi2_tested": 4235,
+        "chi2_rejected": 61,
+        "active_retriangulation": 0,
+        "initialized": true,
+        "frames": 495,
+        "samples": 400,
+        "vio_mean_ms": 94.68243609,
+        "vio_p95_ms": 175.20782705,
+        "vio_p95_capacity_fps": 5.707507575,
+        "frontend_mean_ms": 24.931875,
+        "frontend_p95_ms": 34.367,
+        "backend_mean_ms": 68.62185,
+        "backend_p95_ms": 148.7485,
+        "internal_mean_ms": 93.5657,
+        "internal_p95_ms": 173.523,
+        "pipeline_overhead_mean_ms": 1.11673609,
+        "pipeline_overhead_p95_ms": 1.5528976,
+        "propagation_mean_ms": 3.213,
+        "msckf_mean_ms": 64.39095,
+        "slam_update_mean_ms": 0.0,
+        "slam_delayed_mean_ms": 0.0,
+        "retriangulation_marginalization_mean_ms": 1.0179,
+        "cpu_mean_ms": 88.2850975,
+        "cpu_p95_ms": 167.06115,
+        "mean_cpu_parallelism": 0.932433735,
+        "decode_mean_ms": 22.232641687,
+        "state_timestamp": 1403715299.062143,
+        "final_quaternion_xyzw": [
+          -0.829540136,
+          -0.068799807,
+          -0.552637548,
+          0.041490845
+        ],
+        "final_position": [
+          -1.243636667,
+          -2.619127234,
+          0.104963296
+        ],
+        "final_velocity": [
+          -0.046179014,
+          0.223038962,
+          0.067897401
+        ],
+        "covariance_min_diagonal": 8e-09,
+        "covariance_asymmetry_max": 0.0
+      },
+      "ate": {
+        "frames": 405,
+        "duration_s": 20.200000047683716,
+        "alignment": "SE3_no_scale",
+        "position_ate_rmse_m": 0.05100490493682086,
+        "position_ate_max_m": 0.1319783344419848,
+        "estimated_path_m": 6.626752585911708,
+        "truth_path_m": 6.605646333159656,
+        "quaternion_norm_max_error": 2.220446049250313e-16
+      },
+      "detail": {
+        "measured_frames": 400,
+        "timing_ms": {
+          "decode_ms": {
+            "n": 400,
+            "mean": 22.232641687499992,
+            "p50": 21.5075,
+            "p95": 27.740314599999998,
+            "maximum": 54.581917
+          },
+          "vio_ms": {
+            "n": 400,
+            "mean": 94.68243609000005,
+            "p50": 91.791584,
+            "p95": 175.2078270499999,
+            "maximum": 257.165417
+          },
+          "cpu_ms": {
+            "n": 400,
+            "mean": 88.28509749999995,
+            "p50": 86.28649999999999,
+            "p95": 167.06115,
+            "maximum": 251.377
+          },
+          "histogram_ms": {
+            "n": 400,
+            "mean": 4.868034047499996,
+            "p50": 4.6420205,
+            "p95": 5.20261845,
+            "maximum": 19.394667
+          },
+          "pyramid_ms": {
+            "n": 400,
+            "mean": 3.3395439624999996,
+            "p50": 3.294229,
+            "p95": 3.4210027,
+            "maximum": 9.158917
+          },
+          "detection_ms": {
+            "n": 400,
+            "mean": 5.068918764999999,
+            "p50": 3.8262295,
+            "p95": 11.362721449999984,
+            "maximum": 19.261375
+          },
+          "flow_ms": {
+            "n": 400,
+            "mean": 3.665466847499999,
+            "p50": 3.6847705,
+            "p95": 4.2091431,
+            "maximum": 9.748958
+          },
+          "normalize_ms": {
+            "n": 400,
+            "mean": 3.4063298249999963,
+            "p50": 3.3378335,
+            "p95": 3.81221425,
+            "maximum": 16.250209
+          },
+          "ransac_ms": {
+            "n": 400,
+            "mean": 0.9215310374999995,
+            "p50": 0.880542,
+            "p95": 1.63222435,
+            "maximum": 3.376625
+          },
+          "track_other_ms": {
+            "n": 400,
+            "mean": 3.527775412499998,
+            "p50": 3.485854,
+            "p95": 4.24118305,
+            "maximum": 7.326375
+          },
+          "msckf_clean_ms": {
+            "n": 400,
+            "mean": 0.07938367249999997,
+            "p50": 0.07525,
+            "p95": 0.1258110499999999,
+            "maximum": 0.186667
+          },
+          "msckf_triangulate_ms": {
+            "n": 400,
+            "mean": 2.9965738625000027,
+            "p50": 2.7125,
+            "p95": 6.325622899999998,
+            "maximum": 8.566542
+          },
+          "msckf_system_ms": {
+            "n": 400,
+            "mean": 22.828033954999988,
+            "p50": 19.850542,
+            "p95": 59.393191999999964,
+            "maximum": 93.327792
+          },
+          "msckf_compress_ms": {
+            "n": 400,
+            "mean": 15.3718031175,
+            "p50": 12.104312499999999,
+            "p95": 51.046610699999995,
+            "maximum": 100.1595
+          },
+          "msckf_ekf_ms": {
+            "n": 400,
+            "mean": 22.77321305500001,
+            "p50": 27.345792,
+            "p95": 27.7932226,
+            "maximum": 51.834417
+          },
+          "matching_total_ms": {
+            "n": 400,
+            "mean": 8.099718217500001,
+            "p50": 7.9260415,
+            "p95": 9.65957675,
+            "maximum": 21.059791
+          },
+          "vio_plus_decode_ms": {
+            "n": 400,
+            "mean": 116.91507777750004,
+            "p50": 114.5227715,
+            "p95": 196.93397469999994,
+            "maximum": 278.740875
+          },
+          "frontend_ms": {
+            "n": 400,
+            "mean": 24.931874999999987,
+            "p50": 23.279999999999998,
+            "p95": 34.36699999999998,
+            "maximum": 44.86
+          },
+          "propagation_ms": {
+            "n": 400,
+            "mean": 3.2129999999999965,
+            "p50": 3.0500000000000003,
+            "p95": 3.3114999999999988,
+            "maximum": 20.25
+          },
+          "msckf_ms": {
+            "n": 400,
+            "mean": 64.39095,
+            "p50": 62.935,
+            "p95": 143.84649999999996,
+            "maximum": 225.28
+          },
+          "marginalization_ms": {
+            "n": 400,
+            "mean": 1.0179000000000007,
+            "p50": 1.02,
+            "p95": 1.11,
+            "maximum": 3.75
+          },
+          "internal_ms": {
+            "n": 400,
+            "mean": 93.56570000000006,
+            "p50": 90.685,
+            "p95": 173.52299999999994,
+            "maximum": 255.41000000000003
+          },
+          "backend_ms": {
+            "n": 400,
+            "mean": 68.62185000000004,
+            "p50": 67.095,
+            "p95": 148.74849999999992,
+            "maximum": 229.36
+          }
+        },
+        "stage_imu_minus_camera_clock_ms": {
+          "minimum": -2.4580955505371094,
+          "maximum": 0.14400482177734375
+        }
+      },
+      "covariance_min_diagonal": 8.009335711071718e-09,
+      "covariance_max_asymmetry": 3.2526065174565133e-19,
+      "difference_from_fp64": {
+        "position_rms_m": 2.2600808149262838e-07,
+        "position_final_m": 7.842681879416802e-07,
+        "attitude_final_deg": 3.818191820832845e-06
+      }
+    },
+    "fp64-reference-400": {
+      "benchmark": {
+        "benchmark": "openvins-full-replay",
+        "initialization": "native",
+        "outlier_gate": true,
+        "dynamic_imu_boundary": true,
+        "backend_precision": "fp64",
+        "profile": "mono",
+        "max_slam": 0,
+        "chi2_tested": 4235,
+        "chi2_rejected": 61,
+        "active_retriangulation": 0,
+        "initialized": true,
+        "frames": 495,
+        "samples": 400,
+        "vio_mean_ms": 105.275049002,
+        "vio_p95_ms": 221.49255595,
+        "vio_p95_capacity_fps": 4.514824418,
+        "frontend_mean_ms": 24.92525,
+        "frontend_p95_ms": 34.3435,
+        "backend_mean_ms": 79.222575,
+        "backend_p95_ms": 188.128,
+        "internal_mean_ms": 104.159625,
+        "internal_p95_ms": 220.265,
+        "pipeline_overhead_mean_ms": 1.115424003,
+        "pipeline_overhead_p95_ms": 1.53696185,
+        "propagation_mean_ms": 2.97165,
+        "msckf_mean_ms": 75.263625,
+        "slam_update_mean_ms": 0.0,
+        "slam_delayed_mean_ms": 0.0,
+        "retriangulation_marginalization_mean_ms": 0.9873,
+        "cpu_mean_ms": 98.6001125,
+        "cpu_p95_ms": 210.47975,
+        "mean_cpu_parallelism": 0.936595266,
+        "decode_mean_ms": 22.023620175,
+        "state_timestamp": 1403715299.062143,
+        "final_quaternion_xyzw": [
+          -0.829540136,
+          -0.068799834,
+          -0.552637544,
+          0.04149086
+        ],
+        "final_position": [
+          -1.243636401,
+          -2.619127972,
+          0.104963273
+        ],
+        "final_velocity": [
+          -0.046178593,
+          0.223038726,
+          0.067897396
+        ],
+        "covariance_min_diagonal": 8e-09,
+        "covariance_asymmetry_max": 0.0
+      },
+      "ate": {
+        "frames": 405,
+        "duration_s": 20.200000047683716,
+        "alignment": "SE3_no_scale",
+        "position_ate_rmse_m": 0.05100490493710938,
+        "position_ate_max_m": 0.13197844698676267,
+        "estimated_path_m": 6.62675132376677,
+        "truth_path_m": 6.605646333159656,
+        "quaternion_norm_max_error": 2.220446049250313e-16
+      },
+      "detail": {
+        "measured_frames": 400,
+        "timing_ms": {
+          "decode_ms": {
+            "n": 400,
+            "mean": 22.02362017499999,
+            "p50": 21.5264585,
+            "p95": 26.332482699999996,
+            "maximum": 52.447208
+          },
+          "vio_ms": {
+            "n": 400,
+            "mean": 105.2750490025,
+            "p50": 98.61220800000001,
+            "p95": 221.49255594999994,
+            "maximum": 322.868583
+          },
+          "cpu_ms": {
+            "n": 400,
+            "mean": 98.6001125,
+            "p50": 91.1485,
+            "p95": 210.4797499999997,
+            "maximum": 314.24
+          },
+          "histogram_ms": {
+            "n": 400,
+            "mean": 4.861256492500003,
+            "p50": 4.612417,
+            "p95": 5.29331185,
+            "maximum": 20.337042
+          },
+          "pyramid_ms": {
+            "n": 400,
+            "mean": 3.347970182499998,
+            "p50": 3.287083,
+            "p95": 3.4545430999999995,
+            "maximum": 7.808208
+          },
+          "detection_ms": {
+            "n": 400,
+            "mean": 5.1117237399999995,
+            "p50": 3.93925,
+            "p95": 11.590177399999979,
+            "maximum": 26.53175
+          },
+          "flow_ms": {
+            "n": 400,
+            "mean": 3.6515426949999994,
+            "p50": 3.6970210000000003,
+            "p95": 4.1981619,
+            "maximum": 5.578709
+          },
+          "normalize_ms": {
+            "n": 400,
+            "mean": 3.3087352074999994,
+            "p50": 3.3247085,
+            "p95": 3.77405,
+            "maximum": 8.238125
+          },
+          "ransac_ms": {
+            "n": 400,
+            "mean": 0.9429772924999995,
+            "p50": 0.89425,
+            "p95": 1.6653145999999965,
+            "maximum": 3.514875
+          },
+          "track_other_ms": {
+            "n": 400,
+            "mean": 3.5643890799999967,
+            "p50": 3.4849785,
+            "p95": 4.2485191,
+            "maximum": 9.674292
+          },
+          "msckf_clean_ms": {
+            "n": 400,
+            "mean": 0.08183511000000002,
+            "p50": 0.0781665,
+            "p95": 0.13009854999999998,
+            "maximum": 0.228958
+          },
+          "msckf_triangulate_ms": {
+            "n": 400,
+            "mean": 2.9831900500000033,
+            "p50": 2.7323335,
+            "p95": 5.900781249999992,
+            "maximum": 7.8785
+          },
+          "msckf_system_ms": {
+            "n": 400,
+            "mean": 23.22009520249999,
+            "p50": 20.273457999999998,
+            "p95": 59.60656009999996,
+            "maximum": 98.650125
+          },
+          "msckf_compress_ms": {
+            "n": 400,
+            "mean": 25.7895268575,
+            "p50": 16.916521,
+            "p95": 93.2940308999997,
+            "maximum": 159.241833
+          },
+          "msckf_ekf_ms": {
+            "n": 400,
+            "mean": 22.836810265000004,
+            "p50": 27.4144795,
+            "p95": 27.99157055,
+            "maximum": 55.727875
+          },
+          "matching_total_ms": {
+            "n": 400,
+            "mean": 8.011324297500005,
+            "p50": 7.965417,
+            "p95": 9.528210749999996,
+            "maximum": 13.427458
+          },
+          "vio_plus_decode_ms": {
+            "n": 400,
+            "mean": 127.29866917749992,
+            "p50": 120.73075,
+            "p95": 244.31574999999998,
+            "maximum": 344.42275
+          },
+          "frontend_ms": {
+            "n": 400,
+            "mean": 24.925249999999995,
+            "p50": 23.435,
+            "p95": 34.3435,
+            "maximum": 63.3
+          },
+          "propagation_ms": {
+            "n": 400,
+            "mean": 2.9716499999999955,
+            "p50": 2.9,
+            "p95": 3.18,
+            "maximum": 11.37
+          },
+          "msckf_ms": {
+            "n": 400,
+            "mean": 75.26362500000003,
+            "p50": 68.56,
+            "p95": 184.16099999999955,
+            "maximum": 291.06
+          },
+          "marginalization_ms": {
+            "n": 400,
+            "mean": 0.9872999999999986,
+            "p50": 0.99,
+            "p95": 1.09,
+            "maximum": 1.6700000000000002
+          },
+          "internal_ms": {
+            "n": 400,
+            "mean": 104.15962500000005,
+            "p50": 97.25999999999999,
+            "p95": 220.26499999999996,
+            "maximum": 321.05
+          },
+          "backend_ms": {
+            "n": 400,
+            "mean": 79.22257499999996,
+            "p50": 72.4,
+            "p95": 188.12799999999953,
+            "maximum": 295.01
+          }
+        },
+        "stage_imu_minus_camera_clock_ms": {
+          "minimum": -2.4580955505371094,
+          "maximum": 0.14400482177734375
+        }
+      },
+      "covariance_min_diagonal": 8.00933498946949e-09,
+      "covariance_max_asymmetry": 2.168404344971009e-19,
+      "difference_from_fp64": {
+        "position_rms_m": 0.0,
+        "position_final_m": 0.0,
+        "attitude_final_deg": 2.4148365394514667e-06
+      }
+    }
+  },
+  "perf": {
+    "total_samples": 2523,
+    "measured_vio_samples": 2271,
+    "cycles_period_total": 26795961897,
+    "symbols": [
+      {
+        "symbol": "Eigen::internal::gebp_kernel<float, float, int, Eigen::internal::blas_data_mapper<float, int, 0, 0, 1>, 12, 4, false, false>::operator()",
+        "percent": 23.210649197468516,
+        "samples": 528
+      },
+      {
+        "symbol": "EqualizeHistLut_Invoker::operator()",
+        "percent": 4.72420172810339,
+        "samples": 105
+      },
+      {
+        "symbol": "EqualizeHistCalcHist_Invoker::operator()",
+        "percent": 3.991255832169763,
+        "samples": 89
+      },
+      {
+        "symbol": "__memcpy_neon",
+        "percent": 3.678425785903035,
+        "samples": 83
+      },
+      {
+        "symbol": "ov_msckf::StateHelper::get_marginal_covariance",
+        "percent": 3.007551776263074,
+        "samples": 70
+      },
+      {
+        "symbol": "ov_msckf::UpdaterHelper::nullspace_project_inplace",
+        "percent": 2.7684767945690143,
+        "samples": 63
+      },
+      {
+        "symbol": "Eigen::internal::general_matrix_vector_product<int, float, Eigen::internal::const_blas_data_mapper<float, int, 1>, 1, false, float, Eigen::internal::const_blas_data_mapper<float, int, 0>, false, 0>::run",
+        "percent": 2.5958597555621834,
+        "samples": 58
+      },
+      {
+        "symbol": "Eigen::internal::outer_product_selector_run<Eigen::Block<Eigen::Block<Eigen::Block<Eigen::Matrix<float, -1, -1, 0, -1, -1>, -1, -1, false>, -1, -1, false>, -1, -1, false>, Eigen::CwiseBinaryOp<Eigen::internal::scalar_product_op<float, float>, Eigen::CwiseNullaryOp<Eigen::internal::scalar_constant_op<float>, Eigen::Matrix<float, -1, 1, 0, -1, 1> const> const, Eigen::Block<Eigen::Block<Eigen::Block<Eigen::Matrix<float, -1, -1, 0, -1, -1>, -1, -1, false>, -1, 1, true>, -1, 1, false> const>, Eigen::Map<Eigen::Matrix<float, 1, -1, 1, 1, -1>, 0, Eigen::Stride<0, 0> >, Eigen::internal::generic_product_impl<Eigen::CwiseBinaryOp<Eigen::internal::scalar_product_op<float, float>, Eigen::CwiseNullaryOp<Eigen::internal::scalar_constant_op<float>, Eigen::Matrix<float, -1, 1, 0, -1, 1> const> const, Eigen::Block<Eigen::Block<Eigen::Block<Eigen::Matrix<float, -1, -1, 0, -1, -1>, -1, -1, false>, -1, 1, true>, -1, 1, false> const>, Eigen::Map<Eigen::Matrix<float, 1, -1, 1, 1, -1>, 0, Eigen::Stride<0, 0> >, Eigen::DenseShape, Eigen::DenseShape, 5>::sub>",
+        "percent": 2.5900438158098043,
+        "samples": 58
+      },
+      {
+        "symbol": "Eigen::internal::gemm_pack_lhs<float, int, Eigen::internal::const_blas_data_mapper<float, int, 0>, 12, 4, __simd128_float32_t, 0, false, false>::operator()",
+        "percent": 2.0283821013376326,
+        "samples": 46
+      },
+      {
+        "symbol": "Eigen::internal::gemm_pack_rhs<float, int, Eigen::internal::const_blas_data_mapper<float, int, 0>, 4, 0, false, false>::operator()",
+        "percent": 1.6245235893126706,
+        "samples": 37
+      },
+      {
+        "symbol": "_int_malloc",
+        "percent": 1.591198747180395,
+        "samples": 36
+      },
+      {
+        "symbol": "Eigen::internal::general_matrix_vector_product<int, float, Eigen::internal::const_blas_data_mapper<float, int, 1>, 1, false, float, Eigen::internal::const_blas_data_mapper<float, int, 1>, false, 1>::run",
+        "percent": 1.5662773802010381,
+        "samples": 35
+      },
+      {
+        "symbol": "cv::FAST_t<16>",
+        "percent": 1.511145797103609,
+        "samples": 34
+      },
+      {
+        "symbol": "ov_core::FeatureInitializer::compute_error",
+        "percent": 1.489835627228202,
+        "samples": 35
+      },
+      {
+        "symbol": "cv::cornerSubPix",
+        "percent": 1.4405298995563056,
+        "samples": 33
+      },
+      {
+        "symbol": "ov_msckf::UpdaterHelper::get_feature_jacobian_full",
+        "percent": 1.433379937904007,
+        "samples": 33
+      },
+      {
+        "symbol": "cvUndistortPointsInternal",
+        "percent": 1.4214034505051378,
+        "samples": 32
+      },
+      {
+        "symbol": "_int_free",
+        "percent": 1.4078249567978178,
+        "samples": 33
+      },
+      {
+        "symbol": "memset",
+        "percent": 1.2201104265512608,
+        "samples": 27
+      },
+      {
+        "symbol": "cv::Line",
+        "percent": 1.1913751117691402,
+        "samples": 26
+      },
+      {
+        "symbol": "std::__detail::_Map_base<double, std::pair<double const, ov_core::FeatureInitializer::ClonePose>, std::allocator<std::pair<double const, ov_core::FeatureInitializer::ClonePose> >, std::__detail::_Select1st, std::equal_to<double>, std::hash<double>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, false, true>, true>::at",
+        "percent": 1.128472335355329,
+        "samples": 26
+      },
+      {
+        "symbol": "cv::Mat::~Mat",
+        "percent": 0.9869760713072565,
+        "samples": 22
+      },
+      {
+        "symbol": "cv::FillConvexPoly",
+        "percent": 0.8772409436300819,
+        "samples": 19
+      },
+      {
+        "symbol": "cv::getRectSubPix",
+        "percent": 0.8498219279282325,
+        "samples": 19
+      },
+      {
+        "symbol": "ov_msckf::StateHelper::marginalize",
+        "percent": 0.839290815028285,
+        "samples": 19
+      },
+      {
+        "symbol": "ov_core::FeatureDatabase::update_feature",
+        "percent": 0.8212230030997196,
+        "samples": 19
+      },
+      {
+        "symbol": "std::__detail::_Map_base<unsigned int, std::pair<unsigned int const, std::vector<double, std::allocator<double> > >, std::allocator<std::pair<unsigned int const, std::vector<double, std::allocator<double> > > >, std::__detail::_Select1st, std::equal_to<unsigned int>, std::hash<unsigned int>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, false, true>, true>::operator[]",
+        "percent": 0.8165712089047907,
+        "samples": 18
+      },
+      {
+        "symbol": "cv::Mat::Mat",
+        "percent": 0.7734284770094514,
+        "samples": 18
+      },
+      {
+        "symbol": "std::__detail::_Map_base<unsigned int, std::pair<unsigned int const, std::vector<Eigen::Matrix<float, -1, 1, 0, -1, 1>, std::allocator<Eigen::Matrix<float, -1, 1, 0, -1, 1> > > >, std::allocator<std::pair<unsigned int const, std::vector<Eigen::Matrix<float, -1, 1, 0, -1, 1>, std::allocator<Eigen::Matrix<float, -1, 1, 0, -1, 1> > > > >, std::__detail::_Select1st, std::equal_to<unsigned int>, std::hash<unsigned int>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, false, true>, true>::operator[]",
+        "percent": 0.7119433433041203,
+        "samples": 16
+      },
+      {
+        "symbol": "ov_msckf::StateHelper::EKFPropagation",
+        "percent": 0.6985964964405995,
+        "samples": 16
+      },
+      {
+        "symbol": "ov_msckf::UpdaterMSCKF::update",
+        "percent": 0.6532596018491793,
+        "samples": 15
+      },
+      {
+        "symbol": "malloc",
+        "percent": 0.6330051134271473,
+        "samples": 15
+      },
+      {
+        "symbol": "Eigen::internal::triangular_solve_matrix<float, int, 1, 2, false, 0, 0, 1>::run",
+        "percent": 0.6227198733951088,
+        "samples": 14
+      },
+      {
+        "symbol": "cv::Mat::reshape",
+        "percent": 0.6033285374170496,
+        "samples": 14
+      },
+      {
+        "symbol": "ov_core::FeatureInitializer::single_gaussnewton",
+        "percent": 0.5500558127622269,
+        "samples": 13
+      },
+      {
+        "symbol": "ov_msckf::StateHelper::EKFUpdate",
+        "percent": 0.542762904198199,
+        "samples": 12
+      },
+      {
+        "symbol": "std::_Sp_counted_ptr_inplace<ov_core::Feature, std::allocator<ov_core::Feature>, (__gnu_cxx::_Lock_policy)2>::_M_dispose",
+        "percent": 0.5377290822918056,
+        "samples": 12
+      },
+      {
+        "symbol": "Eigen::internal::conservative_resize_like_impl<Eigen::Matrix<float, -1, -1, 0, -1, -1>, Eigen::Matrix<float, -1, -1, 0, -1, -1>, false>::run",
+        "percent": 0.4978319812245104,
+        "samples": 11
+      },
+      {
+        "symbol": "Eigen::internal::gemm_pack_rhs<float, int, Eigen::internal::const_blas_data_mapper<float, int, 1>, 4, 1, false, false>::operator()",
+        "percent": 0.4710119027827486,
+        "samples": 11
+      },
+      {
+        "symbol": "Eigen::internal::triangular_solve_matrix<float, int, 1, 1, false, 1, 0, 1>::run",
+        "percent": 0.47017387725911497,
+        "samples": 10
+      }
+    ]
+  }
+}

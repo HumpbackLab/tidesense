@@ -2,6 +2,12 @@
 
 本机端到端结果见 [验证记录](VALIDATION.md)。
 
+本页为分步工具说明，IMU 求解固定使用 `scale-misalignment`。镜头通过 `--lens wide|fisheye` 选择。
+
+通用录制器导出的 ROS 1 `dataset.bag` 可直接输入本脚本，默认相机话题为
+`/cam0/image_raw`、`/cam1/image_raw`。标定不需要专用录制程序，见 [完整流程](../README.md)。
+已有 ROS 2 bag 目录继续使用原话题默认值。
+
 在 SDK 根目录操作。运行时使用 rootless Podman，不需要主机安装 ROS 1，
 也不需要在 ROS 2 终端 source ROS 1。容器不访问相机或网络，不连接正在运行的 Agent。
 运行使用 rootless 默认 UID 映射，容器内 root 对应宿主机当前用户；不要用 sudo 执行脚本。
@@ -24,7 +30,7 @@ Ubuntu 软件包默认使用中科大镜像，Python 包使用清华镜像，ROS
 纯编译约 19 分钟，首次下载和安装依赖另计。构建使用 host 网络，
 以便访问本机已有的 HTTP 代理；运行标定时禁用容器网络。
 
-## 一条命令：ROS 2 bag → 双目标定
+## 一条命令：ROS bag → 双目标定
 
 ```bash
 scripts/calibration/kalibr.sh cali/tidesense-stereo-calib
@@ -39,12 +45,12 @@ scripts/calibration/kalibr.sh cali/tidesense-stereo-calib \
 ```
 
 默认：左话题 `/tidesense/left/image_raw`、右话题 `/tidesense/right/image_raw`，
-两路模型 `pinhole-radtan`，标定板为本 SDK A4 6×4 / 32 mm AprilGrid。
+镜头模式 `--lens wide`（两路 `pinhole-radtan`），标定板为本 SDK A4 6×4 / 32 mm AprilGrid。
 如果实际镜头适合其他模型，可以显式指定，例如：
 
 ```bash
 scripts/calibration/kalibr.sh /path/to/ros2-bag \
-  --models pinhole-equi pinhole-equi \
+  --lens fisheye \
   --target /path/to/target.yaml \
   --topics /left/image_raw /right/image_raw
 ```
@@ -68,7 +74,7 @@ scripts/calibration/kalibr.sh cali/tidesense-imucam \
 
 `--cam` 使用双目标定生成的 YAML；`--imu` 需要真实的更新频率、话题和四个噪声参数，
 不能直接使用含 null 的模板。相机话题和模型从 camchain 读取，因此不要再传
-`--topics` / `--models`。保持双目标定时的分辨率与图像方向，包括右相机倒装 180°。
+`--topics` / `--lens`。保持双目标定时的分辨率与图像方向，包括右相机倒装 180°。
 无需先在板端加载双目内参、去畸变或旋转图像。
 
 脚本自动转换并调用 `kalibr_calibrate_imu_camera`，默认使用 `scale-misalignment` IMU 模型，
@@ -162,10 +168,10 @@ scripts/calibration/kalibr.sh cali/tidesense-imucam \
   --output cali/tidesense-imucam-kalibr
 ```
 
-联合模式默认 `--imu-models scale-misalignment`，默认把陀螺加速度敏感矩阵 A 固定为零。
+联合模式固定使用 `scale-misalignment`，默认把陀螺加速度敏感矩阵 A 固定为零。
 这是工程脚本对原版 Kalibr Python 模块的可审查覆盖；原始/覆盖源码及哈希保存在结果目录。
 需要对照估计 A 时显式加 `--estimate-g-sensitivity`。
-输入已经校准且只需外参/时延时，可显式选 `--imu-models calibrated`；此模型导出单位内参。
+不再提供 IMU 模型选择；命令入口和结果转换均不支持 `calibrated`。
 `scale-misalignment-size-effect` 尚未接入运行入口，脚本明确拒绝，避免静默丢弃参数。
 
 输出保留相机外参、时间偏移和完整内参，并自动导出 `schurvins.yaml`：

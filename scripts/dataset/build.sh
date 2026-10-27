@@ -15,14 +15,14 @@ if [[ ! -f "$archive" ]]; then
 fi
 printf '%s  %s\n' eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3 "$archive" | sha256sum -c -
 [[ -d "$deps/zstd-1.5.7" ]] || tar xf "$archive" -C "$deps"
+"$sdk/tide_cam/build.sh"
 cmake -S "$here" -B "$build" -DCMAKE_BUILD_TYPE=Release \
  -DCMAKE_TOOLCHAIN_FILE="$here/../schurvins/a53-gcc11-toolchain.cmake" -DCMAKE_PREFIX_PATH="$stage"
 cmake --build "$build" -j"${JOBS:-4}"
-"$here/../schurvins/build-camera.sh"
 mkdir -p "$out/bin"
 cross="$sdk/host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
 "${cross}strip" --strip-unneeded -o "$out/bin/tidesense_record" "$build/tidesense_record"
-cp "$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static/bin/"{schurvins_camera,fsin.sh} "$out/bin/"
+rm -f "$out/bin/schurvins_camera" "$out/bin/fsin.sh"
 cp "$here/../schurvins/prepare-imu.sh" "$out/bin/"
 mkdir -p "$out/licenses"
 cp "$deps/zstd-1.5.7/LICENSE" "$out/licenses/zstd-BSD.txt"

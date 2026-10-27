@@ -6,10 +6,11 @@
 
 namespace {
 bool requested() {
-  const char* s = std::getenv("SCHUR_MICRO_ROS");
+  const char* name = std::getenv("SCHUR_ROS") ? "SCHUR_ROS" : "SCHUR_MICRO_ROS";
+  const char* s = std::getenv(name);
   if (!s || std::string(s) == "0") return false;
   if (std::string(s) == "1") return true;
-  throw std::runtime_error("SCHUR_MICRO_ROS must be 0 or 1");
+  throw std::runtime_error(std::string(name) + " must be 0 or 1");
 }
 }
 
@@ -350,7 +351,7 @@ void MicroRosBridge::submit(uint64_t t, bool tracking, const double* p, const do
 #else
 struct MicroRosBridge::Impl {};
 MicroRosBridge::MicroRosBridge(bool, bool) {
-  if (requested()) throw std::runtime_error("micro-ROS was not compiled in; rebuild with SCHUR_WITH_MICRO_ROS=ON or set SCHUR_MICRO_ROS=0");
+  if (requested()) throw std::runtime_error("ROS telemetry was not compiled in; rebuild with SCHUR_ROS_BACKEND=micro-ros or native-dds, or set SCHUR_ROS=0");
 }
 bool MicroRosBridge::compiled() { return false; }
 bool MicroRosBridge::submitImu(uint64_t, const double*, const double*) { return false; }

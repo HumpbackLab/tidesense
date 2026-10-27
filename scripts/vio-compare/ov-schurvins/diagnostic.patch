@@ -1,0 +1,91 @@
+--- a/ov_msckf/src/core/VioManager.cpp
++++ b/ov_msckf/src/core/VioManager.cpp
+@@ -528 +528,4 @@
+-  updaterSchurVINS->update(state, featsup_MSCKF);
++  if (std::getenv("OV_SCHUR_USE_MSCKF"))
++    updaterMSCKF->update(state, featsup_MSCKF);
++  else
++    updaterSchurVINS->update(state, featsup_MSCKF);
+--- a/ov_msckf/src/update/UpdaterSchurVINS.cpp
++++ b/ov_msckf/src/update/UpdaterSchurVINS.cpp
+@@ -37,0 +38,4 @@
++#include <cstdlib>
++#include <fstream>
++#include <iomanip>
++#include <Eigen/Eigenvalues>
+@@ -357,0 +362,14 @@
++
++        if (const char *path = std::getenv("OV_SCHUR_LINEAR_CSV")) {
++          static const double first_timestamp = state->_timestamp;
++          static std::ofstream linear(path);
++          if (state->_timestamp == first_timestamp) {
++            linear << std::setprecision(17) << state->_timestamp << ',' << feature.featid << ',' << pair.first
++                   << ',' << clone_Ii->id() << ',' << r(0) << ',' << r(1);
++            for (int row = 0; row < 2; ++row)
++              for (int col = 0; col < 6; ++col) linear << ',' << jx(row, col);
++            for (int row = 0; row < 2; ++row)
++              for (int col = 0; col < 3; ++col) linear << ',' << jf(row, col);
++            linear << std::endl;
++          }
++        }
+@@ -404,0 +423,18 @@
++  if (std::getenv("OV_SCHUR_FIX_STACK")) {
++    // W was already summed across cameras: eliminate once per unique clone.
++    for (auto &feature : landmarkVec) {
++      feature.V_inv = feature.V.inverse();
++      for (const auto &a : feature.stack_W_map) {
++        auto clone_a = std::find_if(Hx_order.begin(), Hx_order.end(),
++                                   [&](const std::shared_ptr<Type> &v) { return v->id() == a.first; });
++        const size_t ia = map_hx.at(*clone_a);
++        const Eigen::Matrix<double, 6, 3> wvi = a.second * feature.V_inv;
++        Bvct.segment(ia, 6).noalias() -= wvi * feature.gv;
++        for (const auto &b : feature.stack_W_map) {
++          auto clone_b = std::find_if(Hx_order.begin(), Hx_order.end(),
++                                     [&](const std::shared_ptr<Type> &v) { return v->id() == b.first; });
++          Amtx.block(ia, map_hx.at(*clone_b), 6, 6).noalias() -= wvi * b.second.transpose();
++        }
++      }
++    }
++  } else {
+@@ -430,0 +467 @@
++  }
+@@ -450,0 +488,39 @@
++   if (std::getenv("OV_SCHUR_DIAG_CSV") || std::getenv("OV_SCHUR_FIX_NOISE")) {
++     const Eigen::MatrixXd symmetric = 0.5 * (Amtx + Amtx.transpose());
++     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigen(symmetric);
++     if (eigen.info() != Eigen::Success) throw std::runtime_error("Schur eigensolver failed");
++     const auto &lambda = eigen.eigenvalues();
++     const double cutoff = std::max(1e-10, lambda.maxCoeff() * 1e-10);
++     if (const char *path = std::getenv("OV_SCHUR_DIAG_CSV")) {
++       static std::ofstream diagnostic(path);
++       static bool header = false;
++       if (!header) {
++         diagnostic << "timestamp,features,dimension,min_eigen,max_eigen,negative_eigen,positive_eigen,asymmetry,gradient_norm\n";
++         header = true;
++       }
++       diagnostic << std::setprecision(17) << state->_timestamp << ',' << landmarkVec.size() << ',' << Amtx.rows()
++                  << ',' << lambda.minCoeff() << ',' << lambda.maxCoeff() << ',' << (lambda.array() < -cutoff).count()
++                  << ',' << (lambda.array() > cutoff).count() << ',' << (Amtx - Amtx.transpose()).norm()
++                  << ',' << Bvct.norm() << std::endl;
++     }
++     if (std::getenv("OV_SCHUR_FIX_NOISE")) {
++       if (lambda.minCoeff() < -cutoff) {
++         PRINT_WARNING("[Schur diagnostic] Indefinite information matrix; skip noise-corrected update\n");
++         return;
++       }
++       const int rank = (lambda.array() > cutoff).count();
++       if (rank == 0) return;
++       Eigen::MatrixXd jacobian(rank, Amtx.cols());
++       Eigen::VectorXd residual(rank);
++       int row = 0;
++       for (int i = 0; i < lambda.size(); ++i) {
++         if (lambda(i) <= cutoff) continue;
++         const double root = std::sqrt(lambda(i));
++         jacobian.row(row) = root / _options.sigma_pix * eigen.eigenvectors().col(i).transpose();
++         residual(row) = eigen.eigenvectors().col(i).dot(Bvct) / (root * _options.sigma_pix);
++         ++row;
++       }
++       StateHelper::EKFUpdate(state, Hx_order, jacobian, residual, Eigen::MatrixXd::Identity(rank, rank));
++       return;
++     }
++   }

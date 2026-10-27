@@ -11,6 +11,7 @@ import numpy as np
 import yaml
 from rosbags.highlevel import AnyReader
 from rosbags.rosbag2 import Writer
+from rosbags.rosbag1 import Writer as Writer1
 from rosbags.typesys import Stores, get_typestore
 
 
@@ -56,13 +57,44 @@ class ConversionTest(unittest.TestCase):
                          t['geometry_msgs/msg/Vector3'](1., 2., 9.81), np.zeros(9))
                     w.write(imuc, ns + 10**12, self.store.serialize_cdr(msg, imuc.msgtype))
 
-    def convert(self, stereo=False):
+    def convert(self, stereo=False, source=None):
         (self.root / 'cam.yaml').write_text(yaml.safe_dump(self.cam))
         (self.root / 'imu.yaml').write_text(yaml.safe_dump(self.imu))
         options = ['--topics', *self.topics] if stereo else [
             '--cam', str(self.root / 'cam.yaml'), '--imu', str(self.root / 'imu.yaml')]
         return subprocess.run([sys.executable, str(Path(__file__).with_name('convert.py')),
-             str(self.root / 'input'), str(self.root / 'output.bag'), *options], capture_output=True, text=True)
+             str(source or self.root / 'input'), str(self.root / 'output.bag'), *options], capture_output=True, text=True)
+
+    def test_ros1_preserves_serialized_messages_and_acquisition_times(self):
+        self.bag()
+        expected = {}
+        store1 = get_typestore(Stores.ROS1_NOETIC)
+        source = self.root/'input.bag'
+        with AnyReader([self.root/'input']) as reader, Writer1(source) as writer:
+            connections = {c.topic: writer.add_connection(c.topic, c.msgtype, typestore=store1)
+                           for c in reader.connections}
+            for conn, receipt, raw in reader.messages():
+                serialized = bytearray(self.store.cdr_to_ros1(raw, conn.msgtype))
+                serialized[:4] = (123).to_bytes(4, 'little')
+                msg = store1.deserialize_ros1(serialized, conn.msgtype)
+                stamp = msg.header.stamp.sec*10**9 + msg.header.stamp.nanosec
+                expected[(conn.topic, stamp)] = bytes(serialized)
+                writer.write(connections[conn.topic], receipt, serialized)
+        result = self.convert(source=source)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        summary = json.loads(result.stdout)
+        self.assertEqual(summary['source_format'], 'ros1')
+        self.assertEqual(summary['stereo_pairs'], 20)
+        self.assertEqual(summary['imu']['messages'], 210)
+        count = 0
+        with AnyReader([self.root/'output.bag']) as reader:
+            for conn, stamp, raw in reader.messages():
+                self.assertEqual(bytes(raw), expected[(conn.topic, stamp)])
+                msg = reader.deserialize(raw, conn.msgtype)
+                self.assertEqual(msg.header.seq, 123)
+                self.assertEqual(stamp, msg.header.stamp.sec*10**9 + msg.header.stamp.nanosec)
+                count += 1
+        self.assertEqual(count, 250)
 
     def test_preserves_samples_and_acquisition_times(self):
         self.bag()

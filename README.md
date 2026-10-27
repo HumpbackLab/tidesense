@@ -28,6 +28,7 @@ https://oshwhub.com/brics-hospital-drone-team/project_hpetjiuj
 - **同步采集**：当前采集配置为双目 `640×400` 灰度图像、20 Hz，以及 200 Hz IMU。内核在 IMU INT1 中断入口记录时间戳，每 10 次中断触发一次双目 FSIN。
 - **板端 VIO**：适配 SchurVINS 和 OpenVINS，提供实时传感器输入、离线回放、位姿记录及 A53 交叉编译工具。
 - **可选 ROS 2 接口**：通过 micro-ROS 与电脑端 Agent 发布位姿；可以关闭通信，独立运行 VIO。SchurVINS 支持 20 Hz 视觉校正与 200 Hz IMU 预测位姿输出。
+- **独立双目深度模式**：板端 StereoBM 计算，micro-ROS 发布 `16UC1` 毫米深度及校正后的 CameraInfo；默认 320×200 / 请求 20 Hz，可选 640×400。启用 A53 匹配优化和缓存取图，与 VIO、UVC 分别运行。
 - **标定工具**：提供 A4 AprilGrid、双目及相机–IMU 的 Kalibr 标定流程、IMU Allan 噪声分析，以及标定结果转换工具。
 - **独立数据集录制**：不运行 VIO 即可录制双目和 IMU，保存原始时间戳并无损压缩图像；可导出 EuRoC 风格目录、ROS 1 bag 和 SchurVINS 回放数据，用于多种 VIO 算法对比。
 - **性能分析与优化**：提供板端 perf 工具、前后端分项计时，以及 LK、SIMD、数值精度和硬件编码运动向量等实验代码与测量报告。实验功能的开关和适用范围见各自文档。
@@ -44,6 +45,7 @@ https://oshwhub.com/brics-hospital-drone-team/project_hpetjiuj
 | 双目、相机–IMU 标定与参数转换 | [scripts/calibration/README.md](scripts/calibration/README.md) |
 | 独立数据集录制、导出与回放 | [scripts/dataset/README.md](scripts/dataset/README.md) |
 | micro-ROS 接入 | [scripts/schurvins/MICRO-ROS.md](scripts/schurvins/MICRO-ROS.md) |
+| 双目深度输出与 ROS 2 预览 | [scripts/depth/README.md](scripts/depth/README.md) |
 | 电脑端 RViz2 轨迹显示 | [scripts/visualization/README.md](scripts/visualization/README.md) |
 | VIO 对比与优化实验 | [scripts/vio-compare/README.md](scripts/vio-compare/README.md) |
 | 板端 perf 使用 | [scripts/perf/README.md](scripts/perf/README.md) |
@@ -101,6 +103,9 @@ install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img
 
 - `/mnt/data/schurvins-gcc11-static-micro-ros/`：SchurVINS，编译启用 `SCHUR_WITH_MICRO_ROS=ON`，附带 `schurvins.yaml`。
 - `/mnt/data/tidesense-dataset/`：独立双目/IMU 录制工具。
+- `/mnt/data/tidesense-uvc/`：USB 双目 MJPEG + IMU 模式。
+- `/mnt/data/tidesense-depth/`：micro-ROS 双目深度模式，附带标定和电脑端接收工具。
+- `/mnt/data/tidesense-vio-depth/`：[共享帧 VIO + TPU 深度模式](scripts/vio-depth/README.md)，640×400 SchurVINS 与 TPU 320×200 深度并行，经 micro-ROS 输出。
 - `/usr/bin/perf` 及 `/mnt/data/perf/`：性能分析工具、测试负载和许可文件。
 
 主机需安装 ROS 2 Humble 开发环境及各工具的构建依赖，首次构建会下载锁定版本的依赖。

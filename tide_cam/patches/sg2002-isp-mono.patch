@@ -1,0 +1,25 @@
+--- a/cvi_mpi/modules/isp/cv181x/isp/src/isp_rgbcac_ctrl.c
++++ b/cvi_mpi/modules/isp/cv181x/isp/src/isp_rgbcac_ctrl.c
+@@ -259,7 +259,6 @@ static CVI_S32 isp_rgbcac_ctrl_postprocess(VI_PIPE ViPipe)
+ 	} else {
+ 		rgbcac_cfg->update = 1;
+-		//rgbcac_cfg->enable = rgbcac_attr->Enable && !runtime->is_module_bypass;
+-		rgbcac_cfg->enable = 1;
++		rgbcac_cfg->enable = rgbcac_attr->Enable && !runtime->is_module_bypass;
+ 		rgbcac_cfg->out_sel = rgbcac_attr->TuningMode;
+ 
+ 		struct cvi_isp_rgbcac_tun_cfg *rgbcac_tun_cfg = &(rgbcac_cfg->rgbcac_cfg);
+--- a/cvi_mpi/modules/isp/cv181x/isp/src/isp_tnr_ctrl.c
++++ b/cvi_mpi/modules/isp/cv181x/isp/src/isp_tnr_ctrl.c
+@@ -570,7 +570,9 @@ static CVI_S32 isp_tnr_ctrl_postprocess(VI_PIPE ViPipe)
+ 	} else {
+ 		tnr_cfg->update = 1;
+ 		tnr_cfg->manr_enable = tnr_attr->Enable && !runtime->is_module_bypass;
+-		tnr_cfg->rgbmap_w_bit = runtime->tnr_attr.MtDetectUnit;
+-		tnr_cfg->rgbmap_h_bit = runtime->tnr_attr.MtDetectUnit;
++		// Keep the RGB map dimensions valid even when TNR is disabled and
++		// preprocess has not populated MtDetectUnit.
++		tnr_cfg->rgbmap_w_bit = MAX(runtime->tnr_attr.MtDetectUnit, TNR_MOTION_BLOCK_MIN_UNIT);
++		tnr_cfg->rgbmap_h_bit = MAX(runtime->tnr_attr.MtDetectUnit, TNR_MOTION_BLOCK_MIN_UNIT);
+ 		tnr_cfg->mh_wgt = runtime->tnr_ghost_attr.MotionHistoryStr;
+ 		CVI_U8 MtFltCoef[9] = {3, 4, 3, 4, 4, 4, 3, 4, 3};

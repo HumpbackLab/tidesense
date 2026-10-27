@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Native stereo + IMU entry point for the upstream SchurVINS pipeline.
-#include "live_camera.hpp"
+#include "tide_camera.hpp"
 #include "live_imu.hpp"
 #include "imu_prediction.hpp"
 #include <svo/schur_vins.h>
-#include "micro_ros_bridge.hpp"
-#include "calibration.hpp"
+#include "ros_bridge.hpp"
 #include "imu_intrinsics.hpp"
 #include "recording.hpp"
 #include <algorithm>
@@ -101,49 +100,54 @@ int main(int argc, char** argv) {
     replay_args[4] = argv[3]; argv = replay_args; argc = 5;
   }
   if (argc == 2 && std::string(argv[1]) == "--help") {
-    std::cout << "SchurVINS stereo + IMU (A53, optional micro-ROS)\n"
+    std::cout << "SchurVINS stereo + IMU (A53, build-selected ROS transport)\n"
       "  schurvins_stereo CALIB.yaml STEREO.csv IMU.csv POSES.csv\n"
-      "  schurvins_stereo --calibrate SENSOR.ini --fps HZ [--frames N] [--timestamps CSV] [--imu auto|DEVICE] [--imu-timestamps CSV]\n"
-      "    Independent FSIN stereo Image publishers; 0.1 <= HZ <= 20; default runs until Ctrl-C.\n"
       "  schurvins_stereo --self-test SYNTHETIC_CALIB.yaml\n"
-      "  schurvins_stereo --camera CALIB.yaml SENSOR.ini POSES.csv [FRAMES]\n"
-      "  schurvins_stereo --camera-smoke SENSOR.ini [FRAMES]\n"
-      "  schurvins_stereo --vio CALIB.yaml SENSOR.ini IMU_DEVICE POSES.csv [FRAMES] [--record NEW_DIR]\n"
+      "  schurvins_stereo --camera CALIB.yaml POSES.csv [FRAMES]\n"
+      "  schurvins_stereo --camera-smoke [FRAMES]\n"
+      "  schurvins_stereo --vio CALIB.yaml IMU_DEVICE POSES.csv [FRAMES] [--record NEW_DIR]\n"
       "  schurvins_stereo --replay RECORD_DIR POSES.csv [--allow-incomplete]\n"
       "    Records consumed mono8 pairs + continuous IMU with input calibration snapshots.\n"
       "    Replay uses aligned timestamps and applies configured IMU intrinsics once; no hardware/ROS required.\n"
-      "  schurvins_stereo --vio-smoke SENSOR.ini IMU_DEVICE [FRAMES]\n"
+      "  schurvins_stereo --vio-smoke IMU_DEVICE [FRAMES]\n"
+      "Capture uses tide_cam in-process, with dimensions from calibration and hardware-triggered cadence.\n"
+      "For calibration, record raw data with tidesense_record and export to Kalibr; no separate capture mode.\n"
       "VIO modes acquire SC7U22 accel/gyro at 200Hz. Use run.sh with IMU_DEVICE=auto.\n"
-      "IMU prediction defaults ON: IMU-rate micro-ROS poses; POSES.csv stays visual-rate.\n"
+      "IMU prediction defaults ON: IMU-rate ROS poses; POSES.csv stays visual-rate.\n"
       "SCHUR_PREDICTION=0 disables prediction; SCHUR_PREDICTION_CSV=<path> saves predicted poses.\n"
       "Camera modes run the stereo visual frontend without IMU. FRAMES defaults to 120; 0 runs until Ctrl-C.\n"
       "Camera smoke uses test-only geometry, reports input validation, and writes no poses.\n"
       "STEREO: timestamp_ns,left_image,right_image (paths relative to CSV)\n"
       "IMU: timestamp_ns,gx,gy,gz,ax,ay,az (rad/s, m/s^2)\n"
       "Rows must be strictly time-ordered; comments start with #.\n"
-      "micro-ROS runtime default OFF. Set SCHUR_MICRO_ROS=1 and SCHUR_MICRO_ROS_AGENT=<computer IPv4>.\n"
+      "ROS runtime default OFF. Set SCHUR_ROS=1 to enable the compiled backend.\n"
+      "micro-ROS: SCHUR_MICRO_ROS=1 is also accepted; SCHUR_MICRO_ROS_AGENT=<computer IPv4>.\n"
       "Optional SCHUR_MICRO_ROS_PORT=8888, SCHUR_MICRO_ROS_DOMAIN=0. SCHUR_MICRO_ROS=0 disables it.\n"
       "Live ROS stamps use system realtime mapped from acquisition monotonic time; CSV stamps are unchanged.\n"
-      "micro-ROS compiled: " << (MicroRosBridge::compiled() ? "yes" : "no") << '\n';
+      "native-dds: ROS_DOMAIN_ID=0 and optional CYCLONEDDS_URI; no Agent required.\n"
+      "ROS backend: " << RosBridge::backend() << "\nmicro-ROS compiled: " << (std::string(RosBridge::backend()) == "micro-ros" ? "yes" : "no") << '\n';
     return 0;
   }
-  if (argc > 1 && std::string(argv[1]) == "--calibrate") return runCalibration(argc, argv);
+  if (argc > 1 && std::string(argv[1]) == "--calibrate") {
+    std::cerr << "Use tidesense_record for raw camera/IMU capture, then scripts/dataset/export.py --time-offset-ns 0 --bag for Kalibr.\n";
+    return 2;
+  }
   bool self = argc == 3 && std::string(argv[1]) == "--self-test";
   const std::string mode = argc > 1 ? argv[1] : "";
   bool live_vio = mode == "--vio" || mode == "--vio-smoke";
   bool smoke = mode == "--camera-smoke" || mode == "--vio-smoke";
   bool camera = live_vio || smoke || mode == "--camera";
-  int count_index = smoke ? (live_vio ? 4 : 3) : (live_vio ? 6 : 5);
+  int count_index = smoke ? (live_vio ? 3 : 2) : (live_vio ? 5 : 4);
   if ((camera && argc != count_index && argc != count_index+1) ||
       (!camera && !self && argc != 5)) { std::cerr << "Use --help for usage\n"; return 2; }
   google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = true;
   cv::setNumThreads(1);
   try {
-    MicroRosBridge micro_ros;
+    RosBridge ros;
     // Use acquisition time, not network arrival time. Dataset timestamps remain
     // unchanged. Live timestamps share CLOCK_MONOTONIC with the input adapters.
-    const int64_t ros_clock_offset = camera && micro_ros.enabled()
+    const int64_t ros_clock_offset = camera && ros.enabled()
       ? int64_t(clockNs(CLOCK_REALTIME)) - int64_t(clockNs(CLOCK_MONOTONIC)) : 0;
     const uint64_t frame_limit = camera ? (argc == count_index+1 ? stamp(argv[count_index]) : 120) : 0;
     const bool use_imu = !camera || live_vio;
@@ -168,9 +172,14 @@ int main(int argc, char** argv) {
     if (camera && !smoke && ((yaml["test_only"] && yaml["test_only"].as<bool>()) ||
         (yaml["label"] && yaml["label"].as<std::string>().find("SYNTHETIC") != std::string::npos)))
       throw std::runtime_error("Use real calibration for --camera/--vio; test geometry is only allowed in smoke modes");
-    if (camera) for (size_t c = 0; c < 2; ++c)
-      if (cams->getCamera(c).imageWidth() != 640 || cams->getCamera(c).imageHeight() != 400)
-        throw std::runtime_error("Live camera calibration must be 640x400");
+    tide_cam_config camera_config; tide_cam_config_init(&camera_config);
+    if (camera) {
+      camera_config.mode.width=cams->getCamera(0).imageWidth();
+      camera_config.mode.height=cams->getCamera(0).imageHeight();
+      if (cams->getCamera(1).imageWidth()!=camera_config.mode.width ||
+          cams->getCamera(1).imageHeight()!=camera_config.mode.height)
+        throw std::runtime_error("Live stereo cameras must use the same capture dimensions");
+    }
     svo::ImuCalibration imu_cal;
     std::shared_ptr<svo::ImuHandler> imu;
     if (use_imu) {
@@ -212,7 +221,7 @@ int main(int argc, char** argv) {
     vio.start();
     std::unique_ptr<VioRecording> recording;
     if (!record_dir.empty())
-      recording.reset(new VioRecording(record_dir, yaml, argv[3]));
+      recording.reset(new VioRecording(record_dir, yaml, cameraConfiguration(camera_config)));
     std::ifstream images, inertial;
     std::ofstream poses;
     if (!self && !camera) {
@@ -221,7 +230,7 @@ int main(int argc, char** argv) {
       poses << "#timestamp_ns,px,py,pz,qx,qy,qz,qw\n";
     }
     if (camera && !smoke) {
-      poses.open(argv[live_vio ? 5 : 4]);
+      poses.open(argv[live_vio ? 4 : 3]);
       if (!poses) throw std::runtime_error("Cannot open pose output");
       poses << (live_vio ? "# stereo + real 200Hz SC7U22 IMU; camera PTS offset applied\n" :
                            "# visual-only, no IMU; timestamp is left VI arrival PTS\n")
@@ -248,7 +257,7 @@ int main(int argc, char** argv) {
     if (predict) {
       prediction.reset(new ImuPrediction([&](const PredictedState& s, bool valid) {
         const uint64_t stamp = uint64_t(int64_t(s.stamp_ns) + ros_clock_offset);
-        micro_ros.submit(stamp, valid, valid ? s.p.data() : nullptr, valid ? s.q.coeffs().data() : nullptr);
+        ros.submit(stamp, valid, valid ? s.p.data() : nullptr, valid ? s.q.coeffs().data() : nullptr);
         if (valid) ++predicted_count;
         if (prediction_csv.is_open()) {
           prediction_csv << s.stamp_ns << std::setprecision(15);
@@ -262,20 +271,19 @@ int main(int argc, char** argv) {
       std::cerr << "prediction: IMU-rate poses, visual correction + repropagation; stale after 500ms\n";
     }
     std::unique_ptr<LiveImu> live_imu;
-    std::unique_ptr<LiveCamera> live;
+    std::unique_ptr<TideCamera> live;
     uint64_t live_ready_ns = 0, startup_pairs_skipped = 0;
     if (camera) {
       struct sigaction sa{}; sa.sa_handler = interrupt;
       sigaction(SIGINT, &sa, nullptr); sigaction(SIGTERM, &sa, nullptr);
-      const char* helper = std::getenv("SCHUR_CAMERA_HELPER");
-      live.reset(new LiveCamera(helper ? helper : executableDirectory() + "/schurvins_camera", argv[smoke ? 2 : 3]));
+      live.reset(new TideCamera(camera_config));
       if (live_vio) {
         // VI initialization can hold the single CPU in kernel work for >15ms.
         // Begin inertial history only after the camera has completed startup.
         LivePair warmup;
         if (!live->next(warmup,interrupted)) throw std::runtime_error("Interrupted during camera startup");
         ++startup_pairs_skipped;
-        live_imu.reset(new LiveImu(argv[smoke ? 3 : 4], [&](const ImuSample& sample) {
+        live_imu.reset(new LiveImu(argv[smoke ? 2 : 3], [&](const ImuSample& sample) {
           if (prediction) {
             prediction->sample(intrinsics.apply(sample));
           }
@@ -435,7 +443,7 @@ int main(int argc, char** argv) {
       const uint64_t ros_stamp = uint64_t(int64_t(t) + ros_clock_offset);
       if (!f || !tracking_healthy) {
         if (prediction) prediction->invalidate();
-        else micro_ros.submit(ros_stamp, false);
+        else ros.submit(ros_stamp, false);
         continue;
       }
       auto T = f->get_T_W_B();
@@ -443,8 +451,8 @@ int main(int argc, char** argv) {
       if (!p.allFinite() || !q.coeffs().allFinite()) throw std::runtime_error("Non-finite pose");
       ++tracked;
       // Smoke modes use test geometry and must never advertise a usable pose.
-      if (smoke) micro_ros.submit(ros_stamp, false);
-      else if (!prediction) micro_ros.submit(ros_stamp, true, p.data(), q.coeffs().data());
+      if (smoke) ros.submit(ros_stamp, false);
+      else if (!prediction) ros.submit(ros_stamp, true, p.data(), q.coeffs().data());
       if (prediction) {
         schur_vins::SchurVINS::ImuSnapshot snapshot;
         if (f->imu_ready_ && vio.schur_vins_ && vio.schur_vins_->getImuSnapshot(snapshot)) {
@@ -464,7 +472,7 @@ int main(int argc, char** argv) {
     if (camera) {
       // Stop IMU before the VI teardown (which can also delay kernel scheduling).
       if (live_imu) { live_imu->stop(); live_imu->check(); }
-      if (live->stop()) throw std::runtime_error("Camera helper exited with an error during cleanup");
+      if (live->stop()) throw std::runtime_error("tide_cam failed during cleanup");
       live->report();
       if (recording) recording->finish();
       if (live_imu) {

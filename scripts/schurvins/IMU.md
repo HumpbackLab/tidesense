@@ -10,9 +10,9 @@ cd /mnt/data/schurvins-gcc11-static-micro-ros
 # 独立检查 IMU 频率、数据递增和静止重力模长，测试时保持板子静止
 ./run.sh --imu-test auto 10
 # 真实双目 + IMU 输入测试，使用占位标定，不输出位姿
-./run.sh --vio-smoke /mnt/data/sensor_cfg.ini auto 120
+./run.sh --vio-smoke auto 120
 # 安装镜头、完成实际双目/惯性标定后运行；0 表示持续运行
-./run.sh --vio schurvins.yaml /mnt/data/sensor_cfg.ini auto /tmp/vio-poses.csv 0
+./run.sh --vio schurvins.yaml auto /tmp/vio-poses.csv 0
 ```
 
 以上使用默认 SD 镜像路径及随包的当前测试板参数；其他硬件需换成本板标定。
@@ -49,7 +49,7 @@ cd /mnt/data/schurvins-gcc11-static-micro-ros
   IIO 内核缓冲 512 条；每次图像处理前消费全部未交付 IMU，包含第一条晚于图像的样本。
   用户态历史最多 2000 条；时间倒退、间隔达到 15 ms、溢出、饱和或中断流停滞均报错。
 - 正常退出/Ctrl-C 禁用 IIO 缓冲；只有 FSIN 也已关闭时才停止传感器测量。SIGKILL 无法执行清理；异常退出后先确认
-  无消费者，再手动 `echo 0 > /sys/bus/iio/devices/iio:deviceN/buffer/enable`，同时通过 `bin/fsin.sh stop` 停止遗留的相机触发，然后重新启动。
+  无消费者，再手动 `echo 0 > /sys/bus/iio/devices/iio:deviceN/buffer/enable`，同时向相应 IIO 目录的 `fsin_enable` 写入 0 停止遗留的相机触发，然后重新启动。
 - 诊断：`cat /sys/bus/iio/devices/iio:deviceN/diagnostics`。
   包含硬中断数、入队数、SPI 错误、未就绪、超时丢弃、内核缓冲丢弃、间隔异常、
   最大中断线程调度延迟及最大中断到读取完成时间，均为本次驱动加载以来累计值。
@@ -74,14 +74,14 @@ Kalibr 导出不会把某次采集拟合的零偏固定为长期偏移。
 不再保存第二套校准系数。读取测试输出标称 SI 数据；判断标定精度应使用经过统一模型的 VIO 数据。
 数值检查目标为 `schurvins_imu_intrinsics_test`，覆盖完整矩阵、输出偏移、交叉敏感项和重复补偿防护。
 
-`--vio` 要求真实 640×400 双目标定及 `imu_params` / `imu_initialization`，其中 `imu_rate: 200`。
+`--vio` 要求两路尺寸相同的真实双目标定（640×400、640×480 或 1280×800）及 `imu_params` / `imu_initialization`，其中 `imu_rate: 200`。
 `T_B_C` 的 B 必须是上述芯片 IMU 坐标系，不能把原来相机坐标系的双目标定直接当成惯性外参。
 需要实际测定噪声、偏置、相机—IMU 外参与时间偏移。
 
 左 VI PTS 和 IMU 都使用单调时钟，但 VI PTS 是图像到达时间，IMU 是硬中断响应时间。
 INT 时间不包含用户态调度和 SPI 读取延迟，但仍存在 GPIO/CPU 中断响应延迟和传感器内部滤波延迟。
 这不等于曝光中心和惯性物理测量时刻已精确对齐；需要重新标定相机–IMU 时间偏移。
-`--calibrate` 默认只发图像；增加 `--imu auto` 后同时发布 200 Hz `/tidesense/imu`，使用本驱动的 IRQ 时间戳。详见 [联合标定说明](CALIBRATION.md)。
+标定复用通用 `tidesense_record`，保存原始双目和 200 Hz IMU，使用本驱动的 IRQ 时间戳。详见 [联合标定说明](CALIBRATION.md)。
 可在 YAML 顶层填入已标定的 `live_camera_time_offset_ns`（有符号整数）：
 
 ```yaml
@@ -160,7 +160,7 @@ SPI 错误、未就绪、超时读取丢弃、内核缓冲丢弃、异常间隔�
 
 以下数据不适用于本次 IIO/INT1 实现；新实现的中断时序需要单独验证。
 
-完整回归脚本：`./bin/test-imu-board.sh "$PWD" /mnt/data/sensor_cfg.ini`。
+完整回归脚本：`./bin/test-imu-board.sh "$PWD"`。
 默认日志目录 `/tmp/schurvins-imu-test`；测试会使用两路相机与 IMU，结束后停止采集。
 
 | 测试 | 最终结果 |
