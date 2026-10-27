@@ -94,7 +94,7 @@ scripts/calibration/kalibr.sh cali/calib-export/dataset.bag --output cali/camera
 
 ```sh
 scripts/calibration/kalibr.sh cali/calib-export/dataset.bag \
-  --models pinhole-equi pinhole-equi --output cali/cameras-equi
+  --lens fisheye --output cali/cameras-equi
 ```
 
 只选择适合实际镜头的一种模型；切换模型需要重新估计，不能修改旧结果的模型名称冒充新标定。
@@ -118,8 +118,8 @@ IMU 噪声参数应来自已有有效测量；短运动录制不能代替长时�
 `--imu-topic /imu0`。
 
 联合模式默认使用 `scale-misalignment`，拟合原始 SI 输入的 IMU 内参、相机–IMU 外参和时间偏移，
-默认固定陀螺加速度敏感项为零。`calibrated` 模型只适用于已校正的 IMU 输入。
-相机话题、模型和分辨率从 camchain 读取，不再传 `--topics` / `--models`。
+默认固定陀螺加速度敏感项为零。脚本只支持 `scale-misalignment`，不再接受 `calibrated`。
+相机话题、模型和分辨率从 camchain 读取，不再传 `--topics` / `--lens`。
 相机内参和联合阶段必须使用相同图像方向、裁剪及尺寸。
 
 ## 将 Kalibr 结果用于 SchurVINS

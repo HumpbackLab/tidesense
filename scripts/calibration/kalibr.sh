@@ -7,12 +7,12 @@ Usage: scripts/calibration/kalibr.sh ROS1_FILE.bag|ROS2_BAG_DIR [options]
        scripts/calibration/kalibr.sh --export-schurvins RESULTS_DIR [--output NEW_YAML]
   --output DIR       New output directory (default: BAG_DIR-kalibr-TIMESTAMP)
   --target YAML      AprilGrid target (default: TideSense A4 6x4, 32 mm)
-  --models LEFT RIGHT  Kalibr models (default: pinhole-radtan pinhole-radtan)
+  --lens MODE        wide (pinhole-radtan, default) or fisheye (pinhole-equi)
   --topics LEFT RIGHT  Raw Image topics (default: /tidesense/{left,right}/image_raw)
   --imu-cam          Calibrate camera-IMU and automatically export schurvins.yaml
   --cam YAML         Existing stereo camchain (required with --imu-cam)
   --imu YAML         Measured IMU noise/rate/topic configuration (required with --imu-cam)
-  --imu-models MODEL  calibrated or scale-misalignment (default: scale-misalignment)
+                     IMU model is always scale-misalignment on raw SI input
   --estimate-g-sensitivity  Also fit gyro acceleration sensitivity (default: fixed zero)
   --allan            Analyze a stationary ROS 2 IMU bag; write curves and noise YAML
   --imu-topic TOPIC  Allan IMU topic (default: /tidesense/imu)
@@ -42,8 +42,6 @@ convert_only=0
 imu_cam=0
 cam=
 imu=
-imu_model=scale-misalignment
-imu_model_set=0
 estimate_g_sensitivity=0
 stereo_options=0
 allan=0
@@ -55,28 +53,27 @@ while [[ $# -gt 0 ]]; do
     --cam|--imu) [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       if [[ $1 == --cam ]]; then cam=$2; else imu=$2; fi; shift 2 ;;
     --imu-cam) imu_cam=1; shift ;;
-    --imu-models) [[ $# -ge 2 ]] || { usage >&2; exit 2; }
-      imu_model=$2; imu_model_set=1; shift 2 ;;
+    --lens) [[ $# -ge 2 ]] || { usage >&2; exit 2; }
+      stereo_options=1
+      case "$2" in
+        wide) models=(pinhole-radtan pinhole-radtan) ;;
+        fisheye) models=(pinhole-equi pinhole-equi) ;;
+        *) echo 'Supported --lens modes: wide, fisheye' >&2; exit 2 ;;
+      esac
+      shift 2 ;;
     --estimate-g-sensitivity) estimate_g_sensitivity=1; shift ;;
     --allan) allan=1; shift ;;
     --imu-topic|--skip-seconds|--duration) [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       allan_options+=("$1" "$2"); shift 2 ;;
-    --models|--topics) [[ $# -ge 3 ]] || { usage >&2; exit 2; }
+    --topics) [[ $# -ge 3 ]] || { usage >&2; exit 2; }
       stereo_options=1
-      if [[ $1 == --models ]]; then models=("$2" "$3"); else topics=("$2" "$3"); topics_set=1; fi; shift 3 ;;
+      topics=("$2" "$3"); topics_set=1; shift 3 ;;
     --convert-only) convert_only=1; shift ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
-case "$imu_model" in
-  calibrated|scale-misalignment) ;;
-  *) echo 'Supported --imu-models: calibrated, scale-misalignment' >&2; exit 2 ;;
-esac
-if [[ $imu_cam == 0 && ( $imu_model_set == 1 || $estimate_g_sensitivity == 1 ) ]]; then
+if [[ $imu_cam == 0 && $estimate_g_sensitivity == 1 ]]; then
   echo 'IMU model options require --imu-cam' >&2; exit 2
-fi
-if [[ $imu_model == calibrated && $estimate_g_sensitivity == 1 ]]; then
-  echo '--estimate-g-sensitivity requires scale-misalignment' >&2; exit 2
 fi
 if [[ $allan == 1 ]]; then
   [[ $imu_cam == 0 && -z $cam && -z $imu && $stereo_options == 0 && $convert_only == 0 ]] || {
@@ -87,7 +84,7 @@ elif [[ ${#allan_options[@]} != 0 ]]; then
 fi
 if [[ $imu_cam == 1 ]]; then
   [[ -n $cam && -n $imu ]] || { echo '--imu-cam requires --cam and --imu YAML files' >&2; exit 2; }
-  [[ $stereo_options == 0 ]] || { echo 'IMU-camera mode reads topics/models from --cam; omit --topics and --models' >&2; exit 2; }
+  [[ $stereo_options == 0 ]] || { echo 'IMU-camera mode reads topics/models from --cam; omit --topics and --lens' >&2; exit 2; }
   cam=$(realpath -- "$cam"); imu=$(realpath -- "$imu")
   [[ -f $cam && -f $imu ]] || { echo 'Missing camera/IMU YAML file' >&2; exit 2; }
 else
@@ -147,17 +144,10 @@ fi
 if [[ $convert_only == 0 ]]; then
   # Virtual X server also handles Kalibr's GUI imports; no host display/mount needed.
   if [[ $imu_cam == 1 ]]; then
-    if [[ $imu_model == scale-misalignment ]]; then
-      intrinsic_options=()
-      [[ $estimate_g_sensitivity == 1 ]] || intrinsic_options+=(--disable-g-sensitivity)
-      python3 "$here/kalibr/calibrate_intrinsics.py" --source "$output" --output "$output" \
-        --in-place --image "$image" "${intrinsic_options[@]}"
-    else
-      "${run[@]}" xvfb-run -a rosrun kalibr kalibr_calibrate_imu_camera \
-        --bag /output/imucam.bag --target /output/target.yaml \
-        --cam /output/camchain-input.yaml --imu /output/imu-input.yaml \
-        --imu-models calibrated --dont-show-report 2>&1 | tee "$output/kalibr.log"
-    fi
+    intrinsic_options=()
+    [[ $estimate_g_sensitivity == 1 ]] || intrinsic_options+=(--disable-g-sensitivity)
+    python3 "$here/kalibr/calibrate_intrinsics.py" --source "$output" --output "$output" \
+      --in-place --image "$image" "${intrinsic_options[@]}"
     results=(imucam-camchain-imucam.yaml imucam-imu.yaml imucam-results-imucam.txt imucam-report-imucam.pdf)
   else
     "${run[@]}" xvfb-run -a rosrun kalibr kalibr_calibrate_cameras \

@@ -25,7 +25,10 @@ def fixture():
                                T_cam_imu=t.tolist(), timeshift_cam_imu=-.0104616674)
     chain['cam1']['T_cn_cnm1'] = (np.array(chain['cam1']['T_cam_imu']) @
                                  np.linalg.inv(chain['cam0']['T_cam_imu'])).tolist()
-    imu = dict(update_rate=199.52, model='calibrated',
+    imu = dict(update_rate=199.52, model='scale-misalignment',
+               accelerometers={'M': np.eye(3).tolist()},
+               gyroscopes={'M': np.eye(3).tolist(), 'C_gyro_i': np.eye(3).tolist(),
+                           'A': np.zeros((3, 3)).tolist()},
                gyroscope_noise_density=.001, accelerometer_noise_density=.002,
                gyroscope_random_walk=.00001, accelerometer_random_walk=.00002)
     return chain, {'imu0': imu}
@@ -82,7 +85,8 @@ class ExportTest(unittest.TestCase):
 
     def test_bad_imu_rejected(self):
         chain, imu = fixture()
-        for key, value in [('model', 'scale-misalignment-size-effect'), ('update_rate', 100),
+        for key, value in [('model', 'scale-misalignment-size-effect'), ('model', 'calibrated'),
+                           ('model', None), ('update_rate', 100),
                            ('gyroscope_random_walk', 0), ('accelerometer_noise_density', float('nan')),
                            ('time_offset', .1), ('T_i_b', np.diag([-1, -1, 1, 1]).tolist())]:
             bad = copy.deepcopy(imu)
@@ -179,13 +183,11 @@ elif '/output/export_schurvins.py' in args:
             fake.chmod(0o755)
             env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
                        EXPORT_FIXTURES=str(root))
-            for model, only, estimate_g in (("calibrated", False, False), ("calibrated", True, False), ("scale-misalignment", False, False), ("scale-misalignment", False, True)):
-                output = root / (model + (' convert only' if only else ' full') + (' g' if estimate_g else ''))
+            for only, estimate_g in ((True, False), (False, False), (False, True)):
+                output = root / (('convert only' if only else 'full') + (' g' if estimate_g else ''))
                 command = ['bash', str(script), str(bag), '--imu-cam',
                            '--cam', str(root/'camera.yaml'), '--imu', str(root/'imu.yaml'),
                            '--output', str(output)]
-                if model == 'calibrated':
-                    command += ['--imu-models', model]
                 if estimate_g:
                     command.append('--estimate-g-sensitivity')
                 if only:
@@ -194,16 +196,18 @@ elif '/output/export_schurvins.py' in args:
                 self.assertEqual((output/'schurvins.yaml').exists(), not only)
                 if not only:
                     self.assertIn('SchurVINS configuration', (output/'schurvins-export.log').read_text())
-                    if model == 'scale-misalignment':
-                        import json
-                        run = json.loads((output/'run.json').read_text())
-                        self.assertEqual(run['model'], model)
-                        self.assertEqual(run['gyro_g_sensitivity_estimated'], estimate_g)
-                        self.assertEqual('python_override' in run, not estimate_g)
-                        self.assertTrue(run['source_inputs_unchanged'])
-                        self.assertIn('--imu-models', run['command'])
+                    import json
+                    run = json.loads((output/'run.json').read_text())
+                    self.assertEqual(run['model'], 'scale-misalignment')
+                    self.assertEqual(run['gyro_g_sensitivity_estimated'], estimate_g)
+                    self.assertEqual('python_override' in run, not estimate_g)
+                    self.assertTrue(run['source_inputs_unchanged'])
+                    self.assertIn('--imu-models', run['command'])
+            rejected = subprocess.run(command + ['--imu-models', 'calibrated'], env=env, capture_output=True)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn(b'Unknown option: --imu-models', rejected.stderr)
 
-    def test_one_click_existing_results_and_no_overwrite(self):
+    def test_existing_results_and_no_overwrite(self):
         chain, imu = fixture()
         script = Path(__file__).resolve().parents[1] / 'kalibr.sh'
         with tempfile.TemporaryDirectory(prefix='schur export ') as tmp:
