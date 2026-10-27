@@ -292,6 +292,33 @@ function reproduce_repo {
     done < ${xml_file}
 }
 
+# Check out the commits recorded by every superproject, including the SDK root.
+# Run this after --reproduce too, so nested submodules match the selected commit.
+function checkout_submodules {
+    local project_dir="$1"
+    if [[ ! -f "$project_dir/.gitmodules" ]]; then
+        return 0
+    fi
+    echo "Initializing submodules in $project_dir"
+    git -C "$project_dir" submodule sync --recursive || return 1
+    GIT_LFS_SKIP_SMUDGE=1 git -C "$project_dir" submodule update --init --recursive --checkout || return 1
+}
+
+function checkout_all_submodules {
+    local sdk_root="$PWD"
+    local line repo path
+    checkout_submodules "$sdk_root" || return 1
+    while IFS= read -r line; do
+        repo=$(echo "$line" | grep -o '<project name="[^"]*"' | sed 's/.*name="\([^"]*\)".*/\1/')
+        [[ -n "$repo" ]] || continue
+        path=$(echo "$line" | grep -o 'path="[^"]*"' | sed 's/.*path="\([^"]*\)".*/\1/')
+        [[ -n "$path" ]] || path="$repo"
+        if [[ -d "$sdk_root/$path" ]]; then
+            checkout_submodules "$sdk_root/$path" || return 1
+        fi
+    done < "$xml_file"
+}
+
 function main {
     if [ $DOWNLOAD -eq 1 ]; then
         git_clone
@@ -303,6 +330,7 @@ function main {
     if [ $REPRODUCE -eq 1 ]; then
         reproduce_repo
     fi
+    checkout_all_submodules || exit 1
 }
 
 main
