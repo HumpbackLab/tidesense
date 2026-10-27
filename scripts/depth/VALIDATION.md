@@ -1,7 +1,8 @@
 # 深度模式验证记录
 
 本文件记录最初基线版本。后续 `all64` 与缓存取图的验证见
-[OPTIMIZATION.md](OPTIMIZATION.md)，当前默认请求频率为 20 Hz。
+[OPTIMIZATION.md](OPTIMIZATION.md)。这些板端结果早于 `tide_cam` 迁移，
+不能作为当前采集路径的实测结果；当前默认请求频率为 20 Hz。
 
 日期：2026-10-23。设备：SG2002 / A53，`192.168.123.99`。
 工具链：SDK GCC 11.3.1，OpenCV 3.4.20 单线程 NEON，既有 Humble micro-ROS 静态库。
