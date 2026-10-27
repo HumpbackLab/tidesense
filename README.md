@@ -29,34 +29,30 @@ https://oshwhub.com/brics-hospital-drone-team/project_hpetjiuj
 - **板端 VIO**：适配 SchurVINS 和 OpenVINS，提供实时传感器输入、离线回放、位姿记录及 A53 交叉编译工具。
 - **可选 ROS 2 接口**：通过 micro-ROS 与电脑端 Agent 发布位姿；可以关闭通信，独立运行 VIO。SchurVINS 支持 20 Hz 视觉校正与 200 Hz IMU 预测位姿输出。
 - **独立双目深度模式**：板端 StereoBM 计算，micro-ROS 发布 `16UC1` 毫米深度及校正后的 CameraInfo；默认 320×200 / 请求 20 Hz，可选 640×400。启用 A53 匹配优化和缓存取图，与 VIO、UVC 分别运行。
-- **标定工具**：提供 A4 AprilGrid、双目及相机–IMU 的 Kalibr 标定流程、IMU Allan 噪声分析，以及标定结果转换工具。
+- **标定工具**：通过 TideConfigurator 显示 AprilGrid，录制双目与 IMU 数据并生成相机、IMU 标定结果。
 - **独立数据集录制**：不运行 VIO 即可录制双目和 IMU，保存原始时间戳并无损压缩图像；可导出 EuRoC 风格目录、ROS 1 bag 和 SchurVINS 回放数据，用于多种 VIO 算法对比。
 - **性能分析与优化**：提供板端 perf 工具、前后端分项计时，以及 LK、SIMD、数值精度和硬件编码运动向量等实验代码与测量报告。实验功能的开关和适用范围见各自文档。
 
 ## 文档导航
 
-以下文档中的电脑端命令均从工程根目录执行，工程内文件使用相对于根目录的路径；
-板端命令会单独注明，并使用设备上的部署路径。
+SDK 文档中的电脑端命令从本仓库根目录执行；TideConfigurator 的命令从其独立项目目录执行。板端命令使用设备上的部署路径。
 
 | 内容 | 入口 |
 | --- | --- |
-| SchurVINS 构建、运行与预测位姿 | [scripts/schurvins/README.md](scripts/schurvins/README.md) |
-| OpenVINS 实时运行与 ROS 2 位姿发布 | [scripts/vio-compare/openvins/README-live.md](scripts/vio-compare/openvins/README-live.md) |
-| 双目、相机–IMU 标定与参数转换 | [scripts/calibration/README.md](scripts/calibration/README.md) |
-| 独立数据集录制、导出与回放 | [scripts/dataset/README.md](scripts/dataset/README.md) |
-| micro-ROS 接入 | [scripts/schurvins/MICRO-ROS.md](scripts/schurvins/MICRO-ROS.md) |
-| 双目深度输出与 ROS 2 预览 | [scripts/depth/README.md](scripts/depth/README.md) |
-| 电脑端 RViz2 轨迹显示 | [scripts/visualization/README.md](scripts/visualization/README.md) |
-| VIO 对比与优化实验 | [scripts/vio-compare/README.md](scripts/vio-compare/README.md) |
-| 板端 perf 使用 | [scripts/perf/README.md](scripts/perf/README.md) |
+| SchurVINS | [scripts/schurvins/README.md](scripts/schurvins/README.md) |
+| OpenVINS | [scripts/vio-compare/openvins/README.md](scripts/vio-compare/openvins/README.md) |
+| 数据集录制 | [scripts/dataset/README.md](scripts/dataset/README.md) |
+| UVC | [scripts/uvc/README.md](scripts/uvc/README.md) |
+| 双目深度 | [scripts/depth/README.md](scripts/depth/README.md) |
+| TideConfigurator | [tide_configurator/README.md](tide_configurator/README.md) |
 
 欢迎围绕硬件、驱动、标定、算法适配和性能优化提交 Issue 或 Pull Request。复现问题时，请附上板卡版本、构建配置、标定参数和运行日志；运动估计问题也欢迎提供可回放的数据集。
 
 ---
 
-# 快速入门指南
+## 快速开始
 
-## 编译
+### 编译
 
 - 获取源码：
 ``` bash

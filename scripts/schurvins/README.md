@@ -1,524 +1,64 @@
-# TideSense / Cortex-A53 SchurVINS
+# TideSense SchurVINS
 
-电脑端命令均在工程根目录执行；板端命令按对应章节进入设备部署目录。
+在 SG2002 的 Cortex-A53 上运行双目惯性 VIO。实时图像由 `tide_cam` 在进程内采集：两路 OV9281 默认 640×400、硬件同步约 20 Hz；SC7U22 IMU 以 200 Hz 提供中断时间戳。相机时间戳取 VI 到达时间，图像保持原始方向。程序支持独立运行、micro-ROS 位姿发布、现场录制和离线回放。
 
-现已支持 OV9281 **实时双目图像输入与纯视觉前端**，用法和实测见 [CAMERA.md](CAMERA.md)。现已接入 SC7U22 **200Hz 实时 IMU**，双目＋惯性入口见 [IMU.md](IMU.md)；原离线双目＋IMU 入口保留。
+## 构建与部署
 
-VIO 的 ROS 输出可在编译时选择 **micro-ROS**（默认）、**原生 DDS** 或关闭通信：
+在 SDK 根目录运行：
 
 ```sh
-SCHUR_ROS_BACKEND=micro-ros scripts/schurvins/build.sh
-SCHUR_ROS_BACKEND=native-dds scripts/schurvins/build.sh
-SCHUR_ROS_BACKEND=none scripts/schurvins/build.sh
+JOBS=4 scripts/schurvins/build.sh
 ```
 
-两种后端均发布 `/tidesense/pose`（PoseStamped）及 `/tidesense/tracking`（Bool），best effort，
-通过独立通信线程和 64 条有界队列隔离 VIO；运行时默认关闭，用 `SCHUR_ROS=1` 开启。
-micro-ROS 的 `SCHUR_MICRO_ROS=1` 继续兼容，显式设置的 `SCHUR_ROS` 优先。
-Agent 用法见 [MICRO-ROS.md](MICRO-ROS.md)，原生 DDS 构建、部署见 [原生 DDS 说明](native_dds/README.md)。
+默认生成 `install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros-a53.tar`。将包复制到设备并解压到 `/mnt/data`。`build_all` 也会构建并预装此版本。
 
-标定与数据集统一使用 `tidesense_record` 录制原始双目和 IMU，见 [CALIBRATION.md](CALIBRATION.md)。实时 VIO 通过根目录 `tide_cam` 在进程内采集，无需相机 INI 或辅助进程。
+构建时可用 `SCHUR_ROS_BACKEND=micro-ros|native-dds|none` 选择通信后端；默认是 micro-ROS。三种后端使用独立构建目录。源码版本和依赖由 [sources.lock](sources.lock) 固定，构建入口会准备所需的 OpenCV、yaml-cpp、glog 等静态依赖。原生 DDS 的部署方式见 [native_dds/README.md](native_dds/README.md)。
 
-源码：SDK 根目录 `SchurVINS/`，使用 <https://github.com/HumpbackLab/SchurVINS> 的 TideSense 集成版本，上游为 <https://github.com/bytedance/SchurVINS>。
-精确版本与依赖见 `sources.lock`；此目录保存 SDK 构建入口、运行程序和上游补丁。
-`SchurVINS/` 与 SDK 其它独立源码库一样不直接纳入主库，构建脚本可恢复指定集成版本；历史补丁已包含在该版本中。
+随包的 `schurvins.yaml` 仅适用于对应设备。换板后需使用该板的相机内参、双目及相机与 IMU 外参、IMU 内参和时间偏移。TideConfigurator 可生成并应用标定结果；参数说明见 [CALIBRATION.md](CALIBRATION.md)。
 
-## GCC 11 构建与安装包
+## 实时运行
+
+先停止其他相机和 IMU 采集程序。在设备上运行：
 
 ```sh
-JOBS=4 ./scripts/schurvins/build.sh
-```
-
-使用 SDK 的 Arm GNU Toolchain 11.3.Rel1（GCC 11.3.1），为 Cortex-A53 重编
-SchurVINS、OpenCV、yaml-cpp、glog 0.4.0 和 FAST；Eigen、minkindr、Boost 使用头文件。
-最终通过 `-static` 链入工具链的 glibc、libstdc++ 和 libgcc。
-相机 SDK 与 `tide_cam` 静态链接进主程序，采集和 VIO 在同一进程，详见 `CAMERA.md`。
-关闭 OpenCV ITT 的动态插件加载，以及 glog 的 NSS 用户名查询（日志用户名取 `USER`，
-未设置时使用其内置占位名），避免这两项功能引入运行时动态库需求。
-micro-ROS 和 none 包的构建脚本检查 ELF 不含 `PT_INTERP` 或 `DT_NEEDED`。原生 DDS 保留静态估计器和相机库，但通过随包私有加载器使用 ROS 2 动态运行库；使用该包的 `run.sh` 启动，不替换设备系统库。
-
-构建缓存：`install/schurvins-gcc11-static/`，源码缓存位于 `install/schurvins-build/deps/`。
-默认输出目录：`install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros/`。
-安装包：同级 `schurvins-gcc11-static-micro-ros-a53.tar`（不压缩，板端无须 gzip）。
-传到板端后使用 `tar -xf schurvins-gcc11-static-micro-ros-a53.tar -C /mnt/data` 解包。
-`SCHUR_WITH_MICRO_ROS=OFF` 可单独构建不带通信库的 `schurvins-gcc11-static/` 包。
-原生 DDS 输出为 `schurvins-gcc11-native-dds/` 和同名 `-a53.tar`。三种后端的构建目录与安装包互相独立。
-TideSense 的 `build_all` / `build_tidesense_apps` 默认选择 micro-ROS，可通过导出 `SCHUR_ROS_BACKEND=native-dds` 改为原生 DDS；其它独立深度应用仍使用自身的 micro-ROS 输出。
-包中 `schurvins.yaml` 来自 `scripts/schurvins/tidesense.yaml`，对应当前测试板；其它硬件需替换为本板标定。
-三种包均无须部署 OpenCV 动态库；原生 DDS 包自带匹配的加载器及运行库，无须升级系统 glibc。
-`BUILD-INFO` 记录编译器、`SCHUR_ROS_BACKEND` 与构建模式；micro-ROS / none 全静态程序可直接执行：
-
-```sh
-./bin/schurvins_stereo --self-test synthetic.yaml
-./bin/schurvins_stereo actual-calibration.yaml stereo.csv imu.csv poses.csv
-```
-
-已在当前板上验证（2026-09-17）：在不含系统动态库的应用目录内，以 `env -i` + `chroot`
-运行合成自检及 CSV 输入测试，均为 `frames=6 tracking=6 imu_fused=6`，位姿均为有限值。
-可执行文件约 5.5 MB，压缩包约 3.0 MB。日志见 `scripts/schurvins/board-test-gcc11-static.log`。
-当时板上安装目录为 `/mnt/data/schurvins-gcc11-static`；当前默认镜像使用带 `-micro-ros` 后缀的目录。
-
-尚未验证真实 VIO 精度。
-未剥离符号的程序和静态核心库分别位于 `core-micro-ros/`、`core-native-dds/` 和 `core/`。
-
-## 构建要求与功能范围
-
-`build.sh` 默认使用 GCC 11 / micro-ROS 全静态构建，仍接受 `--gcc11-static` 参数；原生 DDS 包带私有动态运行库。
-主机需要 Git、curl、CMake >= 3.15、make、Boost 1.74 开发头文件（`libboost1.74-dev`）。
-默认还需要 ROS 2 Humble 开发环境和 Python venv；详见 [MICRO-ROS.md](MICRO-ROS.md)。
-也可用 `BOOST_HEADERS=/path/to/boost` 指定头文件目录，或用 `JOBS=2` 降低并行度。
-使用 `-mcpu=cortex-a53`、C++14，SchurVINS 核心保留栈帧用于 perf。
-依赖 SDK Eigen 3.3.7；其它依赖下载版本见 `sources.lock`，Boost 仅使用头文件。
-
-此版本编译完整双目跟踪前端及 SchurVINS 估计器，启用 IMU 融合。
-不构建原 ROS 1/catkin 节点、RViz、回环、全局地图、Ceres 后端、CUDA 和依赖 OpenGV 的单目初始化。
-可选 micro-ROS 使用独立通信线程；无需板端安装完整 ROS 2。
-FAST 使用通用 FAST-10 实现；OpenCV/Eigen 使用 AArch64 NEON。
-运行程序在单核 A53 上使用单线程 OpenCV、同步深度滤波，限制关键帧和特征数量。
-
-## 上板运行
-
-将整个产物目录复制到板子（需约 6 MB 空间）：
-
-```sh
-scp -O -r install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros root@192.168.123.99:/mnt/data/
-ssh root@192.168.123.99
 cd /mnt/data/schurvins-gcc11-static-micro-ros
-./run.sh --help
-./run.sh --self-test synthetic.yaml
+SCHUR_MICRO_ROS=0 ./run.sh --vio schurvins.yaml auto /mnt/data/poses.csv 0
 ```
 
-自检生成 320×240 合成立体图像和静止 IMU，
-执行六帧双目跟踪与 SchurVINS 融合，检查融合标志及位姿有限值。
-`synthetic.yaml` **只供自检，绝非 TideSense 标定参数**。
+`auto` 查找 SC7U22 IIO 设备，最后的 `0` 表示持续运行；按 Ctrl-C 正常停止并释放 FSIN、相机和 IIO。`poses.csv` 保存视觉校正位姿。启动时保持设备静止，并让双目看到有纹理的场景。曝光上限从设备 `camera.conf` 读取，详情见 [tide_cam](../../tide_cam/README.md)。
 
-## 实时 VIO + micro-ROS 位姿发布
+要通过 micro-ROS 发布位姿，先在电脑上启动 Agent：
 
-以下为当前 TideSense 已验证的配置：板端 `192.168.123.99`，电脑端
-`192.168.123.2`，UDP `8888`，ROS domain `0`。更换电脑时将 Agent 地址改为实际地址。
-需要带 micro-ROS 的程序包；`./run.sh --help` 应显示 `micro-ROS compiled: yes`。
-
-### 1. 电脑端启动 Agent
-
-在电脑终端 A 执行（如果端口 8888 已有 Agent，直接复用，不要重复启动）：
-
-```bash
+```sh
 source scripts/calibration/ros2-env.sh
-export FASTRTPS_DEFAULT_PROFILES_FILE=scripts/schurvins/micro_ros/calibration-agent.xml
 ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 ```
 
-环境脚本加载 ROS 2 Humble、SDK 内的 Agent 和 Cyclone DDS，设置 domain `0`。
-当前 DDS 配置用于这台电脑上的本地订阅；在另一台电脑订阅还需配置 DDS 网络发现。
-
-### 2. 板端启动 VIO
-
-使用转换后的 SchurVINS YAML，不能直接传入 Kalibr camchain。
-[转换方法](../calibration/README.md#将-kalibr-结果用于-schurvins)见标定说明。
-运行配置使用完整的 `schurvins.yaml`，包含相机参数和统一 IMU 内参；更新时使用对应本板的新标定或迁移配置。
-
-先停止已有 VIO、标定采集和 IMU 测试；关闭 PFC 实时预览网页，等待约 3 秒释放 IMU。
-启动前确认板端 `date` 正确，ROS 时间戳使用板端系统时间；校准时间偏移不会自动同步两台机器的时钟。
-在板端执行：
-
-```sh
-cd /mnt/data/schurvins-gcc11-static-micro-ros
-vio_output=/mnt/data/vio-$(date +%Y%m%d-%H%M%S)
-mkdir -p "$vio_output"
-export SCHUR_MICRO_ROS=1
-export SCHUR_MICRO_ROS_AGENT=192.168.123.2
-export SCHUR_MICRO_ROS_PORT=8888
-export SCHUR_MICRO_ROS_DOMAIN=0
-
-nohup ./run.sh --vio schurvins.yaml \
-  auto "$vio_output/poses.csv" 0 \
-  >"$vio_output/vio.log" 2>&1 </dev/null &
-echo $! >/tmp/vio-micro-ros.pid
-echo "VIO PID: $(cat /tmp/vio-micro-ros.pid); output: $vio_output"
-```
-
-`auto` 查找 SC7U22 IIO 设备，`0` 表示持续运行。启动时保持静止，并让双目共同看向
-有纹理的场景。启动日志应显示 `single-stage accel/gyro intrinsics enabled`、
-`Camera timestamp offset_ns=...` 和 `micro-ROS: connected ... domain=0`。
-
-IMU 读取层只做标称 SI 单位换算。`schurvins.yaml` 的 `imu_params` 保存统一内参，
-`input_domain: raw_si` 明确输入域。加速度计和陀螺仪在估计器入口各补偿一次：
-
-```text
-a = accel_inverse_matrix * am + accel_offset
-w = gyro_inverse_matrix * wm + gyro_accel_matrix * a + gyro_offset
-```
-
-VIO 和 IMU 高频预测共用同一个模型，残余零偏由估计器估计。
-[tidesense-imu-intrinsics.yaml](tidesense-imu-intrinsics.yaml) 保存本板单级参数，
-合并到匹配的完整配置中使用；其他设备应使用各自的标定。
-标定转换器可从 Kalibr `scale-misalignment` 结果生成两套逆矩阵和交叉敏感项，
-无需外部校准 JSON 或校准环境变量。旧配置需重新导出或迁移，不能直接当作原始 SI 配置。
-
-通过 `run.sh` 启动默认设置 `SCHUR_IMU_MIDPOINT=1`、`SCHUR_PIXEL_RESIDUAL=1`，
-分别启用中点积分和像素残差；显式设为 `0` 可独立关闭。直接运行二进制需自行设置这两项。
-
-`--record` 和通用录制器保存标称 SI 数据，
-标定数据不预先应用内参，回放由 `replay.yaml` 中的内参补偿一次。
-外部工具已完整补偿六轴 CSV 时，设置 `imu_params.imu_input_is_corrected: true` 跳过整个模型；
-实时 IIO 模式拒绝此标记，因为实时源提供标称 SI 数据。
-
-当前 `/mnt/data` 已取消 `sync` 挂载，日志和轨迹写入 SD 数据分区，避免持续占满 `/tmp`。
-每次启动创建新的输出目录。若使用旧镜像，先检查 `mount` 中 `/mnt/data` 是否仍含 `sync`，
-同步写盘会拖慢 VIO。关闭 micro-ROS 时设置 `SCHUR_MICRO_ROS=0` 即可独立运行。
-
-停止本次后台 VIO（在板端执行）：
-
-```sh
-kill -INT "$(cat /tmp/vio-micro-ros.pid)"
-```
-
-### 3. 电脑端订阅位姿和跟踪状态
-
-电脑另开终端 B，**每个新终端都先加载环境**：
-
-```bash
-source scripts/calibration/ros2-env.sh
-ros2 topic echo /tidesense/pose \
-  geometry_msgs/msg/PoseStamped \
-  --qos-reliability best_effort --no-daemon
-```
-
-查看跟踪状态（另开已加载同一环境的终端，或先 Ctrl-C 退出位姿订阅）：
-
-```bash
-ros2 topic echo /tidesense/tracking \
-  std_msgs/msg/Bool \
-  --qos-reliability best_effort --no-daemon
-```
-
-- 位姿为 **body/IMU 到 odom 的变换**，`header.frame_id=odom`，位置单位米，四元数为 xyzw。
-  它不是左相机位姿；此模式不发布图像、TF、速度或协方差。
-- `tracking.data=true` 时发布有效跟踪阶段的位姿；失去跟踪时不发布位姿。
-  Agent 断连时状态消息也会中断，接收端应检测消息超时。
-- 发布使用 best-effort、volatile QoS，订阅需兼容。VIO 重启/重置后局部坐标系可能变化。
-- **保留 `--no-daemon`**：当前电脑曾出现普通 `ros2 topic echo` 卡在连接本机
-  `127.0.0.1:11511` 的 ROS 2 CLI daemon，连 `ros2 daemon stop` 也等待不返回；
-  `--no-daemon` 绕过该路径后已实测正常收到数据，不需要重启板端 VIO 或 Agent。
-
-旧版视觉帧率发布的历史验证（2026-09-22）：20 秒接收 401 条位姿，约 20 Hz。
-这验证了发布/订阅链路，不代表完成运动定位精度验证。
-
-### 4. 电脑端显示轨迹
-
-电脑端 Agent 和板端位姿发布已运行时，在电脑新终端执行：
-
-```bash
-scripts/visualization/run.sh
-```
-
-启动电脑端位姿转 Path 节点和预配置 RViz2，显示绿色运动轨迹及当前姿态。
-只订阅 `/tidesense/pose`，无需图像或 RTAB-Map。默认保留最近约 5 分钟的轨迹，
-支持清空及其他 Odometry 输入，详见[轨迹显示说明](../visualization/README.md)。
-
-## 录制现场输入并离线 replay
-
-为复现初始化后转动/移动发散，可在 `--vio` 命令末尾增加 `--record NEW_DIR`：
-
-```sh
-cd /mnt/data/schurvins-gcc11-static-micro-ros
-record_dir=/mnt/data/vio-record-$(date +%Y%m%d-%H%M%S)
-SCHUR_MICRO_ROS=0 ./run.sh --vio schurvins.yaml auto "$record_dir/live-poses.csv" 0 --record "$record_dir"
-# Ctrl-C 正常结束录制后：
-SCHUR_MICRO_ROS=0 ./run.sh --replay "$record_dir" "$record_dir/replay-poses.csv"
-```
-
-不要提前创建录制目录；父目录需存在。录制默认关闭，micro-ROS 可独立开启。
-保存 VIO 实际消费的双目灰度图、连续 IMU、左右原始时间戳、帧序号和标定快照。
-回放只应用配置中的单级 IMU 内参，时间偏移不重复应用。相机消费队列中已被替换的帧不包含在录制中。
-20 Hz 约 614 MB/分钟；写盘跟不上或空间不足会明确报错，异常录制需显式
-`--allow-incomplete` 才尝试回放。详见 [录制和回放说明](RECORDING.md)。
-
-只采集数据、不运行 VIO 时，使用 [TideSense 独立录制程序](../dataset/README.md)：
-20 Hz 双目 / 200 Hz IMU，可导出本程序回放目录、EuRoC 和 ROS1 bag。
-
-## 离线输入
-
-### 异常观测同步清理实验
-
-`SCHUR_SYNC_OUTLIER_OBSERVATIONS` 默认 `OFF`。开启后，当前帧观测超过
-原有 4 px 门槛时，同时删除 Schur 后端中该状态、该相机对应的观测；
-保留同一地图点的其他观测。整点 3 px 筛选、噪声参数和失跟状态逻辑不变。
-
-使用 `SCHUR_SYNC_OUTLIER_OBSERVATIONS=ON ./scripts/schurvins/build.sh` 构建，
-或在 CMake 配置时传入 `-DSCHUR_SYNC_OUTLIER_OBSERVATIONS=ON`；
-关闭时改为 `OFF` 并重新编译。这是编译选项，不是运行时环境变量开关。
-用于对照回放，不能仅凭启用此项就认定已解决发散。
-
-2026-09-24 使用新标定回放 `vio-record-20260923-191959` 的 740 对图像：
-OFF/ON 均正常结束，但末尾估计位移分别为 147.828/147.832 m，均已发散。
-25–30 s 的有效观测中位数从 11.5 增至 27.5，35 s 后两组均降至零；
-单次实验未显示持续跟踪收益，因此保持默认关闭。日志和统计位于
-`install/schurvins-gcc11-static/recording-results/vio-record-20260923-191959/outlier-sync-20260924/`。
-
-### FPV 高速运动实验开关
-
-以下运行时选项默认关闭，可独立使用。它们目前只在本机 UZH-FPV
-`indoor_forward_6` 回放上验证，不能直接作为 TideSense 板端默认参数：
-
-| 变量 | 作用 |
-|---|---|
-| `SCHUR_VISUAL_PREGATE_PX=40` | 在本次状态更新前，跳过当前帧重投影误差超过阈值的地图点；原有更新后 4 px 清理仍保留。 |
-| `SCHUR_STEREO_EPIPOLAR_PX=10` | 用已标定双目外参检查同一地图点的左右观测，剔除超过阈值的观测对。 |
-| `SCHUR_HEALTH_GATE=1` | 有效观测少于原有 20 点门槛时，报告 tracking 为 false，停止输出该帧位姿；后续帧仍尝试恢复。 |
-| `SCHUR_VISUAL_TIME_UNCERTAINTY_MS=3` | 按相机角速度增加视觉观测标准差，最高 6 px；可设 `SCHUR_VISUAL_RATE_START_RAD_S=2` 只在较高角速度时生效。 |
-
-本机正式构建上，默认配置 ATE 为 10.01 m；只开第一项为 12.50 m，
-前两项同开为 3.51 m。第三项会把 1970 帧中的 1255 帧发布为有效，
-但不会修正内部轨迹，也不会自动重新初始化。第四项在已测试的
-1 ms、3 ms 和高角速度起效配置下均未改善全程 ATE，暂不建议启用。
-各项对照、有效帧覆盖率及复现数据见
-[FPV 分阶段实验](../vio-compare/probes/fpv-diagnosis/README.md)。
-
-### 新双目点登记实验
-
-新双目点登记默认开启（`SCHUR_REGISTER_STEREO_POINTS=1`），可显式设为 `0` 关闭。
-该修正需要重新构建 SchurVINS。创建关键帧并补充双目点后，它把新增观测登记到已经存在的当前帧状态，
-供后续视觉更新使用；不会创建额外状态，也不会再次求解位姿。登记过程按地图点、
-状态、相机和图像去重，避免重复使用同一观测。当前帧尚未进入后端时不执行登记。
-回放与部署验证见 [登记修复记录](../vio-compare/probes/fpv-diagnosis/README.md#stereo-landmark-registration-2026-10-18)。
-更换场景后仍需评估精度，有效观测数增加本身不代表轨迹准确。
-针对延迟登记、重复登记和状态保持的检查位于
-`scripts/vio-compare/probes/fpv-diagnosis/tests/stereo_registration_test.cpp`。
-
-### CSV 输入
-
-```sh
-./run.sh actual-calibration.yaml stereo.csv imu.csv poses.csv
-```
-
-- 标定 YAML 使用上游格式，参考源码 `svo_ros/param/calib/euroc_stereo.yaml`，必须包含
-  `cameras`、`T_B_C`、`imu_params`、`imu_initialization`。
-- TideSense 左相机（0x10，2 lane）放第一个，右相机（0x60，1 lane）放第二个。
-  50 mm 基线不能替代双目内参、畸变、外参及相机—SC7U22 IMU 的实际标定。
-- `stereo.csv` 每行：`timestamp_ns,left_image,right_image`，图像路径相对该 CSV 目录或绝对路径。
-  图像必须已配对、同一曝光时刻，尺寸与标定一致。
-- `imu.csv` 每行：`timestamp_ns,gx,gy,gz,ax,ay,az`，角速度 rad/s、加速度 m/s²（含重力）。
-  坐标系对应标定的 IMU/body 坐标系。输入为原始测量，噪声及初始偏置在标定中设置。
-- 时间戳均为严格递增整数纳秒。应先在采集/转换端对齐时钟和延时，`delay_imu_cam` 设为 0；
-  IMU 数据必须覆盖首帧之前到末帧之后。CSV 不含普通表头，可用 `#` 注释。
-- 输入流式读取，不把整段数据集装入板子内存。
-- 输出 `poses.csv`：`timestamp_ns,px,py,pz,qx,qy,qz,qw`，body/IMU 到世界坐标系的位姿，位置单位米。
-  仅输出 Tracking 阶段位姿；未产生任何跟踪/融合输出时返回非零。
-
-离线入口保留。CVITEK 实时双目输入现已接入，详见 [CAMERA.md](CAMERA.md)；SC7U22 200Hz 实时融合用法见 [IMU.md](IMU.md)。未验证真实场景定位精度。
-
-## 补丁与许可
-
-`patches/0001-native-build.patch` 修复 FAST 标量分支的 `L` 未定义，
-将 ROS 参数头限制在 ROS 构建中，删除未使用的 `opencv2/optflow.hpp` 包含；不改 SchurVINS 的估计公式。
-许可证与版权声明保留在下载源码及产物 `licenses/` 中，上游主项目为 GPL-3.0，继承的组件保留各自声明。
-
-离线读取路径的合成测试输入可在主机生成：
-
-```sh
-python3 scripts/schurvins/make-smoke-data.py install/schurvins-build/smoke-data
-# 把 smoke-data 复制到板子后：
-./run.sh synthetic.yaml smoke-data/stereo.csv smoke-data/imu.csv smoke-data/poses.csv
-```
-
-## GCC 6 兼容补丁清理
-
-已恢复上游 `std::atomic_uint64_t` 声明和定义，并从补丁文件移除对应改写。
-GCC 11 原生支持该别名；当前构建入口不再使用 GCC 6。
-原有 GCC 6 构建产物和 `board-test.log` 仅作为历史记录保留。
-
-## A53 NEON optimizations (independent, default OFF)
-
-Each CMake option enables the identically named preprocessor macro with value `1`.
-Undefined or `0` keeps the original implementation. These options require AArch64;
-no global `__ARM_NEON__` override is used, so the old alignment implementation is
-not accidentally selected.
-
-| Option / macro | Scope |
-|---|---|
-| `SCHUR_OPT_HALFSAMPLE_NEON` | Exact 2×2 box-average downsampling, including stride and tails |
-| `SCHUR_OPT_ZMSSD_NEON` | 8×8 template sums and contiguous/strided ZMSSD scoring |
-| `SCHUR_OPT_FAST10_NEON` | FAST-10 detection and scoring; original NMS remains in use |
-
-Enable any subset through `build.sh`, for example:
-
-```sh
-SCHUR_OPT_HALFSAMPLE_NEON=ON \
-SCHUR_OPT_ZMSSD_NEON=ON \
-SCHUR_OPT_FAST10_NEON=ON \
-./scripts/schurvins/build.sh
-```
-
-For direct CMake builds use `-DSCHUR_OPT_HALFSAMPLE_NEON=ON`, etc. The ZMSSD macro
-is PUBLIC because its implementation is in a header; consumers must use the same
-setting to avoid inconsistent template definitions. Other two macros apply only
-to the relevant source files. `0002-a53-opt-in-neon.patch` reproduces the source
-changes on the pinned upstream checkout after `0001-native-build.patch`.
-Existing local SchurVINS commits descending from the pinned revision are accepted
-by the build script and are recorded in `BUILD-INFO`; dependency revisions remain
-pinned.
-
-### Reproduce the comparison
-
-After preparing dependencies with `build.sh`:
-
-```sh
-./scripts/schurvins/bench/build-variants.sh
-# On the board, prepare calib.yaml and stereo.csv in /mnt/data/schur-opt-test.
-# CSV format is the same as schurvins_stereo; use absolute image paths.
-# Configure SSH keys, or export SSHPASS and install sshpass on the host.
-./scripts/schurvins/bench/run-board.sh base half zmssd fast all base
-./scripts/schurvins/bench/summarize.py install/schurvins-gcc11-static/opt-results
-```
-
-The runner expects the existing EuRoC replay under
-`/mnt/data/schurvins_a53/schurvins_a53_pgm25s/data/EuRoC_V1_01_replay`.
-Override `BOARD`, `REMOTE_DIR`, `DATASET`, or `RESULTS_DIR` if needed. It uploads only
-to the dedicated benchmark directory and leaves the installed production program
-untouched. Keep other CPU workloads idle during measurement. Raw results are
-copied back before the runner removes its own completed logs from the board.
-
-`SCHUR_BUILD_BENCHMARKS=ON` builds `schurvins_kernel_bench`. It checks scalar/NEON
-agreement, then reports medians of seven batches per kernel for each supplied
-image. The actual production functions are used. The replay program optionally
-writes per-frame `addImageBundle` wall time to the path in `SCHUR_TIMING_CSV`;
-image decoding and CSV input are outside this interval. The summary excludes the
-first five calls and reports mean, median, P95, tracking counts and pose-file hash.
-These timings measure VIO processing, not camera-to-pose latency or VIO accuracy.
-
-### CPU 热点复测与输出位置
-
-当前 benchmark 将日志、位姿和计时写入板端 `/tmp`（tmpfs），完成后拉回宿主机。
-不要把热路径日志重定向到以 `sync` 挂载的 `/mnt/data`；之前这样测得的约 2% 整体收益被日志写入等待掩盖。
-修正后的无 perf 测量为 66.578 → 58.089 ms，耗时下降 12.75%，详见 [实测结果](bench/RESULTS.md)。
-
-额外设置 `SCHUR_PROFILE_CSV=/tmp/intervals.csv` 可导出每帧 VIO 单调时钟区间和进程 CPU 时间。
-重现 perf 采样、匹配 ELF、过滤 VIO 区间和 period 加权统计的步骤见 [采样说明](profile/README.md)，
-当前热点和调用来源见 [热点复测](profile/HOTSPOTS.md)。
-
-### align2D 浮点 NEON（独立、默认 OFF）
-
-实板结果见 [align2D 实测](bench/ALIGN2D.md)。
-
-`SCHUR_OPT_ALIGN2D_NEON=ON`（CMake 同名选项，预处理宏值为 `1`）启用
-AArch64 浮点插值/残差 SIMD。未定义或为 `0` 保留原路径；`no_simd=true`
-强制标量。支持 offset 开/关；gain 估计开启时保留标量路径，以避免该模式下的
-浮点舍入差异。当前 VIO 默认 offset 开、gain 关，会使用优化。
-保持原 Hessian、逆矩阵、迭代上限、收敛阈值、逐像素累加顺序和 `each_step`。
-没有启用旧定点 `align2D_NEON`，也没有修改全局 NEON 宏或开启 fast-math。
-
-```sh
-SCHUR_OPT_HALFSAMPLE_NEON=ON SCHUR_OPT_ZMSSD_NEON=ON \
-SCHUR_OPT_FAST10_NEON=ON SCHUR_OPT_ALIGN2D_NEON=ON \
-./scripts/schurvins/build.sh
-```
-
-源码补丁为 `0003-a53-align2d-neon.patch`。精确一致性以当前 GCC 11.3.1 / A53
-构建的测试为依据；换编译器或浮点选项后应重新验证。
-
-单独比较 align2D（两组均开启之前三项优化）：
-
-```sh
-./scripts/schurvins/bench/build-align2d.sh
-./scripts/schurvins/bench/run-align2d-check.sh
-BINARIES_DIR="$PWD/install/schurvins-gcc11-static/align2d-binaries" \
-RESULTS_DIR="$PWD/install/schurvins-gcc11-static/align2d-results" \
-./scripts/schurvins/bench/run-board.sh base align base align
-./scripts/schurvins/bench/summarize.py install/schurvins-gcc11-static/align2d-results
-```
-
-`schurvins_align2d_bench` 为额外板端测试程序：无参数执行 32,000 组状态、坐标、
-每步迭代一致性检查；可传入真实灰度图路径，追加 patch 检查和局部计时。
-它使用独立编译的宏关闭实现作参考，并同时核对优化与 `no_simd` 两条路径。
-测量输出写 tmpfs，计时区间不含日志写入和图片解码。
-
-### align2D Hessian 与 warpAffine（各自默认 OFF）
-
-| 宏 / CMake 选项 | 范围 |
-|---|---|
-| `SCHUR_OPT_ALIGN2D_HESSIAN_NEON` | NEON 整数梯度/Hessian 统计；gain 关闭且 no_simd=false 时启用，offset 可开/关；保留原 4×4 求逆和迭代 |
-| `SCHUR_OPT_WARP_AFFINE_NEON` | 10×10 patch 浮点仿射取样，四像素一批，安全处理两像素尾部；其他尺寸、重叠缓冲区与异常条件回退 |
-
-宏未定义或为 `0` 时保留原路径，CMake `ON` 定义为 `1`。Hessian 宏独立于
-`SCHUR_OPT_ALIGN2D_NEON`，测试包括只开 Hessian、不开旧插值 SIMD 的组合。
-`no_simd=true` 同时禁用 align2D 的两项优化。源码修改分别位于补丁 `0004`、`0005`。
-warp 保持原 floor、FMA、权重和 uint8 截断顺序；边界失败回到原路径以保留部分写入行为。
-
-生成六项全开静态包：
-
-```sh
-SCHUR_OPT_HALFSAMPLE_NEON=ON SCHUR_OPT_ZMSSD_NEON=ON \
-SCHUR_OPT_FAST10_NEON=ON SCHUR_OPT_ALIGN2D_NEON=ON \
-SCHUR_OPT_ALIGN2D_HESSIAN_NEON=ON SCHUR_OPT_WARP_AFFINE_NEON=ON \
-./scripts/schurvins/build.sh
-```
-
-复现单项和组合测试（提前准备现有板端数据、SSH key 或 `SSHPASS`）：
-
-```sh
-./scripts/schurvins/bench/build-next.sh
-./scripts/schurvins/bench/run-next-check.sh both
-BINARIES_DIR="$PWD/install/schurvins-gcc11-static/next-binaries" \
-RESULTS_DIR="$PWD/install/schurvins-gcc11-static/next-results" \
-./scripts/schurvins/bench/run-board.sh base hessian warp both both base
-./scripts/schurvins/bench/summarize.py install/schurvins-gcc11-static/next-results
-```
-
-这里 base 是之前四项全开的基线；hessian/warp/both 分别为新项 1/2/两者。
-不要与旧 `opt-binaries/base`（原优化全关）混淆。构建脚本也支持参数只构建指定组合。
-实测和第 3 项的最终汇编评估见 [HESSIAN-WARP.md](bench/HESSIAN-WARP.md)。
-
-## IMU 同步触发与自动曝光（2026-09-24）
-
-当前 VIO 使用 `tide_cam` 硬件同步模式，库直接控制 SC7U22 内核 FSIN 接口：
-
-- IMU 保持 200 Hz；每 10 次 INT1 硬中断立即向两颗 OV9281 发送一次 FSIN，约 20 Hz。
-- 高电平目标 100 µs，由硬高精度定时器结束。退出采集会停触发并拉低；若 IIO 仍在使用，则 IMU 继续采样。
-- 两路 ISP 使用自动曝光和自动增益，曝光上限默认 **500 µs（0.5 ms）**，可通过设备的 `camera.conf` 调整。亮度补偿值为 48；传感器按行周期量化曝光。较短曝光用于减少快速旋转时的运动模糊，暗处应加强照明以减少高增益噪声。
-- 单帧空间降噪 YNR 强度为 **192**，保留 SDK 的 ISO 分档 coring/filter 表，锐化与跨帧 TNR 关闭。0.5 ms 板端静止对照中，选定平面的时间噪声约减少 40%–49%，强结构角点与边缘基本保留；静止 LK 跳点率未稳定下降，运动效果尚未验证。
-- 当前 ISP profile 位于 `tide_cam/src/sg2002/ov9281_isp.h`，修改后需重新构建并部署使用它的程序。
-- 自动曝光变化也会改变曝光中心时刻；重新核实相机与 IMU 的时间偏移后再评价快速运动轨迹。
-- 库需要配套的 SC7U22 INT1/FSIN 内核和设备树；直接操作内核接口，不使用独立 PWM8。单独采图无需另启动 IMU 用户态程序。
-
-当前启动命令见前文；运行中可查看：
-
-```sh
-cat /sys/bus/iio/devices/iio:device0/fsin_diagnostics
-cat /sys/bus/iio/devices/iio:device0/diagnostics
-```
-
-触发锁相不等于所有时间误差消失：相机输入时间戳仍是 VI PTS，IMU 是硬中断入口的 CLOCK_MONOTONIC 时间戳，未将图像 PTS 偷换为 FSIN 时间戳。曝光中心相对 FSIN 的延迟以及 IMU 内部滤波延迟仍需验证。改变触发源和曝光后，应重新核实 Kalibr 的时间偏移，不能保证旧 `live_camera_time_offset_ns` 仍准确。
-
-## warpAffine 两像素尾部优化
-
-宏开关、A53 测试结果及复测方法见 [WARP-TAIL2.md](bench/WARP-TAIL2.md)。
-
-
-## 20 Hz 视觉校正 + 200 Hz 预测位姿
-
-带 IMU 的 VIO 默认开启 `SCHUR_PREDICTION=1`。每次视觉更新提供位置、姿态、
-速度、IMU 零偏和重力；独立线程按每个 IMU 样本传播，在视觉结果返回后重新传播
-已缓存的 IMU，追到最新采样时刻。双目采集/视觉校正仍约 20 Hz，初始化后
-`/tidesense/pose` 按 IMU 实际采样率输出（约 200 Hz）。
-
-板上示例（把 CALIB.yaml 换成当前标定文件，Agent 地址换成电脑地址）：
+随后在设备上指定电脑的 USB 网卡地址：
 
 ```sh
 SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
-SCHUR_PREDICTION=1 SCHUR_PREDICTION_CSV=/mnt/data/predicted-poses.csv \
-  ./run.sh --vio CALIB.yaml auto /mnt/data/visual-poses.csv 0
+  ./run.sh --vio schurvins.yaml auto /mnt/data/poses.csv 0
 ```
 
-- `visual-poses.csv` 仍是视觉帧率的校正位姿；可选的 `predicted-poses.csv` 是 IMU
-  帧率的预测位姿及速度。省略 `SCHUR_PREDICTION_CSV` 可避免额外写盘。
-- `SCHUR_PREDICTION=0` 恢复原来的视觉帧率发布；`SCHUR_MICRO_ROS=0` 可独立运行。
-- 初始化前、报告丢失跟踪、IMU 间隔达到 15 ms 或视觉校正超过 500 ms 未更新，
-  停止输出有效预测。恢复需要新视觉校正。这不解决原有的跟踪失效检测/发散问题。
-- 视觉结果带延迟，校正后输出可能跳变；200 Hz 是 IMU 传播频率，不是视觉优化频率。
-- 订阅仍使用上文的 best-effort PoseStamped；micro-ROS 使用 64 条有界队列，
-  通信拥堵可能丢帧。离线回放没有实时限速，不能用其接收频率验证硬件 200 Hz。
+`/tidesense/pose` 是 `geometry_msgs/msg/PoseStamped`，表示 IMU/body 到 odom 的位姿；`/tidesense/tracking` 是 `std_msgs/msg/Bool`。两个话题使用 best effort QoS。视觉校正约 20 Hz；初始化后可用 `SCHUR_PREDICTION=1` 按 IMU 采样率发布预测位姿。通信和时间戳语义见 [MICRO-ROS.md](MICRO-ROS.md)。
 
-完整语义见 [MICRO-ROS.md](MICRO-ROS.md#imu-rate-predicted-poses)。
+## 录制与回放
 
-验证记录见 [PREDICTION-VALIDATION.md](tests/PREDICTION-VALIDATION.md)：板端到 ROS 2 实测约 199.54 Hz。
+要保存实时 VIO 消费的输入，可在 `--vio` 命令末尾加 `--record NEW_DIR`。录制目录必须尚未存在；正常结束后可运行：
+
+```sh
+SCHUR_MICRO_ROS=0 ./run.sh --replay /mnt/data/vio-record /mnt/data/replay-poses.csv
+```
+
+只需录制数据集而不运行 VIO 时，使用 [独立录制器](../dataset/README.md)。录制文件和回放条件见 [RECORDING.md](RECORDING.md)。
+
+程序也接受已配对图像与 IMU 的 CSV 输入：
+
+```sh
+./run.sh calibration.yaml stereo.csv imu.csv poses.csv
+```
+
+`stereo.csv` 行格式为 `timestamp_ns,left_image,right_image`；`imu.csv` 为 `timestamp_ns,gx,gy,gz,ax,ay,az`，单位依次为 rad/s 与 m/s²。时间戳必须属于同一时钟域、严格递增，IMU 覆盖完整相机区间。输入数据应匹配传入的标定和 `raw_si` IMU 模型。
+
+相机、IMU 的硬件和接口细节分别见 [CAMERA.md](CAMERA.md)、[IMU.md](IMU.md)。性能实验与结果保存在 `bench/` 和 `tests/`，不作为默认运行参数。
