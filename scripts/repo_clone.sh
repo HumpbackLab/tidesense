@@ -14,7 +14,7 @@ function print_usage() {
     echo "  $0 --gitclone scripts/subtree.xml"
     echo "  $0 --gitpull scripts/subtree.xml"
     echo "  $0 --gitclone scripts/subtree.xml --normal"
-    echo "  $0 --gitclone scripts/subtree.xml --reproduce scripts/git_version_v410/git_version_v410_2024-11-18.txt"
+    echo "  $0 --gitclone scripts/subtree.xml --reproduce /path/to/git_version.txt"
 }
 
 # 打印等级及颜色设置
