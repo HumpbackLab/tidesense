@@ -1,0 +1,88 @@
+diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
+index 8890ed220..874004fd5 100644
+--- a/cvitek/task/comm/CMakeLists.txt
++++ b/cvitek/task/comm/CMakeLists.txt
+@@ -17,3 +17,9 @@ include_directories(${CMAKE_INSTALL_INC_PREFIX}/hal/config)
+ add_library(comm STATIC ${_SOURCES})
+ install(TARGETS comm DESTINATION lib)
+ 
++
++# TideSense debug features are explicitly enabled by scripts/c906/build.sh.
++option(TIDESENSE_C906_RELOAD "Enable cooperative C906 firmware RAM reload" OFF)
++if(TIDESENSE_C906_RELOAD)
++    target_compile_definitions(comm PRIVATE TIDESENSE_C906_RELOAD)
++endif()
+diff --git a/cvitek/task/comm/src/riscv64/comm_main.c b/cvitek/task/comm/src/riscv64/comm_main.c
+index 454581662..177cbe5b4 100644
+--- a/cvitek/task/comm/src/riscv64/comm_main.c
++++ b/cvitek/task/comm/src/riscv64/comm_main.c
+@@ -19,6 +19,9 @@
+ 
+ #include "comm.h"
+ #include "cvi_spinlock.h"
++#ifdef TIDESENSE_C906_RELOAD
++#include "../../../../../../scripts/c906/firmware.h"
++#endif
+ 
+ //#define __DEBUG__
+ 
+@@ -108,9 +111,16 @@ TASK_CTX_S gTaskCtx[E_QUEUE_MAX] = {
+ 	},
+ };
+ 
++#ifdef TIDESENSE_C906_RELOAD
++/* IRQs can arrive before the command task runs after a warm start. */
++volatile struct mailbox_set_register *mbox_reg = (void *)MAILBOX_REG_BASE;
++volatile struct mailbox_done_register *mbox_done_reg = (void *)(MAILBOX_REG_BASE + 2);
++volatile unsigned long *mailbox_context = (void *)MAILBOX_REG_BUFF;
++#else
+ volatile struct mailbox_set_register *mbox_reg;
+ volatile struct mailbox_done_register *mbox_done_reg;
+ volatile unsigned long *mailbox_context; // mailbox buffer context is 64 Bytess
++#endif
+ 
+ /****************************************************************************
+  * Function definitions
+@@ -201,11 +211,24 @@ void prvCmdQuRunTask(void *pvParameters)
+ 
+ 	cvi_spinlock_init();
+ 	printf("prvCmdQuRunTask run\n");
++#ifdef TIDESENSE_C906_RELOAD
++    c906_reload_ready();
++#endif
+ 
+ 	for (;;) {
+ 		xQueueReceive(gTaskCtx[E_QUEUE_CMDQU].queHandle, &rtos_cmdq, portMAX_DELAY);
+ 
+ 		switch (rtos_cmdq.cmd_id) {
++#ifdef TIDESENSE_C906_RELOAD
++            case C906_RELOAD_CAP_CMD:
++                rtos_cmdq.param_ptr = C906_RELOAD_MAGIC;
++                goto send_label;
++            case C906_RELOAD_PARK_CMD:
++                c906_firmware_reload_enter((uintptr_t)rtos_cmdq.param_ptr);
++                rtos_cmdq.param_ptr = 0;
++                goto send_label;
++#endif
++
+ #if ( configUSE_TRACE_FACILITY == 1 )
+ 			case SYS_CMD_INFO_TRACE_SNAPSHOT_START:
+ 				debug_printf("SYS_CMD_INFO_TRACE_SNAPSHOT_START\n");
+diff --git a/cvitek/task/main/CMakeLists.txt b/cvitek/task/main/CMakeLists.txt
+index 800821812..160090213 100644
+--- a/cvitek/task/main/CMakeLists.txt
++++ b/cvitek/task/main/CMakeLists.txt
+@@ -46,6 +46,13 @@ link_directories("${TOP_DIR}/install/lib")
+ 
+ add_executable(cvirtos.elf ${_SOURCES})
+ 
++# Reserve room for the optional debug reload hook in the 768 KiB carveout.
++# Task heaps retain their normal size; only the boot stack changes 128 -> 120 KiB.
++if(TIDESENSE_C906_RELOAD)
++    target_link_options(cvirtos.elf PRIVATE "-Wl,--defsym=_STACK_SIZE=0x1e000")
++endif()
++
++
+ target_link_libraries(cvirtos.elf PRIVATE -Wl,--start-group ${CVI_TASK_LIBS} ${CVI_LIBS} ${EXTRA_LIBS} -Wl,--end-group -Wl,-Map=cvirtos.map)
+ 
+ install(TARGETS cvirtos.elf DESTINATION bin)
