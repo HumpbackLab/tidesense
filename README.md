@@ -52,24 +52,47 @@ SDK 文档中的电脑端命令从本仓库根目录执行；TideConfigurator �
 
 ## 快速开始
 
-### Ubuntu 24.04 开发容器
+### Ubuntu 24.04 开发容器（Docker 或 Podman）
 
-电脑上安装 Podman 后，在仓库根目录构建并进入开发容器：
+在 Linux 电脑上安装 Docker 或 Podman 后，从仓库根目录执行以下命令。容器包含 Ubuntu 24.04、ROS 2 Jazzy、Node.js 22、SDK 编译工具、Boost 1.74 头文件、TideConfigurator Python 依赖和已编译的前端。SDK 源码通过目录挂载提供，构建产物写回仓库。
+
+#### Docker
+
+直接使用 GitHub Container Registry 中已发布的镜像：
+
+```bash
+docker pull ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04
+SDK_ROOT=$(pwd -P)
+docker run --rm -it --privileged --network=host \
+  -v "$SDK_ROOT:$SDK_ROOT" -w "$SDK_ROOT" \
+  ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04 bash
+```
+
+如需根据当前 TideConfigurator 前端源码重新制作镜像：
+
+```bash
+docker build -f Containerfile.dev -t tidesense-dev:ubuntu24.04 tide_configurator
+```
+
+将上面的 `docker run` 镜像名替换为 `tidesense-dev:ubuntu24.04`，即可使用本地构建的镜像。使用 rootful Docker 时，容器生成的文件可能归宿主 root 所有。
+
+#### Podman
+
+本地构建并进入容器：
 
 ```bash
 ./scripts/dev-container.sh build
 ./scripts/dev-container.sh shell
 ```
 
-也可以直接拉取发布到 GitHub Container Registry 的镜像：
+或者直接拉取已发布的镜像：
 
 ```bash
 podman pull ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04
 TIDESENSE_DEV_IMAGE=ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04 ./scripts/dev-container.sh shell
 ```
 
-容器以 Ubuntu 24.04 为基础，包含 ROS 2 Jazzy、Node.js 22、SDK 编译工具、Boost 1.74 头文件，以及已安装的 TideConfigurator Python 依赖和已编译的前端。仓库以相同的绝对路径挂载，构建产物写回原目录；容器使用宿主网络，因此 TideConfigurator 的 `127.0.0.1:8765` 可从宿主浏览器访问。入口脚本以 `--privileged` 启动容器，使 TideConfigurator 的标定功能可以在容器内运行 Podman；不使用宿主 Podman socket。
-TideConfigurator 后端读取挂载的当前源码；修改前端后重新执行 `./scripts/dev-container.sh build` 以更新镜像内的前端页面。
+两种运行方式都使用宿主网络，因此 TideConfigurator 的 `127.0.0.1:8765` 可从宿主浏览器访问。`--privileged` 让 TideConfigurator 的标定功能能在容器内运行 Podman；无需挂载宿主 Podman socket。TideConfigurator 后端读取挂载的当前源码；修改前端后需重新构建镜像，才能更新镜像内的页面。
 
 在容器中生成 SD 卡镜像：
 
