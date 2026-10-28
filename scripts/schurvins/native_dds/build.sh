@@ -4,7 +4,8 @@ set -eo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 sdk=$(cd -- "$here/../../.." && pwd)
 work="$sdk/install/native-dds"
-source /opt/ros/humble/setup.bash
+source "$sdk/scripts/ros2-setup.sh"
+tidesense_source_ros2
 if [[ ! -x "$work/venv/bin/colcon" ]]; then
   python3 -m venv --system-site-packages "$work/venv"
   "$work/venv/bin/pip" install colcon-common-extensions vcstool 'empy==3.3.4' lark catkin_pkg

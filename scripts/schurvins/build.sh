@@ -105,7 +105,8 @@ ros_args=()
 if [[ "$backend" == native-dds ]]; then
   ros_args+=(-DCMAKE_TOOLCHAIN_FILE="$here/native_dds/toolchain.cmake")
   set +u
-  source /opt/ros/humble/setup.bash
+  source "$sdk/scripts/ros2-setup.sh"
+  tidesense_source_ros2
   set -u
   export AMENT_PREFIX_PATH="$sdk/install/native-dds/ws/install:$AMENT_PREFIX_PATH"
   export CMAKE_PREFIX_PATH="$sdk/install/native-dds/ws/install:${CMAKE_PREFIX_PATH:-}"

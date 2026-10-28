@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Build the pinned Humble rcl/rclc/RMW/XRCE stack as an A53 static archive.
+# Build the pinned rcl/rclc/RMW/XRCE stack as an A53 static archive.
 set -eo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 sdk=$(cd -- "$here/../../.." && pwd)
 work="$sdk/install/micro-ros"
-ros_setup=${MICRO_ROS_HOST_SETUP:-/opt/ros/humble/setup.bash}
-[[ -f "$ros_setup" ]] || { echo "Install host ROS 2 Humble development tools or set MICRO_ROS_HOST_SETUP" >&2; exit 1; }
-source "$ros_setup"
-[[ "$ROS_DISTRO" == humble ]] || { echo "This manifest targets ROS 2 Humble" >&2; exit 1; }
+source "$sdk/scripts/ros2-setup.sh"
+tidesense_source_ros2
 set -u
 mkdir -p "$work/firmware/mcu_ws"
 if [[ ! -x "$work/venv/bin/colcon" ]]; then
@@ -16,9 +14,14 @@ if [[ ! -x "$work/venv/bin/colcon" ]]; then
 fi
 source "$work/venv/bin/activate"
 # Fetch exact commits. Refuse to overwrite another revision or modified source.
-python3 - "$here/sources.repos" "$work/firmware/mcu_ws" "$here/0001-isolate-client-key-rng.patch" <<'PY'
+python3 - "$here/sources.repos" "$work/firmware/mcu_ws" \
+  "$here/0001-isolate-client-key-rng.patch" "$here/0002-rosidl-host-compat.patch" <<'PY'
 import pathlib, subprocess, sys, yaml
 root = pathlib.Path(sys.argv[2])
+patches = {
+    'uros/rmw_microxrcedds': pathlib.Path(sys.argv[3]),
+    'ros2/rosidl': pathlib.Path(sys.argv[4]),
+}
 for name, spec in yaml.safe_load(pathlib.Path(sys.argv[1]).read_text())['repositories'].items():
     target = root / name
     if not (target / '.git').is_dir():
@@ -38,8 +41,8 @@ for name, spec in yaml.safe_load(pathlib.Path(sys.argv[1]).read_text())['reposit
     rev = subprocess.check_output(['git', '-C', str(target), 'rev-parse', 'HEAD'], text=True).strip()
     if rev != spec['version']:
         raise SystemExit(f'Unexpected revision: {target}; source left untouched')
-    if name == 'uros/rmw_microxrcedds':
-        patch = pathlib.Path(sys.argv[3])
+    if name in patches:
+        patch = patches[name]
         diff = subprocess.check_output(['git', '-C', str(target), 'diff', 'HEAD'])
         if diff and diff != patch.read_bytes():
             raise SystemExit(f'Unexpected local changes: {target}; source left untouched')
@@ -82,7 +85,9 @@ headers = root/'build/include'
 if headers.exists(): shutil.rmtree(headers)
 shutil.copytree(root/'mcu_ws/install/include', headers)
 PY
-cp "$here/sources.repos" "$here/colcon.meta" "$here/0001-isolate-client-key-rng.patch" "$work/firmware/build/"
+cp "$here/sources.repos" "$here/colcon.meta" \
+  "$here/0001-isolate-client-key-rng.patch" "$here/0002-rosidl-host-compat.patch" \
+  "$work/firmware/build/"
 # Ship upstream license notices with the application package.
 python3 - "$here/sources.repos" "$work/firmware" <<'PY'
 import pathlib, sys, yaml, shutil

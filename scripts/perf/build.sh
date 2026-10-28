@@ -8,8 +8,11 @@ prefix="$sdk_root/host-tools/gcc/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-g
 output="$sdk_root/install/soc_sg2002_tidesense_arm64_sd"
 package="$output/perf"
 jobs=${PERF_JOBS:-8}
+host_gcc_major=$(gcc -dumpfullversion -dumpversion)
+host_gcc_major=${host_gcc_major%%.*}
+perf_out="$work/perf-out-host-gcc$host_gcc_major"
 archive="$work/elfutils-0.184.tar.bz2"
-mkdir -p "$deps" "$work/elfutils-out" "$work/perf-out"
+mkdir -p "$deps" "$work/elfutils-out" "$perf_out"
 if [ ! -f "$archive" ]; then
     curl -fL --retry 2 https://sourceware.org/elfutils/ftp/0.184/elfutils-0.184.tar.bz2 -o "$archive.tmp"
     mv "$archive.tmp" "$archive"
@@ -34,7 +37,7 @@ tar xzf "$sdk_root/oss/oss_release_tarball/64bit/zlib.tar.gz" -C "$deps"
     make -C libelf install
 )
 make -C "$sdk_root/linux_5.10/tools/perf" -j"$jobs" \
-    O="$work/perf-out/" ARCH=arm64 CROSS_COMPILE="$prefix" prefix=/usr \
+    O="$perf_out/" ARCH=arm64 CROSS_COMPILE="$prefix" prefix=/usr \
     EXTRA_CFLAGS="-I$deps/include" LDFLAGS="-static -L$deps/lib" PKG_CONFIG=/bin/false \
     NO_LIBPERL=1 NO_LIBPYTHON=1 NO_SLANG=1 NO_GTK2=1 \
     NO_LIBUNWIND=1 NO_LIBDW_DWARF_UNWIND=1 NO_DWARF=1 NO_LIBBPF=1 \
@@ -42,7 +45,7 @@ make -C "$sdk_root/linux_5.10/tools/perf" -j"$jobs" \
     NO_LIBBABELTRACE=1 NO_LIBZSTD=1 NO_LIBDEBUGINFOD=1 NO_AUXTRACE=1 \
     NO_JVMTI=1 NO_SDT=1 WERROR=0
 install -d "$package" "$output/rootfs/usr/bin"
-install -m755 "$work/perf-out/perf" "$package/perf"
+install -m755 "$perf_out/perf" "$package/perf"
 "${prefix}strip" "$package/perf"
 install -m755 "$package/perf" "$output/rootfs/usr/bin/perf"
 install -d "$output/rootfs/usr/share/doc/perf-tip"

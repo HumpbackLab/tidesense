@@ -13,7 +13,7 @@ SCHUR_ROS_BACKEND=micro-ros scripts/schurvins/build.sh
 SCHUR_ROS_BACKEND=none scripts/schurvins/build.sh
 ```
 
-主机需要 ROS 2 Humble 开发环境，首次自动创建独立的构建 venv、获取锁定版本的依赖。
+主机需要 ROS 2 开发环境；构建脚本使用已加载的发行版，或通过 `TIDESENSE_ROS_SETUP` 指定安装。首次自动创建独立的构建 venv、获取锁定版本的依赖。
 原生运行时可独立构建，不要求先编译 micro-ROS。源码版本锁定在本目录 `sources.repos`。
 `SCHUR_WITH_MICRO_ROS=ON/OFF` 仍可用于原有构建脚本；设置 `SCHUR_ROS_BACKEND` 时以新开关为准。
 
@@ -80,7 +80,7 @@ SDK 整体构建可先 `export SCHUR_ROS_BACKEND=native-dds` 再执行 `build_ti
 
 ## 复测
 
-独立对照实验仍需主机 ROS 2 Humble、micro-ROS 构建缓存及主机 Cyclone DDS：
+独立对照实验仍需主机 ROS 2、micro-ROS 构建缓存及主机 Cyclone DDS：
 
 ```bash
 scripts/schurvins/native_dds/build.sh

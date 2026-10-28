@@ -1,4 +1,4 @@
-# TideSense optional micro-ROS (ROS 2 Humble)
+# TideSense optional micro-ROS (ROS 2)
 
 Run computer-side commands from the project root. Run board-side commands
 from the deployed program directory on the device.
@@ -55,8 +55,8 @@ Standalone build without the micro-ROS library:
 SCHUR_WITH_MICRO_ROS=OFF scripts/schurvins/build.sh
 ```
 
-Requires host ROS 2 Humble development tools (default `/opt/ros/humble/setup.bash`,
-override `MICRO_ROS_HOST_SETUP`), Python venv support, git, CMake and internet for
+Requires host ROS 2 development tools (source the desired distribution first, or
+set `TIDESENSE_ROS_SETUP` to its `setup.bash`), Python venv support, git, CMake and internet for
 the initial fetch. `micro_ros/build.sh` creates a private Python environment under
 `install/micro-ros`, downloads the exact commits in `micro_ros/sources.repos`,
 and builds `install/micro-ros/firmware/build/libmicroros.a`. No host ROS library
@@ -119,14 +119,14 @@ a disconnected device cannot deliver a final `tracking=false` message.
 
 ## Agent on the computer
 
-Use the Humble micro-ROS Agent. **For ROS 2 subscribers, use Cyclone DDS in the
-currently tested host environment** (`ros-humble-rmw-cyclonedds-cpp`). The Agent
+Use the micro-ROS Agent built for your host ROS 2 distribution. **For ROS 2 subscribers, use Cyclone DDS in the
+currently tested host environment** (`ros-${ROS_DISTRO}-rmw-cyclonedds-cpp`). The Agent
 itself still uses Fast DDS internally; the two DDS implementations interoperate.
 
 On the companion computer, install that ROS package if it is not already present:
 
 ```sh
-sudo apt install ros-humble-rmw-cyclonedds-cpp
+sudo apt install "ros-${ROS_DISTRO}-rmw-cyclonedds-cpp"
 ```
 
 The existing host Fast DDS 2.6.10 receiver exhibited an initial writer-matching

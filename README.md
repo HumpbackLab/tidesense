@@ -52,6 +52,10 @@ SDK 文档中的电脑端命令从本仓库根目录执行；TideConfigurator �
 
 ## 快速开始
 
+### 依赖环境安装
+
+可使用 Docker/Podman 镜像，或直接在 Ubuntu 24.04 安装依赖。步骤见 [开发环境安装说明](docs/development-environment.md)；两种方式使用同一套[编译命令](#编译)。
+
 ### 编译
 
 - 获取源码：
@@ -109,6 +113,6 @@ install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img
 - `/mnt/data/tidesense-vio-depth/`：[共享帧 VIO + TPU 深度模式](scripts/vio-depth/README.md)，640×400 SchurVINS 与 TPU 320×200 深度并行，经 micro-ROS 输出。
 - `/usr/bin/perf` 及 `/mnt/data/perf/`：性能分析工具、测试负载和许可文件。
 
-主机需安装 ROS 2 Humble 开发环境及各工具的构建依赖，首次构建会下载锁定版本的依赖。
+构建脚本使用已加载的 ROS 2 发行版，或通过 `TIDESENSE_ROS_SETUP` 指定 `setup.bash`。首次构建会下载锁定版本的依赖。
 micro-ROS 通信在运行时仍由 `SCHUR_MICRO_ROS=1` 和 Agent 地址启用。
 随包标定来自当前测试板；更换硬件后应使用对应板卡的标定。
