@@ -1,32 +1,41 @@
 diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
-index 8890ed220..874004fd5 100644
+index 8890ed220..ca3979543 100644
 --- a/cvitek/task/comm/CMakeLists.txt
 +++ b/cvitek/task/comm/CMakeLists.txt
-@@ -17,3 +17,9 @@ include_directories(${CMAKE_INSTALL_INC_PREFIX}/hal/config)
+@@ -17,3 +17,13 @@ include_directories(${CMAKE_INSTALL_INC_PREFIX}/hal/config)
  add_library(comm STATIC ${_SOURCES})
  install(TARGETS comm DESTINATION lib)
  
 +
 +# TideSense debug features are explicitly enabled by scripts/c906/build.sh.
 +option(TIDESENSE_C906_RELOAD "Enable cooperative C906 firmware RAM reload" OFF)
++option(TIDESENSE_C906_TPU_PROBE "Enable standalone C906 TPU access experiment" OFF)
 +if(TIDESENSE_C906_RELOAD)
 +    target_compile_definitions(comm PRIVATE TIDESENSE_C906_RELOAD)
 +endif()
++if(TIDESENSE_C906_TPU_PROBE)
++    target_compile_definitions(comm PRIVATE TIDESENSE_C906_TPU_PROBE)
++endif()
 diff --git a/cvitek/task/comm/src/riscv64/comm_main.c b/cvitek/task/comm/src/riscv64/comm_main.c
-index 454581662..177cbe5b4 100644
+index 454581662..1d461136e 100644
 --- a/cvitek/task/comm/src/riscv64/comm_main.c
 +++ b/cvitek/task/comm/src/riscv64/comm_main.c
-@@ -19,6 +19,9 @@
+@@ -19,6 +19,14 @@
  
  #include "comm.h"
  #include "cvi_spinlock.h"
 +#ifdef TIDESENSE_C906_RELOAD
 +#include "../../../../../../scripts/c906/firmware.h"
 +#endif
++#ifdef TIDESENSE_C906_TPU_PROBE
++#include "arch_helpers.h"
++#include "arch_time.h"
++#include "../../../../../../scripts/vio-compare/probes/c906-tpu/firmware.c"
++#endif
  
  //#define __DEBUG__
  
-@@ -108,9 +111,16 @@ TASK_CTX_S gTaskCtx[E_QUEUE_MAX] = {
+@@ -108,9 +116,16 @@ TASK_CTX_S gTaskCtx[E_QUEUE_MAX] = {
  	},
  };
  
@@ -43,7 +52,7 @@ index 454581662..177cbe5b4 100644
  
  /****************************************************************************
   * Function definitions
-@@ -201,11 +211,24 @@ void prvCmdQuRunTask(void *pvParameters)
+@@ -201,11 +216,33 @@ void prvCmdQuRunTask(void *pvParameters)
  
  	cvi_spinlock_init();
  	printf("prvCmdQuRunTask run\n");
@@ -63,6 +72,15 @@ index 454581662..177cbe5b4 100644
 +                c906_firmware_reload_enter((uintptr_t)rtos_cmdq.param_ptr);
 +                rtos_cmdq.param_ptr = 0;
 +                goto send_label;
++#endif
++#ifdef TIDESENSE_C906_TPU_PROBE
++            case TPU_PROBE_CMD: {
++                uintptr_t addr = (uintptr_t)rtos_cmdq.param_ptr;
++                if (addr >= 0x80000000u && !(addr & 63u) &&
++                    addr <= 0x8ff40000u - TPU_PROBE_BYTES)
++                    c906_tpu_probe(addr);
++                goto send_label;
++            }
 +#endif
 +
  #if ( configUSE_TRACE_FACILITY == 1 )

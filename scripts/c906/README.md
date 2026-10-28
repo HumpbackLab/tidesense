@@ -7,7 +7,7 @@ Linux 可以将兼容的 C906 固件复制到小核保留内存并重新启动�
 
 ## 已部署及实测
 
-2026-10-28，在 TideSense 上连续交替加载兼容的小核固件 10 次，
+2026-10-28，在 TideSense 上连续交替加载普通固件和 TPU 测试固件 10 次，
 全部成功，前后 Linux boot ID 相同。以下时间由内核测量，固件已在用户态内存中，
 不包含从电脑上传、SD 读取及启动命令行进程的时间：
 
@@ -19,11 +19,12 @@ Linux 可以将兼容的 C906 固件复制到小核保留内存并重新启动�
 | 合计 | 19.640 ms，范围 19.576–19.698 ms |
 
 实测日志保存在本机 `install/c906-reload/reload-switch.log`。
-还验证了模块卸载后重新加载，以及拒绝未带重载钩子的
+在线切换到 TPU 固件后另运行了 500 次 `y=2x+1`，2048 个 BF16 元素全部正确，
+再在线切回普通固件。还验证了模块卸载后重新加载，以及拒绝未带重载钩子的
 原版固件；拒绝操作后小核仍正常响应。
 
 设备工具及两种固件位于 `/mnt/data/c906-reload/`。普通固件保留 SDK 的原有
-任务和邮箱处理。
+任务和邮箱处理，TPU 测试功能只存在于 `cvirtos-reload-tpu.bin`。
 
 ## 日常更新命令
 
@@ -51,6 +52,7 @@ Linux 内核及 `rtos_cmdqu` 符号表。然后在 SDK 根目录执行：
 
 ```sh
 scripts/c906/build.sh
+scripts/c906/build.sh --tpu-probe  # 可选，额外生成 TPU 实验版本和工具
 ```
 
 默认输出到 `install/c906-reload/`，可用 `C906_OUT` 指定目录：
@@ -58,10 +60,11 @@ scripts/c906/build.sh
 - `c906_loader.ko`：Linux 加载器，提供 `/dev/c906-loader`。
 - `c906-reload`：静态链接的 A53 命令行工具。
 - `cvirtos-reload-base.bin/.elf`：普通固件及调试符号。
+- `cvirtos-reload-tpu.bin/.elf`：可选 TPU 实验固件。
 
 脚本使用独立的 `freertos/cvitek/build/c906-reload/` 任务构建目录。
-FreeRTOS 的 `TIDESENSE_C906_RELOAD` 选项默认
-为 OFF，不会要求其他 SDK 固件启用此功能。启用重载时，启动栈从 128 KiB
+FreeRTOS 的 `TIDESENSE_C906_RELOAD` 和 `TIDESENSE_C906_TPU_PROBE` 选项默认
+均为 OFF，不会要求其他 SDK 固件启用此功能。启用重载时，启动栈从 128 KiB
 调为 120 KiB，为钩子留出空间；任务堆保持 512 KiB。
 
 当前 FreeRTOS 仓库已经接入钩子。由于 SDK 外层不跟踪该目录，另保存

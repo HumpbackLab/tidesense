@@ -2,8 +2,11 @@
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 out=${C906_OUT:-"$repo/install/c906-reload"}
-if [[ $# != 0 ]]; then
-    echo "usage: $0" >&2
+probe=OFF
+if [[ ${1:-} == --tpu-probe && $# == 1 ]]; then
+    probe=ON
+elif [[ $# != 0 ]]; then
+    echo "usage: $0 [--tpu-probe]" >&2
     exit 2
 fi
 rtos="$repo/freertos/cvitek"
@@ -39,9 +42,10 @@ cmake -G Ninja -S "$rtos/task" -B "$rtos/build/c906-reload" \
     -DCMAKE_TOOLCHAIN_FILE="$rtos/scripts/toolchain-riscv64-elf.cmake" \
     -DTOP_DIR="$rtos" -DBUILD_ENV_PATH="$repo/build" -DCHIP=cv181x \
     -DRUN_ARCH=riscv64 -DRUN_TYPE=CVIRTOS -DBOARD_FPGA=n \
-    -DTIDESENSE_C906_RELOAD=ON
+    -DTIDESENSE_C906_RELOAD=ON -DTIDESENSE_C906_TPU_PROBE="$probe"
 cmake --build "$rtos/build/c906-reload" --target install
 name=cvirtos-reload-base
+[[ "$probe" == OFF ]] || name=cvirtos-reload-tpu
 # Use the actual link output, avoiding timestamp-based install copies.
 cp "$rtos/build/c906-reload/main/cvirtos.elf" "$out/$name.elf"
 "${riscv}objcopy" -O binary "$out/$name.elf" "$out/$name.bin"
@@ -50,4 +54,15 @@ make -C "$repo/linux_5.10" O="$kernel" ARCH=arm64 CROSS_COMPILE="$arm" \
     M="$repo/scripts/c906" \
     KBUILD_EXTRA_SYMBOLS="$repo/osdrv/interdrv/rtos_cmdqu/Module.symvers" modules
 cp "$repo/scripts/c906/c906_loader.ko" "$out/"
+if [[ "$probe" == ON ]]; then
+    "${arm}gcc" -O2 -static -I"$repo/cvi_mpi/include" -I"$repo/cvikernel/include" \
+        "$repo/scripts/vio-compare/probes/c906-tpu/host.c" -Wl,--start-group \
+        "$repo/cvi_mpi/lib/libsys.a" "$repo/cvi_mpi/lib/libcvikernel-static.a" \
+        "$repo/cvi_mpi/lib/libcviruntime-static.a" -Wl,--end-group \
+        -lstdc++ -lpthread -lm -lrt -o "$out/c906-tpu-host"
+    make -C "$repo/linux_5.10" O="$kernel" ARCH=arm64 CROSS_COMPILE="$arm" \
+        M="$repo/scripts/vio-compare/probes/c906-tpu" \
+        KBUILD_EXTRA_SYMBOLS="$repo/osdrv/interdrv/rtos_cmdqu/Module.symvers" modules
+    cp "$repo/scripts/vio-compare/probes/c906-tpu/c906_tpu_bridge.ko" "$out/"
+fi
 echo "Built $out/$name.bin, c906-reload, c906_loader.ko"
