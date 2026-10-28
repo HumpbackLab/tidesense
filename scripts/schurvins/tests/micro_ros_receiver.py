@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host fixture assertions; use ROS 2 Humble with the same domain as the board."""
+"""Host fixture assertions; use ROS 2 with the same domain as the board."""
 import argparse
 import json
 import time

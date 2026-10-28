@@ -4,8 +4,8 @@ set -eo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 sdk=$(cd -- "$here/../../.." && pwd)
 work="$sdk/install/micro-ros"
-source "${MICRO_ROS_HOST_SETUP:-/opt/ros/humble/setup.bash}"
-[[ "$ROS_DISTRO" == humble ]] || { echo 'ROS 2 Humble is required' >&2; exit 1; }
+source "$sdk/scripts/ros2-setup.sh"
+tidesense_source_ros2
 [[ -f "$work/venv/bin/activate" ]] || { echo 'Run micro_ros/build.sh first' >&2; exit 1; }
 source "$work/venv/bin/activate"
 set -u

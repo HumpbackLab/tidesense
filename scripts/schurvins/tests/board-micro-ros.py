@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Run the camera-free transport fixture on TideSense; SSHPASS must be set.
-Source ROS 2 Humble and the built micro-ROS Agent before invoking this script.
+Source ROS 2 and the built micro-ROS Agent before invoking this script.
 """
 import argparse
 import json

@@ -3,7 +3,8 @@ set -eo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 sdk=$(cd -- "$here/../../.." && pwd)
 work="$sdk/install/native-dds"
-source /opt/ros/humble/setup.bash
+source "$sdk/scripts/ros2-setup.sh"
+tidesense_source_ros2
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export AMENT_PREFIX_PATH="$work/ws/install:$AMENT_PREFIX_PATH"
 export CMAKE_PREFIX_PATH="$work/ws/install:${CMAKE_PREFIX_PATH:-}"

@@ -1,0 +1,30 @@
+name: Publish development image
+
+on:
+  push:
+    branches:
+      - master
+      - codex/publish-dev-image
+    paths:
+      - Containerfile.dev
+      - tide_configurator
+      - .github/workflows/dev-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build image
+        run: docker build -f Containerfile.dev -t ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04 tide_configurator
+      - name: Push image
+        run: docker push ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04

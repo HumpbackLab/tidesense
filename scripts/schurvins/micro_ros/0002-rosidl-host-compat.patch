@@ -1,0 +1,27 @@
+diff --git a/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake b/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake
+index 51663cd..c59f97e 100644
+--- a/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake
++++ b/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake
+@@ -283,7 +283,9 @@ macro(rosidl_generate_interfaces target)
+     list(APPEND rosidl_generate_interfaces_ABS_IDL_FILES "${_abs_idl_file}")
+   endforeach()
+ 
+-  ament_execute_extensions("rosidl_generate_idl_interfaces")
++  # The pinned target generator does not support Jazzy type descriptions.
++  ament_execute_extensions("rosidl_generate_idl_interfaces"
++    EXCLUDE rosidl_generator_type_description)
+ 
+   # check for extensions registered with the previous extension point
+   set(obsolete_extension_point "rosidl_generate_interfaces")
+diff --git a/rosidl_cmake/cmake/rosidl_write_generator_arguments.cmake b/rosidl_cmake/cmake/rosidl_write_generator_arguments.cmake
+index 33a3733..9d7dbf4 100644
+--- a/rosidl_cmake/cmake/rosidl_write_generator_arguments.cmake
++++ b/rosidl_cmake/cmake/rosidl_write_generator_arguments.cmake
+@@ -30,6 +30,7 @@ function(rosidl_write_generator_arguments output_file)
+     "NON_IDL_TUPLES"
+     "ROS_INTERFACE_FILES")
+   set(OPTIONAL_MULTI_VALUE_KEYWORDS
++    "INCLUDE_PATHS"
+     "ROS_INTERFACE_DEPENDENCIES"  # since the dependencies can be empty
+     "TARGET_DEPENDENCIES"
+     "ADDITIONAL_FILES")

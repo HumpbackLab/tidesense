@@ -159,7 +159,7 @@ else()
     endif()
     target_compile_definitions(schurvins_micro_ros PRIVATE SCHUR_WITH_MICRO_ROS=1)
     target_include_directories(schurvins_micro_ros PRIVATE "${SCHUR_MICRO_ROS_ROOT}/include")
-    # Humble installs some headers below an additional package directory.
+    # Some ROS 2 installations nest headers below an additional package directory.
     file(GLOB micro_ros_include_dirs LIST_DIRECTORIES TRUE "${SCHUR_MICRO_ROS_ROOT}/include/*")
     foreach(dir IN LISTS micro_ros_include_dirs)
       if(IS_DIRECTORY "${dir}")

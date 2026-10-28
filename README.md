@@ -52,6 +52,40 @@ SDK 文档中的电脑端命令从本仓库根目录执行；TideConfigurator �
 
 ## 快速开始
 
+### Ubuntu 24.04 开发容器
+
+电脑上安装 Podman 后，在仓库根目录构建并进入开发容器：
+
+```bash
+./scripts/dev-container.sh build
+./scripts/dev-container.sh shell
+```
+
+也可以直接拉取发布到 GitHub Container Registry 的镜像：
+
+```bash
+podman pull ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04
+TIDESENSE_DEV_IMAGE=ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04 ./scripts/dev-container.sh shell
+```
+
+容器以 Ubuntu 24.04 为基础，包含 ROS 2 Jazzy、Node.js 22、SDK 编译工具、Boost 1.74 头文件，以及已安装的 TideConfigurator Python 依赖和已编译的前端。仓库以相同的绝对路径挂载，构建产物写回原目录；容器使用宿主网络，因此 TideConfigurator 的 `127.0.0.1:8765` 可从宿主浏览器访问。入口脚本以 `--privileged` 启动容器，使 TideConfigurator 的标定功能可以在容器内运行 Podman；不使用宿主 Podman socket。
+TideConfigurator 后端读取挂载的当前源码；修改前端后重新执行 `./scripts/dev-container.sh build` 以更新镜像内的前端页面。
+
+在容器中生成 SD 卡镜像：
+
+```bash
+source build/envsetup_soc.sh
+defconfig sg2002_tidesense_arm64_sd
+build_all
+```
+
+在容器中构建文档导航中的独立程序，使用各子页面的构建命令。例如 `scripts/schurvins/build.sh`、`scripts/dataset/build.sh`、`scripts/uvc/build.sh` 和 `scripts/depth/build.sh`。首次构建需要联网下载锁定的源码依赖。TideConfigurator 的依赖在制作镜像时已经安装，在容器中直接运行：
+
+```bash
+cd tide_configurator
+./run.sh
+```
+
 ### 编译
 
 - 获取源码：
@@ -109,6 +143,6 @@ install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img
 - `/mnt/data/tidesense-vio-depth/`：[共享帧 VIO + TPU 深度模式](scripts/vio-depth/README.md)，640×400 SchurVINS 与 TPU 320×200 深度并行，经 micro-ROS 输出。
 - `/usr/bin/perf` 及 `/mnt/data/perf/`：性能分析工具、测试负载和许可文件。
 
-主机需安装 ROS 2 Humble 开发环境及各工具的构建依赖，首次构建会下载锁定版本的依赖。
+主机需安装 ROS 2 开发环境及各工具的构建依赖；构建脚本自动使用已加载的 ROS 2 发行版，也可通过 `TIDESENSE_ROS_SETUP` 指定 `setup.bash`。首次构建会下载锁定版本的依赖。
 micro-ROS 通信在运行时仍由 `SCHUR_MICRO_ROS=1` 和 Agent 地址启用。
 随包标定来自当前测试板；更换硬件后应使用对应板卡的标定。
