@@ -12,6 +12,8 @@ JOBS=4 scripts/schurvins/build.sh
 
 默认生成 `install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros-a53.tar`。将包复制到设备并解压到 `/mnt/data`。`build_all` 也会构建并预装此版本。
 
+七项 `SCHUR_OPT_*` 优化开关默认开启；需要逐项关闭时在构建前显式设置环境变量，并检查产物的 `BUILD-INFO`。
+
 构建时可用 `SCHUR_ROS_BACKEND=micro-ros|native-dds|none` 选择通信后端；默认是 micro-ROS。三种后端使用独立构建目录。源码版本和依赖由 [sources.lock](sources.lock) 固定，构建入口会准备所需的 OpenCV、yaml-cpp、glog 等静态依赖。原生 DDS 的部署方式见 [native_dds/README.md](native_dds/README.md)。
 
 随包的 `schurvins.yaml` 仅适用于对应设备。换板后需使用该板的相机内参、双目及相机与 IMU 外参、IMU 内参和时间偏移。TideConfigurator 可生成并应用标定结果；参数说明见 [CALIBRATION.md](CALIBRATION.md)。
