@@ -54,7 +54,7 @@ SDK 文档中的电脑端命令从本仓库根目录执行；TideConfigurator �
 
 ### 开发容器（Ubuntu 24.04）
 
-在 Linux 主机的仓库根目录执行，选择 Docker 或 Podman：
+获取源码后，在 Linux 主机的仓库根目录选择 Docker 或 Podman 进入开发环境：
 
 #### Docker
 
@@ -73,22 +73,7 @@ podman pull ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04
 TIDESENSE_DEV_IMAGE=ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04 ./scripts/dev-container.sh shell
 ```
 
-仓库挂载进容器，构建产物写回原目录。Docker 默认以 root 运行，生成文件可能归 root 所有。
-
-在容器中生成 SD 卡镜像：
-
-```bash
-source build/envsetup_soc.sh
-defconfig sg2002_tidesense_arm64_sd
-build_all
-```
-
-其他程序按各自 README 编译。运行 TideConfigurator：
-
-```bash
-cd tide_configurator
-./run.sh
-```
+容器只提供开发环境，仓库挂载进容器。进入后按下方[编译](#编译)执行相同的命令；各子项目也按其 README 操作。Docker 默认以 root 运行，生成文件可能归 root 所有。
 
 ### 编译
 
@@ -147,6 +132,6 @@ install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img
 - `/mnt/data/tidesense-vio-depth/`：[共享帧 VIO + TPU 深度模式](scripts/vio-depth/README.md)，640×400 SchurVINS 与 TPU 320×200 深度并行，经 micro-ROS 输出。
 - `/usr/bin/perf` 及 `/mnt/data/perf/`：性能分析工具、测试负载和许可文件。
 
-主机需安装 ROS 2 开发环境及各工具的构建依赖；构建脚本自动使用已加载的 ROS 2 发行版，也可通过 `TIDESENSE_ROS_SETUP` 指定 `setup.bash`。首次构建会下载锁定版本的依赖。
+编译环境需有 ROS 2 及各工具的构建依赖，可使用上述开发容器或在主机自行安装。构建脚本自动使用已加载的 ROS 2 发行版，也可通过 `TIDESENSE_ROS_SETUP` 指定 `setup.bash`。首次构建会下载锁定版本的依赖。
 micro-ROS 通信在运行时仍由 `SCHUR_MICRO_ROS=1` 和 Agent 地址启用。
 随包标定来自当前测试板；更换硬件后应使用对应板卡的标定。
