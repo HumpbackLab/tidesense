@@ -45,10 +45,10 @@ static void probe_resync(void)
     probe_write(PROBE_TDMA + 8, 0xffff0000u);
 }
 
-static int probe_execute(struct tpu_probe_control *ctl, uintptr_t base)
+static int probe_execute_at(struct tpu_probe_control *ctl, uintptr_t base, unsigned dma_off)
 {
     const struct tpu_probe_dma_header *h =
-        (const void *)(base + TPU_PROBE_DMA_OFF);
+        (const void *)(base + dma_off);
     const struct tpu_probe_cpu_desc *d = (const void *)(h + 1);
     unsigned i, segment;
     if (h->magic_m != 0xb5b5 || !h->cpu_count || h->cpu_count > 16 ||
@@ -67,7 +67,7 @@ static int probe_execute(struct tpu_probe_control *ctl, uintptr_t base)
         uint32_t nt = d->num_tiu & 0xffffu, nd = d->num_tdma & 0xffffu;
         uint64_t start;
         uint32_t r;
-        uintptr_t dma_start = base + TPU_PROBE_DMA_OFF;
+        uintptr_t dma_start = base + dma_off;
         if (!nd || nd > 512 || nt > 512 ||
             ((uintptr_t)d->offset_tdma << 6) < dma_start ||
             ((uintptr_t)d->offset_tdma << 6) + nd*64u > dma_start + ctl->dmabuf_bytes ||
@@ -117,6 +117,10 @@ static int probe_execute(struct tpu_probe_control *ctl, uintptr_t base)
     return 0;
 }
 
+#ifdef TIDESENSE_C906_TPU_LK
+#include "lk_firmware.h"
+#endif
+
 static void c906_tpu_probe(uintptr_t base)
 {
     struct tpu_probe_control *ctl = (void *)base;
@@ -125,6 +129,12 @@ static void c906_tpu_probe(uintptr_t base)
     inv_dcache_range(base, TPU_PROBE_BYTES);
     if (ctl->magic != TPU_PROBE_MAGIC || ctl->version != TPU_PROBE_VERSION)
         return;
+#ifdef TIDESENSE_C906_TPU_LK
+    if (ctl->operation == TPU_PROBE_LK) {
+        c906_tpu_lk(base);
+        return;
+    }
+#endif
     ctl->completed = 0;
     ctl->status = -1;
     start = probe_clock();
@@ -137,7 +147,7 @@ static void c906_tpu_probe(uintptr_t base)
                ctl->dmabuf_bytes <= TPU_PROBE_INPUT_OFF - TPU_PROBE_DMA_OFF) {
         for (i = 0; i < ctl->repeats; ++i) {
             uint64_t t = probe_clock();
-            ctl->status = probe_execute(ctl, base);
+            ctl->status = probe_execute_at(ctl, base, TPU_PROBE_DMA_OFF);
             ctl->run_ticks[i] = probe_clock() - t;
             if (ctl->status) break;
             ctl->completed++;

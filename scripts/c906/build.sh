@@ -3,10 +3,15 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 out=${C906_OUT:-"$repo/install/c906-reload"}
 probe=OFF
+lk=OFF
+batch=${C906_LK_BATCH:-16}
 if [[ ${1:-} == --tpu-probe && $# == 1 ]]; then
     probe=ON
+elif [[ ${1:-} == --lk-probe && $# == 1 ]]; then
+    probe=ON
+    lk=ON
 elif [[ $# != 0 ]]; then
-    echo "usage: $0 [--tpu-probe]" >&2
+    echo "usage: $0 [--tpu-probe|--lk-probe]" >&2
     exit 2
 fi
 rtos="$repo/freertos/cvitek"
@@ -42,10 +47,12 @@ cmake -G Ninja -S "$rtos/task" -B "$rtos/build/c906-reload" \
     -DCMAKE_TOOLCHAIN_FILE="$rtos/scripts/toolchain-riscv64-elf.cmake" \
     -DTOP_DIR="$rtos" -DBUILD_ENV_PATH="$repo/build" -DCHIP=cv181x \
     -DRUN_ARCH=riscv64 -DRUN_TYPE=CVIRTOS -DBOARD_FPGA=n \
-    -DTIDESENSE_C906_RELOAD=ON -DTIDESENSE_C906_TPU_PROBE="$probe"
+    -DTIDESENSE_C906_RELOAD=ON -DTIDESENSE_C906_TPU_PROBE="$probe" \
+    -DTIDESENSE_C906_TPU_LK="$lk" -DTIDESENSE_C906_LK_BATCH="$batch"
 cmake --build "$rtos/build/c906-reload" --target install
 name=cvirtos-reload-base
 [[ "$probe" == OFF ]] || name=cvirtos-reload-tpu
+[[ "$lk" == OFF ]] || name=cvirtos-reload-tpu-lk
 # Use the actual link output, avoiding timestamp-based install copies.
 cp "$rtos/build/c906-reload/main/cvirtos.elf" "$out/$name.elf"
 "${riscv}objcopy" -O binary "$out/$name.elf" "$out/$name.bin"
@@ -64,5 +71,8 @@ if [[ "$probe" == ON ]]; then
         M="$repo/scripts/vio-compare/probes/c906-tpu" \
         KBUILD_EXTRA_SYMBOLS="$repo/osdrv/interdrv/rtos_cmdqu/Module.symvers" modules
     cp "$repo/scripts/vio-compare/probes/c906-tpu/c906_tpu_bridge.ko" "$out/"
+fi
+if [[ "$lk" == ON ]]; then
+    C906_LK_BATCH="$batch" C906_OUT="$out" python3 "$repo/scripts/vio-compare/probes/c906-tpu/build_lk.py"
 fi
 echo "Built $out/$name.bin, c906-reload, c906_loader.ko"

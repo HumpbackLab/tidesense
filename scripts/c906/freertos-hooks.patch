@@ -1,8 +1,8 @@
 diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
-index 8890ed220..ca3979543 100644
+index 8890ed220..ae7f7cdbf 100644
 --- a/cvitek/task/comm/CMakeLists.txt
 +++ b/cvitek/task/comm/CMakeLists.txt
-@@ -17,3 +17,13 @@ include_directories(${CMAKE_INSTALL_INC_PREFIX}/hal/config)
+@@ -17,3 +17,25 @@ include_directories(${CMAKE_INSTALL_INC_PREFIX}/hal/config)
  add_library(comm STATIC ${_SOURCES})
  install(TARGETS comm DESTINATION lib)
  
@@ -10,6 +10,18 @@ index 8890ed220..ca3979543 100644
 +# TideSense debug features are explicitly enabled by scripts/c906/build.sh.
 +option(TIDESENSE_C906_RELOAD "Enable cooperative C906 firmware RAM reload" OFF)
 +option(TIDESENSE_C906_TPU_PROBE "Enable standalone C906 TPU access experiment" OFF)
++option(TIDESENSE_C906_TPU_LK "Enable experimental C906/TPU batched LK" OFF)
++set(TIDESENSE_C906_LK_BATCH "16" CACHE STRING "TPU LK batch size (8, 16, 32)")
++if(TIDESENSE_C906_TPU_LK)
++    if(NOT TIDESENSE_C906_TPU_PROBE)
++        message(FATAL_ERROR "C906 TPU LK requires TIDESENSE_C906_TPU_PROBE")
++    endif()
++    if(NOT TIDESENSE_C906_LK_BATCH MATCHES "^(8|16|32)$")
++        message(FATAL_ERROR "C906 TPU LK batch must be 8, 16 or 32")
++    endif()
++    target_compile_definitions(comm PRIVATE TIDESENSE_C906_TPU_LK
++        LK_TPU_BATCH=${TIDESENSE_C906_LK_BATCH})
++endif()
 +if(TIDESENSE_C906_RELOAD)
 +    target_compile_definitions(comm PRIVATE TIDESENSE_C906_RELOAD)
 +endif()
