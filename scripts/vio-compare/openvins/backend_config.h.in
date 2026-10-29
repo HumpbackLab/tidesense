@@ -1,0 +1,3 @@
+#pragma once
+#cmakedefine01 OPENVINS_EKF_PACKED_F64
+#cmakedefine01 OPENVINS_BACKEND_DETAIL

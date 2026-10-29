@@ -1,0 +1,294 @@
+diff --git a/ov_msckf/src/state/StateHelper.cpp b/ov_msckf/src/state/StateHelper.cpp
+--- a/ov_msckf/src/state/StateHelper.cpp
++++ b/ov_msckf/src/state/StateHelper.cpp
+@@ -29,6 +29,13 @@
+ 
+ #include <boost/math/distributions/chi_squared.hpp>
+ 
++#ifdef OPENVINS_C906_TPU_LK
++#include "backend_profile.hpp"
++#else
++#define OV_BACKEND_BEGIN(name,...)
++#define OV_BACKEND_MARK(name,stage)
++#endif
++
+ using namespace ov_core;
+ using namespace ov_type;
+ using namespace ov_msckf;
+@@ -115,6 +122,7 @@
+ 
+ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std::shared_ptr<Type>> &H_order, const Eigen::MatrixXd &H,
+                             const Eigen::VectorXd &res, const Eigen::MatrixXd &R) {
++  OV_BACKEND_BEGIN(probe, state->_timestamp, "ekf", state->_Cov.rows(), res.rows(), H.cols());
+ 
+   //==========================================================
+   //==========================================================
+@@ -134,6 +142,14 @@
+   //==========================================================
+   //==========================================================
+   // For each active variable find its M = P*H^T
++#if defined(OPENVINS_C906_TPU_LK) && OPENVINS_EKF_PACKED_F64
++  if (ov_backend_probe::packed_f64()) {
++    Eigen::MatrixXd selected(state->_Cov.rows(), H.cols());
++    for (size_t i=0;i<H_order.size();++i)
++      selected.middleCols(H_id[i],H_order[i]->size())=state->_Cov.middleCols(H_order[i]->id(),H_order[i]->size());
++    M_a.noalias()=selected*H.transpose();
++  } else
++#endif
+   for (const auto &var : state->_variables) {
+     // Sum up effect of each subjacobian = K_i= \sum_m (P_im Hm^T)
+     Eigen::MatrixXd M_i = Eigen::MatrixXd::Zero(var->size(), res.rows());
+@@ -147,8 +163,12 @@
+ 
+   //==========================================================
+   //==========================================================
++  OV_BACKEND_MARK(probe, "ma");
++
+   // Get covariance of the involved terms
+   Eigen::MatrixXd P_small = StateHelper::get_marginal_covariance(state, H_order);
++
++  OV_BACKEND_MARK(probe, "small_cov");
+ 
+   // Residual covariance S = H*Cov*H' + R
+   Eigen::MatrixXd S(R.rows(), R.rows());
+@@ -162,11 +182,15 @@
+   Eigen::MatrixXd K = M_a * Sinv.selfadjointView<Eigen::Upper>();
+   // Eigen::MatrixXd K = M_a * S.inverse();
+ 
++  OV_BACKEND_MARK(probe, "gain");
++
+   // Update Covariance
+   state->_Cov.triangularView<Eigen::Upper>() -= K * M_a.transpose();
+   state->_Cov = state->_Cov.selfadjointView<Eigen::Upper>();
+   // Cov -= K * M_a.transpose();
+   // Cov = 0.5*(Cov+Cov.transpose());
++
++  OV_BACKEND_MARK(probe, "cov_write");
+ 
+   // We should check if we are not positive semi-definitate (i.e. negative diagionals is not s.p.d)
+   Eigen::VectorXd diags = state->_Cov.diagonal();
+@@ -194,6 +218,7 @@
+       state->_cam_intrinsics_cameras.at(calib.first)->set_value(calib.second->value());
+     }
+   }
++  OV_BACKEND_MARK(probe, "apply");
+ }
+ 
+ void StateHelper::set_initial_covariance(std::shared_ptr<State> state, const Eigen::MatrixXd &covariance,
+@@ -393,6 +418,7 @@
+ bool StateHelper::initialize(std::shared_ptr<State> state, std::shared_ptr<Type> new_variable,
+                              const std::vector<std::shared_ptr<Type>> &H_order, Eigen::MatrixXd &H_R, Eigen::MatrixXd &H_L,
+                              Eigen::MatrixXd &R, Eigen::VectorXd &res, double chi_2_mult) {
++  OV_BACKEND_BEGIN(probe, state->_timestamp, "init", state->_Cov.rows(), H_R.rows(), H_R.cols());
+ 
+   // Check that this new variable is not already initialized
+   if (std::find(state->_variables.begin(), state->_variables.end(), new_variable) != state->_variables.end()) {
+@@ -455,6 +481,8 @@
+   //==========================================================
+   //==========================================================
+ 
++  OV_BACKEND_MARK(probe, "project");
++
+   // Do mahalanobis distance testing
+   Eigen::MatrixXd P_up = get_marginal_covariance(state, H_order);
+   assert(Rup.rows() == Hup.rows());
+@@ -466,13 +494,18 @@
+   boost::math::chi_squared chi_squared_dist(res.rows());
+   double chi2_check = boost::math::quantile(chi_squared_dist, 0.95);
+   if (chi2 > chi_2_mult * chi2_check) {
++    OV_BACKEND_MARK(probe, "gate_reject");
+     return false;
+   }
+ 
+   //==========================================================
+   //==========================================================
++  OV_BACKEND_MARK(probe, "gate_accept");
++
+   // Finally, initialize it in our state
+   StateHelper::initialize_invertible(state, new_variable, H_order, Hxinit, H_finit, Rinit, resinit);
++
++  OV_BACKEND_MARK(probe, "augment");
+ 
+   // Update with updating portion
+   if (Hup.rows() > 0) {
+@@ -484,6 +517,7 @@
+ void StateHelper::initialize_invertible(std::shared_ptr<State> state, std::shared_ptr<Type> new_variable,
+                                         const std::vector<std::shared_ptr<Type>> &H_order, const Eigen::MatrixXd &H_R,
+                                         const Eigen::MatrixXd &H_L, const Eigen::MatrixXd &R, const Eigen::VectorXd &res) {
++  OV_BACKEND_BEGIN(probe, state->_timestamp, "augment", state->_Cov.rows(), H_R.rows(), H_R.cols());
+ 
+   // Check that this new variable is not already initialized
+   if (std::find(state->_variables.begin(), state->_variables.end(), new_variable) != state->_variables.end()) {
+@@ -542,6 +576,8 @@
+ 
+   //==========================================================
+   //==========================================================
++  OV_BACKEND_MARK(probe, "ma");
++
+   // Get covariance of this small jacobian
+   Eigen::MatrixXd P_small = StateHelper::get_marginal_covariance(state, H_order);
+ 
+@@ -555,6 +591,8 @@
+   assert(H_L.rows() == new_variable->size());
+   Eigen::MatrixXd H_Linv = H_L.inverse();
+   Eigen::MatrixXd P_LL = H_Linv * M.selfadjointView<Eigen::Upper>() * H_Linv.transpose();
++
++  OV_BACKEND_MARK(probe, "small_gain");
+ 
+   // Augment the covariance matrix
+   size_t oldSize = state->_Cov.rows();
+@@ -562,6 +600,8 @@
+   state->_Cov.block(0, oldSize, oldSize, new_variable->size()).noalias() = -M_a * H_Linv.transpose();
+   state->_Cov.block(oldSize, 0, new_variable->size(), oldSize) = state->_Cov.block(0, oldSize, oldSize, new_variable->size()).transpose();
+   state->_Cov.block(oldSize, oldSize, new_variable->size(), new_variable->size()) = P_LL;
++
++  OV_BACKEND_MARK(probe, "resize");
+ 
+   // Update the variable that will be initialized (invertible systems can only update the new variable).
+   // However this update should be almost zero if we already used a conditional Gauss-Newton to solve for the initial estimate
+diff --git a/ov_msckf/src/update/UpdaterMSCKF.cpp b/ov_msckf/src/update/UpdaterMSCKF.cpp
+--- a/ov_msckf/src/update/UpdaterMSCKF.cpp
++++ b/ov_msckf/src/update/UpdaterMSCKF.cpp
+@@ -35,6 +35,13 @@
+ #include <boost/date_time/posix_time/posix_time.hpp>
+ #include <boost/math/distributions/chi_squared.hpp>
+ 
++#ifdef OPENVINS_C906_TPU_LK
++#include "backend_profile.hpp"
++#else
++#define OV_BACKEND_BEGIN(name,...)
++#define OV_BACKEND_MARK(name,stage)
++#endif
++
+ using namespace ov_core;
+ using namespace ov_type;
+ using namespace ov_msckf;
+@@ -56,6 +63,7 @@
+ }
+ 
+ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_ptr<Feature>> &feature_vec) {
++  OV_BACKEND_BEGIN(probe, state->_timestamp, "msckf", state->max_covariance_size(), feature_vec.size(), 0);
+ 
+   // Return if no features
+   if (feature_vec.empty())
+@@ -93,6 +101,7 @@
+     }
+   }
+   rT1 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "clean");
+ 
+   // 2. Create vector of cloned *CAMERA* poses at each of our clone timesteps
+   std::unordered_map<size_t, std::unordered_map<double, FeatureInitializer::ClonePose>> clones_cam;
+@@ -141,6 +150,7 @@
+     it1++;
+   }
+   rT2 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "triangulate");
+ 
+   // Calculate the max possible measurement size
+   size_t max_meas_size = 0;
+@@ -255,6 +265,7 @@
+     it2++;
+   }
+   rT3 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "build_gate");
+ 
+   // We have appended all features to our Hx_big, res_big
+   // Delete it so we do not reuse information
+@@ -277,6 +288,7 @@
+     return;
+   }
+   rT4 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "compress");
+ 
+   // Our noise is isotropic, so make it here after our compression
+   Eigen::MatrixXd R_big = _options.sigma_pix_sq * Eigen::MatrixXd::Identity(res_big.rows(), res_big.rows());
+@@ -284,6 +296,7 @@
+   // 6. With all good features update the state
+   StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);
+   rT5 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "ekf");
+ 
+   // Debug print timing information
+   PRINT_ALL("[MSCKF-UP]: %.4f seconds to clean\n", (rT1 - rT0).total_microseconds() * 1e-6);
+diff --git a/ov_msckf/src/update/UpdaterSLAM.cpp b/ov_msckf/src/update/UpdaterSLAM.cpp
+--- a/ov_msckf/src/update/UpdaterSLAM.cpp
++++ b/ov_msckf/src/update/UpdaterSLAM.cpp
+@@ -36,6 +36,13 @@
+ #include <boost/date_time/posix_time/posix_time.hpp>
+ #include <boost/math/distributions/chi_squared.hpp>
+ 
++#ifdef OPENVINS_C906_TPU_LK
++#include "backend_profile.hpp"
++#else
++#define OV_BACKEND_BEGIN(name,...)
++#define OV_BACKEND_MARK(name,stage)
++#endif
++
+ using namespace ov_core;
+ using namespace ov_type;
+ using namespace ov_msckf;
+@@ -59,6 +66,7 @@
+ }
+ 
+ void UpdaterSLAM::delayed_init(std::shared_ptr<State> state, std::vector<std::shared_ptr<Feature>> &feature_vec) {
++  OV_BACKEND_BEGIN(probe, state->_timestamp, "slam_init", state->max_covariance_size(), feature_vec.size(), 0);
+ 
+   // Return if no features
+   if (feature_vec.empty())
+@@ -96,6 +104,7 @@
+     }
+   }
+   rT1 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "clean");
+ 
+   // 2. Create vector of cloned *CAMERA* poses at each of our clone timesteps
+   std::unordered_map<size_t, std::unordered_map<double, FeatureInitializer::ClonePose>> clones_cam;
+@@ -144,6 +153,7 @@
+     it1++;
+   }
+   rT2 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "triangulate");
+ 
+   // 4. Compute linear system for each feature, nullspace project, and reject
+   auto it2 = feature_vec.begin();
+@@ -240,6 +250,7 @@
+     }
+   }
+   rT3 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "initialize");
+ 
+   // Debug print timing information
+   if (!feature_vec.empty()) {
+@@ -251,6 +262,7 @@
+ }
+ 
+ void UpdaterSLAM::update(std::shared_ptr<State> state, std::vector<std::shared_ptr<Feature>> &feature_vec) {
++  OV_BACKEND_BEGIN(probe, state->_timestamp, "slam", state->max_covariance_size(), feature_vec.size(), 0);
+ 
+   // Return if no features
+   if (feature_vec.empty())
+@@ -296,6 +308,7 @@
+     }
+   }
+   rT1 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "clean");
+ 
+   // Calculate the max possible measurement size
+   size_t max_meas_size = 0;
+@@ -449,6 +462,7 @@
+     it2++;
+   }
+   rT2 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "build_gate");
+ 
+   // We have appended all features to our Hx_big, res_big
+   // Delete it so we do not reuse information
+@@ -469,6 +483,7 @@
+   // 5. With all good SLAM features update the state
+   StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);
+   rT3 = boost::posix_time::microsec_clock::local_time();
++  OV_BACKEND_MARK(probe, "ekf");
+ 
+   // Debug print timing information
+   PRINT_ALL("[SLAM-UP]: %.4f seconds to clean\n", (rT1 - rT0).total_microseconds() * 1e-6);

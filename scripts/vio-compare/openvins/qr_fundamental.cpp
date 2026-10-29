@@ -43,6 +43,7 @@
 
 // TideSense: optional double QR nullspace; OpenCV 3.4 registration remains unchanged.
 #include "openvins_frontend_config.h"
+#include "openvins_backend_config.h"
 #include "qr_fundamental.hpp"
 #if OPENVINS_FRONT_QR7POINT
 #include <opencv2/calib3d.hpp>
@@ -54,6 +55,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#if OPENVINS_BACKEND_DETAIL
+#include <chrono>
+#endif
 static_assert(CV_VERSION_MAJOR==3 && CV_VERSION_MINOR==4,"QR7 callback ABI is pinned to OpenCV 3.4");
 // Verbatim OpenCV 3.4 private registration interface, linked to this SDK's static library.
 namespace cv {
@@ -88,6 +92,34 @@ struct Counters {
     ~Counters(){if(calls || kernels)std::fprintf(stderr,"QR7 calls=%llu kernels=%llu qr=%llu fallback_rank=%llu fallback_residual=%llu fallback_polynomial=%llu fallback_model=%llu forced_svd=%llu small_sets=%llu\n",calls,kernels,qr,rank,residual,polynomial,model,forced,small);}
 };
 thread_local Counters counters;
+#if OPENVINS_BACKEND_DETAIL
+// Diagnostic only: two temporal-camera checks per frame in the FPV replay.
+// Keep this separate from the timed performance runs by leaving the path unset.
+struct CallLog {
+    FILE *file=nullptr;
+    CallLog(){if(const char *path=std::getenv("OPENVINS_QR7_DETAIL_FILE")){
+        file=std::fopen(path,"w");
+        if(!file)CV_Error(cv::Error::StsError,"Cannot open QR7 detail log");
+        std::fprintf(file,"call,points,inliers,kernels,wall_ms\n");
+    }}
+    ~CallLog(){if(file)std::fclose(file);}
+};
+thread_local CallLog call_log;
+struct CallProbe {
+    cv::OutputArray mask;
+    size_t points;
+    unsigned long long kernels;
+    std::chrono::steady_clock::time_point start;
+    CallProbe(size_t n,cv::OutputArray result):mask(result),points(n),kernels(counters.kernels){
+        if(call_log.file)start=std::chrono::steady_clock::now();
+    }
+    ~CallProbe(){if(call_log.file){
+        const double elapsed=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
+        const int inliers=mask.needed() && !mask.empty()?cv::countNonZero(mask.getMat()):0;
+        std::fprintf(call_log.file,"%llu,%zu,%d,%llu,%.6f\n",counters.calls,points,inliers,counters.kernels-kernels,elapsed);
+    }}
+};
+#endif
 bool force_svd(){static const bool value=[](){const char *p=std::getenv("OPENVINS_QR7POINT_FORCE_SVD");return p && !std::strcmp(p,"1");}();return value;}
 int fallback(const Mat& a,const Mat& b,Mat& out,unsigned long long &reason){
     ++reason;Mat model=cv::findFundamentalMat(a,b,FM_7POINT);
@@ -361,6 +393,9 @@ cv::Mat seven_point(const cv::Mat& a,const cv::Mat& b){
 cv::Mat find(const std::vector<cv::Point2f>& a,const std::vector<cv::Point2f>& b,double threshold,double confidence,int cap,cv::OutputArray mask){
     if(!enabled())return cv::findFundamentalMat(a,b,cv::FM_RANSAC,threshold,confidence,cap,mask);
     ++counters.calls;
+#if OPENVINS_BACKEND_DETAIL
+    CallProbe probe(a.size(),mask);
+#endif
     CV_Assert(a.size()==b.size());
     // Preserve the original LMeDS choice for fewer than 15 correspondences.
     if(a.size()<15){++counters.small;return cv::findFundamentalMat(a,b,cv::FM_RANSAC,threshold,confidence,cap,mask);}

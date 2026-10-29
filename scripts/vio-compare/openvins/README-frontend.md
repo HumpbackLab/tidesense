@@ -712,3 +712,114 @@ CPU／TPU 数值差异也会改变观测集合；这里是整个实现的对比�
 关键结果文件：`results/summary.json` 为全部轮次指标，`results/accuracy.json`
 为完整回放精度；`results/locked-on-clean*` 为无 perf 复测，
 `results/major-faults*`、`results/locked-major-faults*` 为缺页诊断。
+
+## 长尾帧定位与 FP64 矩阵打包
+
+上述 88.253 ms 是第 1002–1037 帧这个 36 帧窗口的 P95，不是整段数据集的
+最大帧耗时。窗口最慢约 98 ms；完整 1970 帧里还有更重的后端帧。
+测试数据仍为 UZH-FPV `indoor_forward_6`，A53 1 GHz、150 点、完整 FP64。
+
+OpenVINS 内部的 SLAM 特征指保留在滤波器状态中的长期三维特征点，用于
+局部视觉约束。这仍是纯 VIO，没有启用回环、重定位或全局建图。
+当前配置 `max_slam: 50`，`max_slam_in_update: 25` 是每批更新上限；一帧
+可以分多批更新。丢失或失效的长期点会被清理，新点经过三角化、检验和状态
+增广后加入。这里的 delayed initialization 是这一过程，与回环无关。
+
+保留前缀初始化的逐帧诊断发现两类慢帧，帧号从 0 开始：
+
+| 帧 | 慢的原因 | 细分诊断 |
+| --- | --- | --- |
+| 1004、1005、1018 | 同帧初始化 4 个长期点，连同常规更新共执行 6 次 EKF 更新 | 延迟初始化约 38–47 ms；全部 EKF 的 `P Hᵀ` 约 19–21 ms |
+| 1025 | 两路几何内点只有 24/40、25/43 | RANSAC 尝试 243＋304 组模型，约 33 ms |
+| 1030 | 两路几何内点只有 29/52、34/52 | RANSAC 尝试 408＋253 组模型，约 39 ms |
+
+画面是仓库内倾斜、回正的一段，地面占比较大，不能仅凭角速度判断计算量。
+`install/openvins-c906-frontend/tail-latency/worst-frames.png` 保存了对应双目
+图像；图上的角速度为相机原始时间戳附近 ±25 ms 内的峰值，未修正在线时差。
+嵌套的初始化、EKF 和矩阵计时有包含关系，不能直接相加。
+
+新增独立开关 `OPENVINS_EKF_PACKED_F64`，默认 OFF；构建时给
+`build_tpu.py` 增加 `--fp64-pack`。编入后仍需显式设置
+`OPENVINS_EKF_PACKED_F64=1` 才启用。它按 Jacobian 的变量顺序，打包相应的
+协方差列，用一次 FP64 矩阵乘法替代大量小块乘法来形成 `M_a = P Hᵀ`。
+状态、协方差、增益、残差求解和写回均为 double；点数、噪声、门限、RANSAC
+上限及滤波更新顺序保持原设置。没有引入完整或局部 FP32。
+
+`OPENVINS_BACKEND_DETAIL` 是独立诊断编译宏，默认 OFF，对应
+`build_tpu.py --backend-detail`。运行时设置 `OPENVINS_BACKEND_DETAIL_FILE`
+才记录阶段与矩阵维度；`OPENVINS_BACKEND_DETAIL_FIRST/LAST` 按相机时间戳
+限制诊断范围。`OPENVINS_QR7_DETAIL_FILE` 另记每次 RANSAC 的点数、内点、
+模型组数和时间。速度对照不启用这些逐次诊断，也不运行 perf。
+
+完整 1970 帧回放、1781 帧初始化后输出，FP64 打包的板上 ATE 为
+0.2867215 m，原参考 0.2867214 m；全段未对齐的位置差最大约 0.0000027 m。
+主机回放 ATE 为 0.274340 m，原参考 0.274801 m。共同真值仍只覆盖 816 帧，
+SE(3) 对齐、不拟合尺度；这不能证明所有场景数值完全相同。
+
+另测了完整主元 LU 替代七点 QR 的原型：主机数值检查通过，完整轨迹与参考
+一致；A53 的窗口几何及附带准备 CPU 平均仅从 8.096 变为 8.064 ms，
+没有实质收益，因此没有接入维护的求解器。原型与原始对照留在上述实验目录。
+
+### 内存记录复测
+
+最终对照将 pose、trace 和运行日志先写入 `/tmp`，退出后再移到 SD；测试
+窗口预载 40 对图像，运行期间不拉取文件，不运行 perf。早期写 SD 的对照中
+出现过 wall 比线程 CPU 多出 30–60 ms 的停顿，不能把它归因于求解器变慢。
+下表均使用同一二进制、同一固件并锁页，窗口仍为 1002–1037 帧：
+
+| 指标 | 原计算，不分流 | FP64 打包，不分流 | FP64 打包＋16 点分流 |
+| --- | ---: | ---: | ---: |
+| 平均完整帧周期 | 53.250 ms | 51.060 ms | 50.532 ms |
+| 帧周期 P95 | 87.199 ms | 87.982 ms | 79.029 ms |
+| 窗口最大帧周期 | 97.662 ms | 91.292 ms | 103.697 ms |
+| 平均吞吐 | 18.78 Hz | 19.58 Hz | 19.79 Hz |
+| 后端 wall 平均 | 33.754 ms | 29.244 ms | 28.989 ms |
+| 超过 50 ms 的帧数／36 | 19 | 16 | 18 |
+
+单独打包将第 1018 帧后端 CPU 从 73.425 降到 64.499 ms，但帧周期只减少
+约 6.4 ms：前一帧后端变快后，会多等一部分下一帧前端。它降低了后端峰值，
+尚未改善 RANSAC 主导的 P95。组合分流后 P95 下降，最大值却没有改善，
+不能宣称已控制最坏执行时间或保证每帧 50 ms。
+
+组合版本完整回放 1970 帧、初始化后 1781 帧，ATE 0.289410 m；共交接
+25 批，其中窗口内 22 批，CPU 批次最大 4.366 ms。CPU／TPU 数值不同且
+任务归属随调度变化，会改变观测集合；组合结果不是逐位等价的纯矩阵加速。
+正式程序及启动配置没有替换，继续保留可选开关。
+
+构建时在前述选项基础上增加 `--fp64-pack`，例如：
+
+```sh
+python3 scripts/vio-compare/openvins/build_tpu.py \
+  --frontend --early-pipeline --sparse-nms --lazy-mask --latest-intrinsics \
+  --lk-batch 16 --lk-roi-cache --lk-dual --qr7 --cpu-tail --lock-exec \
+  --fp64-pack --arch a53 --jobs 4
+```
+
+本轮设备实验二进制位于 `tail-latency/run_tail_latency.a53`。单独启用打包的
+RAM 窗口复现（先确保没有其他摄像头／TPU 使用者）：
+
+```sh
+cd /mnt/data/openvins-c906-front
+mkdir -p /tmp/ov-tail-repro
+unset OPENVINS_BACKEND_DETAIL_FILE OPENVINS_QR7_DETAIL_FILE
+C906_TOOLS_DIR="$PWD/cpu-tail/tools" OPENVINS_TPU_FRONTEND=1 \
+  OPENVINS_TPU_CPU_TAIL=0 OPENVINS_TPU_LOCK_EXEC=1 OPENVINS_EKF_PACKED_F64=1 \
+  OPENVINS_PRELOAD_FIRST=1000 OPENVINS_PRELOAD_COUNT=40 \
+  OPENVINS_TPU_TRACE=/tmp/ov-tail-repro/packed-trace.csv \
+  ./live/with-tpu.sh ./tail-latency/run_tail_latency.a53 \
+  ./tail-latency/config/speed/estimator_config.yaml \
+  /mnt/data/openvins-c906-tpu/dataset /tmp/ov-tail-repro/packed.csv 1040 0 \
+  >/tmp/ov-tail-repro/packed.log 2>&1
+```
+
+原始文件、构建信息和逐帧拆分保存在本机
+`install/openvins-c906-frontend/tail-latency/`；`ram-*` 为最终速度对照，
+`detail-*`／`qr-detail.csv` 为单独诊断。可复算：
+
+```sh
+python3 scripts/vio-compare/openvins/analyse_tail.py \
+  install/openvins-c906-frontend/tail-latency --modes ram-off ram-pack ram-tail-pack
+python3 scripts/vio-compare/probes/qr7point/evaluate.py \
+  install/openvins-c906-frontend/tail-latency --modes pack-on ram-tail-pack \
+  --reference install/openvins-c906-frontend/qr7/board/qr.csv
+```
