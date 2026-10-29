@@ -587,7 +587,8 @@ CPU 计算完成后由 C906 按原索引合并，点的 ID 和顺序保持不变
 配对固件会确认协议。应用开启实验但固件不支持时明确报错；CPU 出错或失去
 响应时，小核分别返回 -71／-72，等待上限 500 ms。独立的模拟缓存测试覆盖
 无空闲声明、点数不足、重复领取、成功合并、CPU 失败及超时。
-启动时在 CPU 私有图像上预热 LK 和工作区，减少首次调用的开销。没有在运行中重建整图梯度。后端保持 FP64，150 点、LK 16×15、30 次
+启动时在 CPU 私有图像上预热 LK 和工作区，减少首次调用的开销；代码页后续仍
+可能被回收，锁页对照见下文。没有在运行中重建整图梯度。后端保持 FP64，150 点、LK 16×15、30 次
 迭代上限、噪声及 RANSAC 参数沿用原设置。
 
 构建实验配对程序：
@@ -597,7 +598,7 @@ C906_FRONT_CPU_TAIL=ON C906_LK_DUAL_BATCH=ON \
   scripts/c906/build.sh --frontend-probe
 python3 scripts/vio-compare/openvins/build_tpu.py \
   --frontend --early-pipeline --sparse-nms --lazy-mask --latest-intrinsics \
-  --lk-batch 16 --lk-roi-cache --lk-dual --qr7 --cpu-tail --arch a53
+  --lk-batch 16 --lk-roi-cache --lk-dual --qr7 --cpu-tail --lock-exec --arch a53
 ```
 
 实验部署目录为 `/mnt/data/openvins-c906-front/cpu-tail`，正式 `live`、`tools`
@@ -606,7 +607,8 @@ python3 scripts/vio-compare/openvins/build_tpu.py \
 ```sh
 exp=/mnt/data/openvins-c906-front/cpu-tail
 C906_TOOLS_DIR="$exp/tools" OPENVINS_TPU_FRONTEND=1 OPENVINS_TPU_CPU_TAIL=1 \
-  /mnt/data/openvins-c906-front/live/with-tpu.sh "$exp/run_tail.a53" \
+  OPENVINS_TPU_LOCK_EXEC=1 \
+  /mnt/data/openvins-c906-front/live/with-tpu.sh "$exp/run_tail-lock.a53" \
   /mnt/data/openvins-c906-tpu/config-fpv/estimator_config.yaml \
   /mnt/data/openvins-c906-tpu/dataset "$exp/results/manual.csv" 1970 0
 ```
@@ -616,6 +618,23 @@ C906_TOOLS_DIR="$exp/tools" OPENVINS_TPU_FRONTEND=1 OPENVINS_TPU_CPU_TAIL=1 \
 共享灰度读取同步，`front_tail_remote_wait_ms` 是 C906 在本地工作完成后等待
 CPU 的时间。`front_total_ms` 包含这段合并等待；`consume_wait` 区间现在也
 包含 CPU 任务，不能将整个区间都当作 A53 空闲时间。
+
+### 锁定可执行文件映射的独立开关
+
+单次预热不足以保证 CPU 协作代码一直驻留。未锁页的完整回放中，少数任务的
+CPU 时间约 4–5 ms，wall 时间却达到 43–44 ms。`perf record -e major-faults`
+在同一个任务区间捕获了 `cv::Mat`、`cv::calcOpticalFlowPyrLK` 的主缺页，
+确认有从 SD 重新读入代码页的阻塞。不能将这些尖峰从实机表现中忽略。
+
+为此新增独立编译开关 `OPENVINS_FRONT_LOCK_EXEC`，默认 OFF；
+`build_tpu.py --lock-exec` 编入。运行时显式设 `OPENVINS_TPU_LOCK_EXEC=1`，
+仅锁定 `/proc/self/exe` 对应的文件映射，至进程退出自动释放，不锁整堆或未来
+分配。测试程序锁定 12480512 字节，`VmLck=12188 kB`，约 11.9 MiB。
+失败会明确报错；本板 root 运行已通过。该开关可独立于分流开启，正式包未启用。
+
+锁页对照必须让“不分流”和“分流”两组都设 `OPENVINS_TPU_LOCK_EXEC=1`，
+避免把锁页效果误算为分流收益。原 `run_tail.a53` 留作未锁页实验的原始程序，
+支持两个独立开关的新版是 `run_tail-lock.a53`。
 
 ### 精度及未锁页重复对照
 
@@ -638,7 +657,7 @@ ATE 接近，参与分流的帧仍可能因运行时空闲时机而不同。关�
 | 窗口内 CPU 批数 | 0 | 16 | 0 | 19 |
 
 相邻配对平均节省 0.47–0.87 ms，约 0.9%–1.6%，收益较小且有调度波动。
-整段 SD 回放 wall 时间不用于评价计算吞吐。
+整段 SD 回放 wall 时间不用于评价计算吞吐。锁页后的配对结果见下文。
 
 验证协议与分析精度：
 
@@ -657,3 +676,39 @@ python3 scripts/vio-compare/probes/qr7point/evaluate.py \
 原始轨迹、逐帧指标、trace、缺页采样及汇总保存在
 `install/openvins-c906-frontend/cpu-tail/` 和设备同名实验目录。
 主机 CPU 模拟仍走原路径；不能用该模拟回放替代板上混合计算的精度验证。
+
+### 锁页后配对结果
+
+同一 `run_tail-lock.a53` 和同一小核固件，两组均锁页。下表使用不带 perf 的
+`locked-off`／`locked-on-clean`，相同 36 个强运动帧周期：
+
+| 指标 | 不分流 | A53 最多领取 16 点 |
+| --- | ---: | ---: |
+| 平均完整帧周期 | 53.777 ms | 51.876 ms |
+| 帧周期 P95 | 88.253 ms | 81.556 ms |
+| 平均吞吐 | 18.60 Hz | 19.28 Hz |
+| 测量窗口内交接批数 | 0 | 16 |
+
+这一对平均节省 1.90 ms（3.5%），仍不能稳定达到 20 Hz。未锁页重复对照的
+收益较小，不能只用最好的一轮推断所有场景。任务归属会随调度时机变化，
+CPU／TPU 数值差异也会改变观测集合；这里是整个实现的对比，不是逐位等价的
+纯调度加速。继续保留实验开关，不改正式启动默认值。
+
+不带 perf 的开启复测共运行 1040 帧、交接 18 批，CPU 每批 wall 平均
+3.445 ms、P95 4.485 ms、最大 4.751 ms；缓存同步平均约 0.103 ms。
+小核在交接帧等待 CPU 平均 0.156 ms、最大 0.950 ms，大多数计算已重叠。
+这些是当前数据样本，不是最坏执行时间保证。
+
+另一次完整锁页回放处理 1970 帧、初始化后输出 1781 帧，交接 19 批，其中
+18 批在测量窗口；ATE 为 0.294956 m，原参考为 0.286721 m。
+该轮带 major-faults 诊断采样，仅用于精度、长延迟及缺页检查，不作为上表的
+速度对照。所有交接批次 wall 最大 4.329 ms，未再出现原来的 43–44 ms 尖峰；
+运行中采样没有记录到 major fault。初始化锁页本身的预取不算在该采样中。
+
+诊断采样的 perf 在目标线程退出后出现大量唤醒，因此正式速度结论另外使用
+不带 perf 的复测。关闭分流的两个未锁页对照和锁页对照均与旧硬件参考逐行一致。
+编译关闭分流／锁页的分支检查通过；旧固件不支持分流时的明确报错也已实测。
+
+关键结果文件：`results/summary.json` 为全部轮次指标，`results/accuracy.json`
+为完整回放精度；`results/locked-on-clean*` 为无 perf 复测，
+`results/major-faults*`、`results/locked-major-faults*` 为缺页诊断。

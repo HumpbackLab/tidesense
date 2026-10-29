@@ -18,12 +18,16 @@
 #include <stdexcept>
 #include <thread>
 #include <chrono>
+#include <cstdio>
+#include <fstream>
+#include <iostream>
 #include <opencv2/video/tracking.hpp>
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
 #include "cvi_sys.h"
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <sys/mman.h>
 extern "C" int lk_tpu_make_jobs(unsigned char*,uint64_t);
 #endif
 namespace ov_core {
@@ -40,6 +44,22 @@ bool emulate(){
  return flag("OPENVINS_TPU_EMULATE");
 #endif
 }
+#if OPENVINS_FRONT_LOCK_EXEC && !defined(OPENVINS_TPU_LK_EMULATED_BUILD)
+void lock_executable(){
+ if(!flag("OPENVINS_TPU_LOCK_EXEC"))return;
+ char executable[1024];ssize_t n=readlink("/proc/self/exe",executable,sizeof(executable)-1);
+ if(n<0 || n>=ssize_t(sizeof(executable)-1))throw std::runtime_error("Cannot resolve executable for page locking");
+ executable[n]=0;std::ifstream maps("/proc/self/maps");std::string line;size_t bytes=0;
+ while(std::getline(maps,line)){
+   unsigned long begin=0,end=0;char permissions[5]={};
+   if(line.find(executable)==std::string::npos || std::sscanf(line.c_str(),"%lx-%lx %4s",&begin,&end,permissions)!=3)continue;
+   if(end<=begin || mlock((void*)begin,end-begin))throw std::runtime_error("Cannot lock executable mapping");
+   bytes+=end-begin;
+ }
+ if(!bytes)throw std::runtime_error("Executable mapping not found");
+ std::cerr<<"FRONT_EXEC_LOCK bytes="<<bytes<<'\n';
+}
+#endif
 struct Workspace {
   unsigned char *base=nullptr;unsigned width=0,height=0;
   std::vector<unsigned char> emulated;
@@ -57,6 +77,9 @@ struct Workspace {
     static_assert(FRONT_INTRINSICS_OFF+sizeof(front_intrinsics_channel)<FRONT_PYR_OFF,"Calibration overlaps images");
     if(emulate()){emulated.resize(FRONT_BYTES);base=emulated.data();return;}
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
+#if OPENVINS_FRONT_LOCK_EXEC
+    lock_executable();
+#endif
     void *mapping=nullptr;
     if(CVI_SYS_IonAlloc_Cached(&physical,&mapping,"openvins_front",FRONT_BYTES) || !mapping || physical>0x8ff40000u-FRONT_BYTES){
       if(mapping)CVI_SYS_IonFree(physical,mapping);

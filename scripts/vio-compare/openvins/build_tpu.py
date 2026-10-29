@@ -20,11 +20,12 @@ p.add_argument('--lk-roi-cache',action='store_true',help='Compile current-image 
 p.add_argument('--lk-dual',action='store_true',help='Pair independent 16-lane LK batches with TDMA/TIU overlap; requires --lk-roi-cache')
 p.add_argument('--qr7',action='store_true',help='Compile guarded double QR seven-point solver; requires --frontend')
 p.add_argument('--cpu-tail',action='store_true',help='Compile optional A53 16-point LK tail helper; requires --frontend')
+p.add_argument('--lock-exec',action='store_true',help='Compile optional executable page locking; requires --frontend')
 a=p.parse_args()
 if a.qr7 and not a.frontend:p.error('--qr7 requires --frontend')
 if a.lk_dual and (not a.lk_roi_cache or a.lk_batch!=16):p.error('--lk-dual requires --lk-roi-cache and --lk-batch 16')
 if a.early_pipeline and not a.frontend:p.error('--early-pipeline requires --frontend')
-if (a.sparse_nms or a.lazy_mask or a.latest_intrinsics or a.lk_roi_cache or a.cpu_tail) and not a.frontend:p.error('Frontend optimizations require --frontend')
+if (a.sparse_nms or a.lazy_mask or a.latest_intrinsics or a.lk_roi_cache or a.cpu_tail or a.lock_exec) and not a.frontend:p.error('Frontend optimizations require --frontend')
 work=sdk/'install/openvins-c906-tpu'
 source=work/'source'
 if not source.exists():
@@ -61,7 +62,8 @@ flags=['-DCMAKE_BUILD_TYPE=Release','-DENABLE_ROS=OFF','-DENABLE_ARUCO_TAGS=OFF'
        '-DOPENVINS_TPU_LK_ROI_CACHE='+('ON'if a.lk_roi_cache else'OFF'),
        '-DOPENVINS_TPU_LK_DUAL_BATCH='+('ON'if a.lk_dual else'OFF'),
        '-DOPENVINS_FRONT_QR7POINT='+('ON'if a.qr7 else'OFF'),
-       '-DOPENVINS_FRONT_CPU_TAIL='+('ON'if a.cpu_tail else'OFF')]
+       '-DOPENVINS_FRONT_CPU_TAIL='+('ON'if a.cpu_tail else'OFF'),
+       '-DOPENVINS_FRONT_LOCK_EXEC='+('ON'if a.lock_exec else'OFF')]
 if a.arch=='a53':
     flags += [f'-DCMAKE_TOOLCHAIN_FILE={here}/toolchain.cmake',
               f'-DBOOST_ROOT={sdk}/install/vio-compare-20260924-121320/openvins/deps',
