@@ -7,6 +7,7 @@
 #include "utils/sensor_data.h"
 #include "../probes/c906-frontend/front_shared.h"
 namespace ov_core {
+class CamBase;
 struct TpuFrontRequest {
   std::shared_ptr<void> workspace;
   front_control result{};
@@ -23,6 +24,8 @@ public:
   };
   static bool enabled();
   static bool early();
+  static bool latest_intrinsics();
+  static void update_intrinsics(const std::array<std::shared_ptr<CamBase>,2>&);
   static std::shared_ptr<TpuFrontRequest> prepare(const CameraData&,double previous,
       const std::array<std::vector<cv::KeyPoint>,2>&,const std::array<std::vector<size_t>,2>&,
       size_t currid,int features,int threshold,int gx,int gy,int min_px,int histogram,bool deferred=false);

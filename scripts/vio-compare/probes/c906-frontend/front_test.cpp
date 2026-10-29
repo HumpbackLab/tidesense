@@ -1,5 +1,6 @@
 // Host correctness test for the migrated pixel-only frontend against original TrackKLT.
 #include "front_shared.h"
+#include "front_detail.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -100,6 +101,14 @@ int main(int argc,char **argv){
     CVI_SYS_IonInvalidateCache(physical+FRONT_PYR_OFF,base+FRONT_PYR_OFF,4*FRONT_CAM_BYTES);
     std::cout<<"DEVICE_FRONT frame="<<frame<<" ret="<<ret<<" status="<<ctl.status<<" wall_ms="<<elapsed<<" equalize_ms="<<f.equalize_ticks/25000.0<<" pyr_ms="<<f.pyramid_ticks/25000.0<<" detect_ms="<<f.detect_ticks/25000.0<<" lk_ms="<<f.lk_ticks/25000.0<<std::endl;
     if(!ret)ret=ctl.status;
+    auto *detail=front_detail_at(base);
+    if(detail->magic==FRONT_DETAIL_MAGIC){
+      std::cout<<"DEVICE_DETAIL flags="<<detail->flags;
+#define PRINT(n) std::cout<<" " #n "_ms="<<detail->n##_ticks/25000.0;
+      FRONT_DETAIL_TIMES(PRINT)
+#undef PRINT
+      std::cout<<'\n';
+    }
     if(abandon){
       std::cout<<"SNAPSHOT_TIMEOUT_TEST status="<<ret<<" wall_ms="<<elapsed<<std::endl;
       close(fd);CVI_SYS_IonFree(physical,base);

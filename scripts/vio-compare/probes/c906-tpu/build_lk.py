@@ -10,7 +10,9 @@ cross = str(repo/'host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none
 includes = ['-I'+str(repo/'cvi_mpi/include'), '-I'+str(repo/'cvikernel/include'),
             '-I'+str(repo/'install/schurvins-gcc11-static/stage/include'),
             '-isystem', '/usr/include/eigen3',
-            '-DLK_TPU_BATCH='+os.environ.get('C906_LK_BATCH','16')]
+            '-DLK_TPU_BATCH='+os.environ.get('C906_LK_BATCH','16'),
+            '-DLK_TPU_ROI_CACHE='+str(int(os.environ.get('C906_LK_ROI_CACHE','0').upper() in ('1','ON','TRUE'))),
+            '-DLK_TPU_DUAL_BATCH='+str(int(os.environ.get('C906_LK_DUAL_BATCH','0').upper() in ('1','ON','TRUE')))]
 subprocess.run([cross+'gcc','-O3','-mcpu=cortex-a53','-Wall',*includes,'-c',str(here/'lk_jobs.c'),'-o',str(out/'lk_jobs.o')],check=True)
 subprocess.run([cross+'g++','-O3','-mcpu=cortex-a53','-std=c++14','-Wall',*includes,'-c',str(here/'lk_host.cpp'),'-o',str(out/'lk_host.o')],check=True)
 subprocess.run([cross+'g++','-O3','-mcpu=cortex-a53','-std=c++14','-Wall',*includes,'-c',str(here/'lk_overlap.cpp'),'-o',str(out/'lk_overlap.o')],check=True)

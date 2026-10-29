@@ -4,6 +4,7 @@
  * FAST score / subpixel refinement follow OpenCV 3.4.20; see LICENSE-OpenCV.txt.
  */
 #include "front_shared.h"
+#include "front_detail.h"
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
@@ -17,7 +18,20 @@ struct Scratch {
     unsigned int histogram[256];unsigned char lut[256];
     float weights[121],patch[169];
     int gaussian[5][FRONT_MAX_WIDTH];
+#ifdef FRONT_SPARSE_NMS
+    probe_u32 positions[FRONT_PIXELS];
+#endif
+    front_detail *profile;
+    probe_u64 (*clock)();
 };
+static_assert(sizeof(Scratch)<=FRONT_BYTES-FRONT_SCRATCH_OFF,"Frontend scratch overflows shared allocation");
+#ifdef FRONT_PROFILE
+#define DETAIL_BEGIN(s) ((s).clock())
+#define DETAIL_ADD(s,name,start) ((s).profile->name##_ticks+=(s).clock()-(start))
+#else
+#define DETAIL_BEGIN(s) probe_u64(0)
+#define DETAIL_ADD(s,name,start) ((void)(start))
+#endif
 static int reflect(int x,int n){while(x<0 || x>=n)x=x<0?-x:2*n-2-x;return x;}
 static unsigned char *image(unsigned char *base,const lk_tpu_level &l){return base+l.planes[0]+LK_TPU_BORDER*l.row_bytes+LK_TPU_BORDER;}
 static void fill(void *memory,int value,size_t bytes){
@@ -75,7 +89,11 @@ static unsigned fast_roi(const unsigned char *im,unsigned stride,int w,int h,int
         {0,-3},{-1,-3},{-2,-2},{-3,-1},{-3,0},{-3,1},{-2,2},{-1,3}};
     int off[16];for(int k=0;k<16;++k)off[k]=xy[k][0]+xy[k][1]*(int)stride;
     unsigned char table[512];for(int k=-255;k<=255;++k)table[k+255]=(k < -threshold)?1:(k>threshold?2:0);
+    auto fast_begin=DETAIL_BEGIN(s);
     fill(s.score,0,w*h);
+#ifdef FRONT_SPARSE_NMS
+    unsigned positions=0;
+#endif
     for(int y=3;y<h-3;++y)for(int x=3;x<w-3;++x){
         const auto *p=im+y*stride+x;const auto *tab=table+255-p[0];int d=tab[p[off[0]]]|tab[p[off[8]]];
         if(!d)continue;
@@ -86,14 +104,30 @@ static unsigned fast_roi(const unsigned char *im,unsigned stride,int w,int h,int
         unsigned bits=0;bool corner=false;
         if(d&1){for(unsigned k=0;k<16;++k)bits|=unsigned(tab[p[off[k]]]&1)<<k;corner=nine(bits);}
         if(!corner && (d&2)){bits=0;for(unsigned k=0;k<16;++k)bits|=unsigned((tab[p[off[k]]]&2)!=0)<<k;corner=nine(bits);}
-        if(corner)s.score[y*w+x]=score(p,off,threshold);
+        if(corner){
+            int value=score(p,off,threshold);s.score[y*w+x]=value;
+#ifdef FRONT_SPARSE_NMS
+            if(value)s.positions[positions++]=(unsigned(y)<<16)|unsigned(x);
+#endif
+        }
     }
+    DETAIL_ADD(s,fast,fast_begin);
+    auto nms_begin=DETAIL_BEGIN(s);
     unsigned n=0;
+#ifdef FRONT_SPARSE_NMS
+    // Preserve raster order and strict 8-neighbor suppression, visiting only FAST candidates.
+    for(unsigned i=0;i<positions;++i){int x=s.positions[i]&65535u,y=s.positions[i]>>16;
+        const auto *p=s.score+y*w+x;int v=*p;
+        bool keep=v>p[-w-1] && v>p[-w] && v>p[-w+1] && v>p[-1] &&
+                  v>p[1] && v>p[w-1] && v>p[w] && v>p[w+1];
+#else
     for(int y=3;y<h-3;++y)for(int x=3;x<w-3;++x){
         int v=s.score[y*w+x];if(!v)continue;bool keep=true;
         for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx)if((dx||dy)&&v<=s.score[(y+dy)*w+x+dx])keep=false;
-        if(keep){if(n==FRONT_CANDIDATES)return FRONT_CANDIDATES;s.candidates[n++]={float(x),float(y),float(v),0,0};}
+#endif
+        if(keep){if(n==FRONT_CANDIDATES){DETAIL_ADD(s,nms,nms_begin);return FRONT_CANDIDATES;}s.candidates[n++]={float(x),float(y),float(v),0,0};}
     }
+    DETAIL_ADD(s,nms,nms_begin);
     return n;
 }
 static void refine(const unsigned char *im,unsigned stride,int width,int height,front_point *pts,unsigned count,Scratch &s) {
@@ -133,9 +167,12 @@ static bool stereo_id(const front_point *left,unsigned n,probe_u64 id){for(unsig
 static unsigned detect(unsigned char *base,front_control &f,const lk_tpu_level &l,const unsigned char *mask,
                        const unsigned char *rectangle_mask,front_point *pts,unsigned &count,
                        const front_point *left,unsigned left_count,Scratch &s) {
+    auto mask_begin=DETAIL_BEGIN(s);
     int cw=f.width/f.min_px_dist,ch=f.height/f.min_px_dist;
     fill(s.close,0,cw*ch);fill(s.grid,0,f.grid_x*f.grid_y);
+#ifndef FRONT_LAZY_MASK
     std::memcpy(s.updated,rectangle_mask,f.width*f.height);
+#endif
     unsigned kept=0;
     for(unsigned i=0;i<count;++i){
         auto p=pts[i];int x=(int)p.x,y=(int)p.y;
@@ -146,25 +183,45 @@ static unsigned detect(unsigned char *base,front_control &f,const lk_tpu_level &
         if(s.close[yc*cw+xc] && !stereo_id(left,left_count,p.id))continue;
         if(mask[y*f.width+x]>127)continue;
         pts[kept++]=p;s.close[yc*cw+xc]=255;if(s.grid[yg*f.grid_x+xg]<255)++s.grid[yg*f.grid_x+xg];
+#ifndef FRONT_LAZY_MASK
         int d=f.min_px_dist;
         if(x-d>=0 && x+d<(int)f.width && y-d>=0 && y+d<(int)f.height)
             for(int yy=y-d;yy<=y+d;++yy)fill(s.updated+yy*f.width+x-d,255,2*d+1);
+#endif
     }
     count=kept;
+    DETAIL_ADD(s,mask,mask_begin);
     if((int)f.num_features-(int)count<=std::min(20,(int)(.5*f.num_features)))return 0;
+#ifdef FRONT_LAZY_MASK
+    // The filtering above reads only the original mask and occupancy grid.
+    // Rectangle masks are needed only when we actually top up this frame.
+    mask_begin=DETAIL_BEGIN(s);
+    std::memcpy(s.updated,rectangle_mask,f.width*f.height);
+    for(unsigned i=0;i<count;++i){int x=(int)pts[i].x,y=(int)pts[i].y,d=f.min_px_dist;
+        if(x-d>=0 && x+d<(int)f.width && y-d>=0 && y+d<(int)f.height)
+            for(int yy=y-d;yy<=y+d;++yy)fill(s.updated+yy*f.width+x-d,255,2*d+1);}
+    DETAIL_ADD(s,mask,mask_begin);
+#endif
     unsigned cell_target=f.num_features/(f.grid_x*f.grid_y)+1,cell_req=std::max(1u,cell_target/2);
     int cellw=f.width/f.grid_x,cellh=f.height/f.grid_y;auto *im=image(base,l);unsigned extracted=0;
     for(unsigned gx=0;gx<f.grid_x;++gx)for(unsigned gy=0;gy<f.grid_y;++gy){
         if(s.grid[gy*f.grid_x+gx]>=cell_req || mask[(gy*f.height/f.grid_y)*f.width+gx*f.width/f.grid_x]==255)continue;
         int ox=gx*cellw,oy=gy*cellh;
         unsigned n=fast_roi(im+oy*l.row_bytes+ox,l.row_bytes,cellw,cellh,f.threshold,s);
+        auto sort_begin=DETAIL_BEGIN(s);
         std::sort(s.candidates,s.candidates+n,[](const front_point &a,const front_point &b){return a.response>b.response;});
+        DETAIL_ADD(s,sort,sort_begin);
+#ifdef FRONT_PROFILE
+        s.profile->fast_candidates+=n;
+#endif
         for(unsigned k=0;k<std::min(cell_target,n);++k){auto p=s.candidates[k];p.x+=ox;p.y+=oy;
             if(s.updated[(int)p.y*f.width+(int)p.x]>127)continue;
             if(extracted==FRONT_POINTS)return FRONT_POINTS+1;
             s.extracted[extracted++]=p;}
     }
+    auto refine_begin=DETAIL_BEGIN(s);
     refine(im,l.row_bytes,f.width,f.height,s.extracted,extracted,s);
+    DETAIL_ADD(s,refine,refine_begin);
     unsigned out=0;
     for(unsigned i=0;i<extracted;++i){auto p=s.extracted[i];int x=(int)(p.x/float(f.min_px_dist)),y=(int)(p.y/float(f.min_px_dist));
         if(x<0 || x>=cw || y<0 || y>=ch || s.close[y*cw+x])continue;
@@ -196,6 +253,20 @@ extern "C" int front_cpu_pyramid(void *memory,front_control*,front_state *state,
 extern "C" int front_run(void *memory,const front_ops *ops) {
     auto *base=(unsigned char*)memory;auto &f=*(front_control*)(base+FRONT_META_OFF);auto &state=*(front_state*)(base+FRONT_STATE_OFF);auto &s=*(Scratch*)(base+FRONT_SCRATCH_OFF);
     if(f.magic!=FRONT_MAGIC || f.version!=FRONT_VERSION || f.width!=640 || (f.height!=400 && f.height!=480) || f.histogram>1 || !f.num_features || f.num_features>120 || !f.grid_x || !f.grid_y || f.grid_x>FRONT_GRID_MAX || f.grid_y>FRONT_GRID_MAX || f.grid_x*f.grid_y>f.num_features || f.min_px_dist<4 || f.min_px_dist>128 || f.threshold>255 || f.input_count[0]>FRONT_POINTS || f.input_count[1]>FRONT_POINTS)return -40;
+    auto *detail=front_detail_at(memory);fill(detail,0,sizeof(*detail));
+    detail->magic=FRONT_DETAIL_MAGIC;s.profile=detail;s.clock=ops->clock;
+#ifdef FRONT_PROFILE
+    detail->flags|=1u;
+#endif
+#ifdef FRONT_SPARSE_NMS
+    detail->flags|=2u;
+#endif
+#ifdef FRONT_LAZY_MASK
+    detail->flags|=4u;
+#endif
+#ifdef FRONT_TPU_BASE_CACHE
+    detail->flags|=32u;
+#endif
     probe_u64 begin=ops->clock();f.equalize_ticks=f.pyramid_ticks=f.detect_ticks=f.lk_ticks=0;
     if(state.magic!=FRONT_MAGIC || state.width!=f.width || state.height!=f.height || state.histogram!=f.histogram){
         fill(&state,0,sizeof(state));state.magic=FRONT_MAGIC;state.width=f.width;state.height=f.height;state.histogram=f.histogram;state.levels=LK_TPU_LEVELS;
@@ -211,9 +282,14 @@ extern "C" int front_run(void *memory,const front_ops *ops) {
     for(unsigned cam=0;cam<2;++cam){
         auto t=ops->clock();auto &l=state.pyramid[current][cam][0];
         unsigned char lut[256];prepare_lut(base+FRONT_RAW_OFF+cam*FRONT_PIXELS,f.width*f.height,f.histogram!=0,lut);
+        DETAIL_ADD(s,histogram,t);
+        auto lut_begin=DETAIL_BEGIN(s);
         if(ops->equalize){int ret=ops->equalize(base,&f,&state,current,cam,lut);if(ret)return ret;}
         else apply_lut(image(base,l),base+FRONT_RAW_OFF+cam*FRONT_PIXELS,f.width,f.height,l.row_bytes,lut);
-        front_border(base,&l);f.equalize_ticks+=ops->clock()-t;
+        DETAIL_ADD(s,lut,lut_begin);
+        auto border_begin=DETAIL_BEGIN(s);
+        front_border(base,&l);
+        DETAIL_ADD(s,border,border_begin);f.equalize_ticks+=ops->clock()-t;
         t=ops->clock();int ret=ops->pyramid(base,&f,&state,current,cam);if(ret)return ret;f.pyramid_ticks+=ops->clock()-t;
         std::memcpy(base+FRONT_MASK_OFF+(current*2+cam)*FRONT_PIXELS,base+FRONT_INPUT_MASK_OFF+cam*FRONT_PIXELS,f.width*f.height);
     }

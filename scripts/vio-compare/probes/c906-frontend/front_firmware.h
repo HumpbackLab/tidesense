@@ -1,5 +1,7 @@
 /* Included after LK firmware. Only C906 submits TPU commands. */
 #include "front_shared.h"
+#include "front_detail.h"
+#include "front_intrinsics.h"
 static int front_equalize_tpu(void *memory,struct front_control *f,struct front_state *s,unsigned slot,unsigned cam,const unsigned char *lut) {
     uintptr_t base=(uintptr_t)memory;struct tpu_probe_control *ctl=memory;struct lk_tpu_level *l=&s->pyramid[slot][cam][0];
     unsigned camoff=FRONT_PYR_OFF+(slot*2+cam)*FRONT_CAM_BYTES;
@@ -42,16 +44,35 @@ static int front_flow_tpu(void *memory,const struct lk_tpu_level *a,const struct
     struct tpu_probe_control *ctl=memory;
     m->version=LK_TPU_VERSION;m->levels=levels;m->batch=LK_TPU_BATCH;m->max_iterations=30;m->trace_flags=0;
     for(unsigned l=0;l<levels;++l){m->level[l]=a[l];m->level[l].planes[1]=b[l].planes[0];}
+#ifdef FRONT_PROFILE
+    uint64_t planes_begin=probe_clock();
+#endif
     // Gaussian outputs and reflected halos are C906-owned; publish once per flow.
     for(unsigned l=0;l<levels;++l){
         clean_dcache_range(base+a[l].planes[0],(a[l].height+2*LK_TPU_BORDER)*a[l].row_bytes);
         clean_dcache_range(base+b[l].planes[0],(b[l].height+2*LK_TPU_BORDER)*b[l].row_bytes);
     }
+#ifdef FRONT_PROFILE
+    struct front_detail *detail=front_detail_at(memory);
+    detail->lk_planes_ticks+=probe_clock()-planes_begin;
+    detail->lk_calls++;
+#endif
     for(unsigned first=0;first<count;first+=LK_TPU_POINTS){m->count=count-first;if(m->count>LK_TPU_POINTS)m->count=LK_TPU_POINTS;
-        for(unsigned i=0;i<m->count;++i)m->input[i]=m->initial[i]=(struct lk_tpu_point){points[first+i].x,points[first+i].y};
+        for(unsigned i=0;i<m->count;++i){unsigned point=first+i;
+            m->input[i]=m->initial[i]=(struct lk_tpu_point){points[point].x,points[point].y};}
         c906_tpu_lk_impl(base,probe_clock(),FRONT_BYTES,0);
+#ifdef FRONT_PROFILE
+        detail->lk_prepare_ticks+=m->prepare_ticks;detail->lk_execute_ticks+=m->execute_ticks;
+        detail->lk_solve_ticks+=m->solve_ticks;detail->lk_submissions+=m->submissions;
+        for(unsigned i=0;i<m->count;++i)detail->lk_iterations+=m->iterations[i];
+#endif
+        front_detail_at(memory)->lk_roi_cache_hits+=m->cache_hits;
+        front_detail_at(memory)->lk_roi_cache_misses+=m->cache_misses;
+        front_detail_at(memory)->lk_dual_packets+=m->dual_packets;
+        front_detail_at(memory)->lk_dual_solo_packets+=m->dual_solo_packets;
         if(ctl->status || ctl->completed!=1)return ctl->status?ctl->status:-53;
-        for(unsigned i=0;i<m->count;++i){output[first+i]=m->output[i];valid[first+i]=m->valid[i];}
+        for(unsigned i=0;i<m->count;++i){unsigned point=first+i;
+            output[point]=m->output[i];valid[point]=m->valid[i];}
     }
     return 0;
 }
@@ -71,14 +92,28 @@ static int front_wait_snapshot(void *memory,struct front_control *f) {
         memcpy(f->input[cam],(const void*)s->points[cam],s->count[cam]*sizeof(struct front_point));}
     return 0;
 }
+#ifdef FRONT_LATEST_INTRINSICS
+static struct front_intrinsics_data front_latest_intrinsics;
+static void front_invalidate_intrinsics(void *base,unsigned offset,unsigned bytes){
+    inv_dcache_range((uintptr_t)base+offset,bytes);
+}
+#endif
 static void c906_tpu_front(uintptr_t base) {
     struct tpu_probe_control *ctl=(void*)base;struct front_control *f=(void*)(base+FRONT_META_OFF);
     if(base>0x8ff40000u-FRONT_BYTES){ctl->status=-50;ctl->completed=0;goto done;}
     inv_dcache_range(base+FRONT_META_OFF,sizeof(*f));
     inv_dcache_range(base+FRONT_RAW_OFF,2*FRONT_PIXELS);
     inv_dcache_range(base+FRONT_INPUT_MASK_OFF,2*FRONT_PIXELS);
+#ifdef FRONT_TPU_BASE_CACHE
+    probe_begin_frame();
+#endif
     struct front_ops ops={probe_clock,front_pyramid_tpu,front_flow_tpu,front_equalize_tpu,front_wait_snapshot};
     int result=front_run((void*)base,&ops);ctl->status=result;ctl->completed=result?0:1;
+#ifdef FRONT_LATEST_INTRINSICS
+    // Read at use time, retaining the last complete version on a concurrent write.
+    front_intrinsics_read((void*)base,&front_latest_intrinsics,front_invalidate_intrinsics);
+    front_detail_at((void*)base)->intrinsics_version=front_latest_intrinsics.words[0];
+#endif
     clean_dcache_range(base+FRONT_META_OFF,sizeof(*f));
     clean_dcache_range(base+FRONT_STATE_OFF,sizeof(struct front_state));
 done:

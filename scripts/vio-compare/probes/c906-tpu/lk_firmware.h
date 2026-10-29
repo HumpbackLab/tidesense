@@ -1,15 +1,39 @@
 /* Included after the low-level TPU submission code. No A53 iteration callbacks. */
 #include <math.h>
 #include "lk_shared.h"
+#ifndef LK_TPU_ROI_CACHE
+#define LK_TPU_ROI_CACHE 0
+#endif
+#ifndef LK_TPU_DUAL_BATCH
+#define LK_TPU_DUAL_BATCH 0
+#endif
+#ifndef LK_TPU_FAST_ROI
+#define LK_TPU_FAST_ROI 0
+#endif
 
-static int lk_tpu_roi(uintptr_t base, struct lk_tpu_control *m, unsigned level,
+#if LK_TPU_FAST_ROI
+#define LK_ROI_INLINE inline __attribute__((always_inline))
+#else
+#define LK_ROI_INLINE
+#endif
+static LK_ROI_INLINE int lk_tpu_roi(uintptr_t base, struct lk_tpu_control *m, unsigned level,
                      unsigned lane, float x, float y, unsigned job)
 {
     struct lk_tpu_level *l=&m->level[level];
+#if LK_TPU_FAST_ROI
+    // The bounded coordinate is safe to convert with round-to-zero; correcting
+    // its negative fractional part gives exactly floor without libm calls.
+    float ux=x-7.5f,uy=y-7.0f;
+    int valid=ux>=-16.f && uy>=-15.f && ux<(float)l->width && uy<(float)l->height;
+    if(!valid){ux=l->width*0.5f-7.5f;uy=l->height*0.5f-7.0f;}
+    int ix=(int)ux,iy=(int)uy;ix-=ux<(float)ix;iy-=uy<(float)iy;
+    float fx=ux-ix,fy=uy-iy;
+#else
     int ix=(int)floorf(x-7.5f), iy=(int)floorf(y-7.0f);
     int valid=ix>=-16 && iy>=-15 && ix<(int)l->width && iy<(int)l->height;
     if(!valid) {x=l->width*0.5f;y=l->height*0.5f;ix=(int)floorf(x-7.5f);iy=(int)floorf(y-7.0f);}
     float fx=x-7.5f-ix, fy=y-7.0f-iy;
+#endif
     unsigned short *weights=(void *)(base+LK_TPU_WEIGHTS_OFF+lane*8);
     weights[0]=lk_tpu_bf16((1-fx)*(1-fy));weights[1]=lk_tpu_bf16(fx*(1-fy));
     weights[2]=lk_tpu_bf16((1-fx)*fy);weights[3]=lk_tpu_bf16(fx*fy);
@@ -32,13 +56,14 @@ static int lk_tpu_roi(uintptr_t base, struct lk_tpu_control *m, unsigned level,
 static int lk_tpu_submit(uintptr_t base, struct tpu_probe_control *ctl,
                          struct lk_tpu_control *m, unsigned job)
 {
-    unsigned off=job?LK_TPU_ITER_DMA_OFF:LK_TPU_INIT_DMA_OFF;
+    unsigned off=job==0?LK_TPU_INIT_DMA_OFF:job==1?LK_TPU_ITER_DMA_OFF:LK_TPU_CACHED_DMA_OFF;
+    unsigned bytes=job==2?m->cached_dma_bytes:m->dma_bytes[job];
     uint64_t t=probe_clock();
     clean_dcache_range(base+LK_TPU_WEIGHTS_OFF,LK_TPU_BATCH*8);
     if(!job)clean_dcache_range(base+LK_TPU_ROW_MASK_OFF,4096);
-    clean_dcache_range(base+off,m->dma_bytes[job]);
+    clean_dcache_range(base+off,bytes);
     m->prepare_ticks+=probe_clock()-t;
-    ctl->dmabuf_bytes=m->dma_bytes[job];
+    ctl->dmabuf_bytes=bytes;
     t=probe_clock();
     int ret=probe_execute_at(ctl,base,off);
     if(ret)probe_resync();
@@ -53,6 +78,8 @@ static int lk_tpu_submit(uintptr_t base, struct tpu_probe_control *ctl,
     inv_dcache_range(base+LK_TPU_HESS_OFF,512);
     return ret;
 }
+#include "lk_dual_firmware.h"
+
 static void c906_tpu_lk_impl(uintptr_t base, uint64_t received, unsigned available_bytes, int invalidate)
 {
     struct tpu_probe_control *ctl=(void *)base;
@@ -71,6 +98,14 @@ static void c906_tpu_lk_impl(uintptr_t base, uint64_t received, unsigned availab
             if((d&63u) || d+64>m->dma_bytes[j])goto done;
         }
     }
+#if LK_TPU_ROI_CACHE
+    int cache_supported=m->cached_magic==LK_TPU_CACHE_MAGIC;
+    if(cache_supported && (m->cached_dma_bytes<128 ||
+       m->cached_dma_bytes>LK_TPU_WEIGHTS_OFF-LK_TPU_CACHED_DMA_OFF ||
+       m->dma_bytes[1]>LK_TPU_CACHED_DMA_OFF-LK_TPU_ITER_DMA_OFF))goto done;
+#endif
+    m->cache_hits=m->cache_misses=0;
+    m->dual_packets=m->dual_solo_packets=0;
     for(unsigned l=0;l<m->levels;++l) {
         struct lk_tpu_level *v=&m->level[l];
         if(v->width<16 || v->width>640 || v->height<15 || v->height>480 ||
@@ -85,6 +120,16 @@ static void c906_tpu_lk_impl(uintptr_t base, uint64_t received, unsigned availab
            fabsf(m->input[p].x)>100000 || fabsf(m->input[p].y)>100000 ||
            fabsf(m->initial[p].x)>100000 || fabsf(m->initial[p].y)>100000)goto done;
     }
+#ifdef LK_TPU_PROFILE_OCCUPANCY
+    m->occupancy_magic=0x4f434331u;
+    m->iteration_jobs=m->lane_slots=m->active_lane_slots=0;
+    m->reusable_jobs=m->reusable_active_slots=0;
+#endif
+#if LK_TPU_DUAL_BATCH
+    if(m->dual_magic==LK_TPU_DUAL_MAGIC){
+        int ret=lk_dual_run(base,ctl,m);ctl->status=ret;ctl->completed=ret?0:1;goto done;
+    }
+#endif
     uint64_t begin=probe_clock();
     m->prepare_ticks=0;m->execute_ticks=0;m->solve_ticks=0;m->submissions=0;m->valid_count=0;
     for(unsigned first=0;first<m->count;first+=LK_TPU_BATCH) {
@@ -123,15 +168,41 @@ static void c906_tpu_lk_impl(uintptr_t base, uint64_t received, unsigned availab
             m->solve_ticks+=probe_clock()-t;
             for(unsigned it=0;it<m->max_iterations;++it) {
                 t=probe_clock();unsigned any=0;
+#if defined(LK_TPU_PROFILE_OCCUPANCY) || LK_TPU_ROI_CACHE
+                unsigned unchanged=0;
+#endif
                 for(unsigned k=0;k<count;++k)if(active[k]) {
+#if defined(LK_TPU_PROFILE_OCCUPANCY) || LK_TPU_ROI_CACHE
+                    uint32_t *desc=(void *)(base+LK_TPU_ITER_DMA_OFF+m->iter_patch[k]);
+                    uint32_t previous_address=desc[12];
+#endif
                     int valid=lk_tpu_roi(base,m,level,k,nx[k],ny[k],1);
                     if(!valid){active[k]=0;if(!level)m->valid[first+k]=0;}
                     any+=active[k];
+#if defined(LK_TPU_PROFILE_OCCUPANCY) || LK_TPU_ROI_CACHE
+                    if(active[k] && it && previous_address==desc[12])++unchanged;
+#endif
                 }
+#ifdef LK_TPU_PROFILE_OCCUPANCY
+                if(any){
+                    ++m->iteration_jobs;m->lane_slots+=LK_TPU_BATCH;m->active_lane_slots+=any;
+                    m->reusable_active_slots+=unchanged;
+                    if(unchanged==any)++m->reusable_jobs;
+                }
+#endif
                 m->prepare_ticks+=probe_clock()-t;
                 if(!any)break;
                 if(probe_clock()-begin>12500000u){ctl->status=-21;goto done;}
-                ret=lk_tpu_submit(base,ctl,m,1);if(ret){ctl->status=ret;goto done;}
+                unsigned iteration_job=1;
+#if LK_TPU_ROI_CACHE
+                // First iteration of every batch/level always loads fresh data.
+                // Inactive lanes cannot affect another feature's spatial sums.
+                if(cache_supported){
+                    if(it && unchanged==any){iteration_job=2;++m->cache_hits;}
+                    else ++m->cache_misses;
+                }
+#endif
+                ret=lk_tpu_submit(base,ctl,m,iteration_job);if(ret){ctl->status=ret;goto done;}
                 unsigned short *rhs=(void *)(base+LK_TPU_RHS_OFF);
                 t=probe_clock();
                 for(unsigned k=0;k<count;++k)if(active[k]) {

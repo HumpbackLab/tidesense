@@ -1,6 +1,11 @@
 // Pixel frontend transport: one input upload and one C906 command per stereo frame.
 #include "front_tpu.hpp"
 #include "tpu_lk.hpp"
+#include "openvins_frontend_config.h"
+#include "cam/CamEqui.h"
+#include "../probes/c906-frontend/front_intrinsics.h"
+#include <mutex>
+#include "../probes/c906-frontend/front_detail.h"
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -20,6 +25,9 @@ extern "C" int lk_tpu_make_jobs(unsigned char*,uint64_t);
 namespace ov_core {
 namespace {
 TpuFront::Stats totals;
+front_detail last_detail{};
+std::mutex intrinsics_mutex;
+front_intrinsics_data latest_camera_intrinsics{};
 bool flag(const char *key){const char *v=std::getenv(key);return v && std::strcmp(v,"0");}
 bool emulate(){
 #ifdef OPENVINS_TPU_LK_EMULATED_BUILD
@@ -31,13 +39,15 @@ bool emulate(){
 struct Workspace {
   unsigned char *base=nullptr;unsigned width=0,height=0;
   std::vector<unsigned char> emulated;
+  front_intrinsics_data last_intrinsics{};
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
   CVI_U64 physical=0;int fd=-1;
 #endif
   Workspace(unsigned w,unsigned h):width(w),height(h){
     static_assert(FRONT_META_OFF+sizeof(front_control)<FRONT_PYR_DMA_OFF,"Frontend metadata overlaps jobs");
     static_assert(FRONT_STATE_OFF+sizeof(front_state)<FRONT_WEIGHTS_OFF,"Frontend state overlaps weights");
-    static_assert(FRONT_SNAPSHOT_OFF+sizeof(front_snapshot)<FRONT_PYR_OFF,"Snapshot overlaps image buffers");
+    static_assert(FRONT_SNAPSHOT_OFF+sizeof(front_snapshot)<FRONT_INTRINSICS_OFF,"Snapshot overlaps calibration");
+    static_assert(FRONT_INTRINSICS_OFF+sizeof(front_intrinsics_channel)<FRONT_PYR_OFF,"Calibration overlaps images");
     if(emulate()){emulated.resize(FRONT_BYTES);base=emulated.data();return;}
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
     void *mapping=nullptr;
@@ -60,6 +70,16 @@ struct Workspace {
   }
 };
 std::shared_ptr<Workspace> workspace;
+void clean_intrinsics(void *base,unsigned offset,unsigned bytes){
+#ifndef OPENVINS_TPU_LK_EMULATED_BUILD
+ if(!emulate() && CVI_SYS_IonFlushCache(workspace->physical+offset,(unsigned char*)base+offset,bytes))
+  throw std::runtime_error("Intrinsics cache publication failed");
+#endif
+}
+void publish_intrinsics(){
+ if(workspace && latest_camera_intrinsics.words[0])
+  front_intrinsics_publish(workspace->base,&latest_camera_intrinsics,clean_intrinsics);
+}
 probe_u64 stamp(double time){probe_u64 bits;std::memcpy(&bits,&time,sizeof(bits));return bits;}
 probe_u64 clock_ticks(){return (probe_u64)(TpuLk::now_ms()*25000.0);}
 std::vector<cv::Mat> pyramid(void *memory,const lk_tpu_level *p,unsigned n){
@@ -98,6 +118,27 @@ bool TpuFront::early(){
  return false;
 #endif
 }
+bool TpuFront::latest_intrinsics(){
+#if OPENVINS_FRONT_LATEST_INTRINSICS
+ const char *v=std::getenv("OPENVINS_TPU_LATEST_INTRINSICS");
+ return enabled() && (!v || std::strcmp(v,"0"));
+#else
+ return false;
+#endif
+}
+void TpuFront::update_intrinsics(const std::array<std::shared_ptr<CamBase>,2>& cameras){
+ if(!latest_intrinsics())return;
+ std::lock_guard<std::mutex> lock(intrinsics_mutex);
+ front_intrinsics_data data{};data.words[0]=latest_camera_intrinsics.words[0]+1;
+ for(unsigned cam=0;cam<2;++cam){
+  const auto values=cameras[cam]->get_value();
+  if(values.size()!=8 || !values.allFinite())throw std::runtime_error("Invalid published camera intrinsics");
+  data.words[1+cam*10]=dynamic_cast<CamEqui*>(cameras[cam].get())?2:1;
+  data.words[2+cam*10]=probe_u64(cameras[cam]->w())|(probe_u64(cameras[cam]->h())<<32);
+  for(unsigned j=0;j<8;++j){double value=values(j);std::memcpy(&data.words[3+cam*10+j],&value,8);}
+ }
+ latest_camera_intrinsics=data;publish_intrinsics();
+}
 TpuFront::Stats TpuFront::stats(){return totals;}
 std::shared_ptr<TpuFrontRequest> TpuFront::prepare(const CameraData &message,double previous,
     const std::array<std::vector<cv::KeyPoint>,2>& points,const std::array<std::vector<size_t>,2>& ids,
@@ -109,7 +150,10 @@ std::shared_ptr<TpuFrontRequest> TpuFront::prepare(const CameraData &message,dou
  unsigned width=message.images[0].cols,height=message.images[0].rows;
  if(width!=640 || (height!=400 && height!=480) || histogram<0 || histogram>1 || features>120 || features<=0 || gx<=0 || gy<=0 || gx>16 || gy>16 || gx*gy>features || minpx<4 || minpx>128)
    throw std::runtime_error("Unsupported C906 frontend resolution, histogram or grid settings");
- if(!workspace)workspace=std::make_shared<Workspace>(width,height);
+ {
+  std::lock_guard<std::mutex> lock(intrinsics_mutex);
+  if(!workspace){workspace=std::make_shared<Workspace>(width,height);publish_intrinsics();}
+ }
  if(workspace->width!=width || workspace->height!=height)throw std::runtime_error("Restart frontend before changing resolution");
  auto &w=*workspace;auto &f=*(front_control*)(w.base+FRONT_META_OFF);
  f.magic=FRONT_MAGIC;f.version=FRONT_VERSION;f.width=width;f.height=height;f.histogram=histogram;
@@ -161,7 +205,12 @@ void TpuFront::publish(const std::shared_ptr<TpuFrontRequest>& r,double timestam
 }
 void TpuFront::execute(const std::shared_ptr<TpuFrontRequest>& r){
  auto w=std::static_pointer_cast<Workspace>(r->workspace);r->begin=TpuLk::now_ms();double cpu=TpuLk::thread_cpu_ms();int ret=0;
- if(emulate()){front_ops ops={clock_ticks,front_cpu_pyramid,cpu_flow,nullptr,cpu_snapshot};ret=front_run(w->base,&ops);}
+ if(emulate()){front_ops ops={clock_ticks,front_cpu_pyramid,cpu_flow,nullptr,cpu_snapshot};ret=front_run(w->base,&ops);
+  if(latest_intrinsics()){
+   front_intrinsics_read(w->base,&w->last_intrinsics,nullptr);
+   front_detail_at(w->base)->intrinsics_version=w->last_intrinsics.words[0];
+  }
+ }
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
  else{
    uint32_t address=w->physical;ret=ioctl(w->fd,_IOW('T',4,uint32_t),&address);
@@ -179,6 +228,8 @@ void TpuFront::execute(const std::shared_ptr<TpuFrontRequest>& r){
    throw std::runtime_error("Invalid C906 frontend result metadata");
 }
 void TpuFront::accept(const std::shared_ptr<TpuFrontRequest>& r,double timestamp){
+ last_detail=*front_detail_at(std::static_pointer_cast<Workspace>(r->workspace)->base);
+ if(last_detail.magic!=FRONT_DETAIL_MAGIC)last_detail={};
  ++totals.calls;totals.prepare_ms+=r->prepare_end-r->prepare_begin;totals.prepare_cpu_ms+=r->prepare_cpu;
  totals.remote_ms+=r->end-r->begin;totals.wait_cpu_ms+=r->wait_cpu;
  totals.snapshot_cpu_ms+=r->snapshot_cpu;
@@ -194,11 +245,26 @@ std::string TpuFront::diagnostic_header(){std::string out;
 #define FIELD(n) out+=",front_" #n;
  FRONT_FIELDS(FIELD)
 #undef FIELD
+ out+=",detail_flags";
+#define FIELD(n) out+=",detail_" #n "_ms";
+ FRONT_DETAIL_TIMES(FIELD)
+#undef FIELD
+#define FIELD(n) out+=",detail_" #n;
+ FRONT_DETAIL_COUNTS(FIELD)
+#undef FIELD
  return out;
 }
 std::string TpuFront::diagnostic_delta(const Stats &old){std::ostringstream out;out<<std::setprecision(15);
 #define FIELD(n) out<<','<<totals.n-old.n;
  FRONT_FIELDS(FIELD)
+#undef FIELD
+ const auto d=totals.calls>old.calls ? last_detail : front_detail{};
+ out<<','<<d.flags;
+#define FIELD(n) out<<','<<d.n##_ticks/25000.0;
+ FRONT_DETAIL_TIMES(FIELD)
+#undef FIELD
+#define FIELD(n) out<<','<<d.n;
+ FRONT_DETAIL_COUNTS(FIELD)
 #undef FIELD
  return out.str();
 }

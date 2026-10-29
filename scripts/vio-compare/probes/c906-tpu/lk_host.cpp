@@ -187,6 +187,13 @@ int main(int argc,char **argv) {
             if(ctl.status || ctl.completed!=1)throw std::runtime_error("C906 LK failed");
         }
         std::vector<double> epe,scalar_epe,truth_epe;unsigned cvvalid=0,shared=0,agree=0;
+        if(m.occupancy_magic==0x4f434331u)
+            std::printf("OCCUPANCY iteration_jobs=%u lane_slots=%u active_lane_slots=%u reusable_jobs=%u reusable_active_slots=%u\n",
+                m.iteration_jobs,m.lane_slots,m.active_lane_slots,m.reusable_jobs,m.reusable_active_slots);
+        if(m.cached_magic==LK_TPU_CACHE_MAGIC)
+            std::printf("ROI_CACHE hits=%u misses=%u bytes=%u\n",m.cache_hits,m.cache_misses,m.cached_dma_bytes);
+        if(m.dual_magic==LK_TPU_DUAL_MAGIC)
+            std::printf("DUAL_RESULT parallel=%u packets=%u solo=%u\n",m.dual_parallel,m.dual_packets,m.dual_solo_packets);
         std::ofstream csv;
         if(argc>nextarg+2)csv.open(argv[nextarg+2]);
         if(csv)csv<<std::setprecision(9)<<"id,x,y,opencv_valid,scalar_valid,tpu_valid,opencv_x,opencv_y,scalar_x,scalar_y,tpu_x,tpu_y,tpu_iterations\n";

@@ -366,7 +366,41 @@
    std::shared_ptr<State> state;
 --- a/ov_msckf/src/core/VioManager.cpp
 +++ b/ov_msckf/src/core/VioManager.cpp
-@@ -277,6 +277,15 @@
+@@ -97,6 +97,11 @@
+     state->_calib_IMUtoCAM.at(i)->set_fej(params.camera_extrinsics.at(i));
+   }
+ 
++#ifdef OPENVINS_C906_FRONTEND
++  if(state->_options.num_cameras==2)
++    TpuFront::update_intrinsics({state->_cam_intrinsics_cameras.at(0),state->_cam_intrinsics_cameras.at(1)});
++#endif
++
+   //===================================================================================
+   //===================================================================================
+   //===================================================================================
+@@ -228,6 +233,10 @@
+       propagator->clean_old_imu_measurements(timestamp + state->_calib_dt_CAMtoIMU->value()(0) - 0.10);
+       updaterZUPT->clean_old_imu_measurements(timestamp + state->_calib_dt_CAMtoIMU->value()(0) - 0.10);
+       propagator->invalidate_cache();
++#ifdef OPENVINS_C906_FRONTEND
++      if(state->_options.num_cameras==2)
++        TpuFront::update_intrinsics({state->_cam_intrinsics_cameras.at(0),state->_cam_intrinsics_cameras.at(1)});
++#endif
+       return;
+     }
+   }
+@@ -251,6 +260,10 @@
+     message.masks.push_back(cv::Mat::zeros(cv::Size(width, height), CV_8UC1));
+   }
+   do_feature_propagate_update(message);
++#ifdef OPENVINS_C906_FRONTEND
++  if(state->_options.num_cameras==2)
++    TpuFront::update_intrinsics({state->_cam_intrinsics_cameras.at(0),state->_cam_intrinsics_cameras.at(1)});
++#endif
+ }
+ 
+ void VioManager::track_image_and_update(const ov_core::CameraData &message_const) {
+@@ -277,6 +290,15 @@
      message.masks.at(i) = mask_temp;
    }
  
@@ -382,7 +416,18 @@
    // Perform our feature tracking!
    trackFEATS->feed_new_camera(message);
  
-@@ -317,7 +326,26 @@
+@@ -301,6 +323,10 @@
+       propagator->clean_old_imu_measurements(message.timestamp + state->_calib_dt_CAMtoIMU->value()(0) - 0.10);
+       updaterZUPT->clean_old_imu_measurements(message.timestamp + state->_calib_dt_CAMtoIMU->value()(0) - 0.10);
+       propagator->invalidate_cache();
++#ifdef OPENVINS_C906_FRONTEND
++      if(state->_options.num_cameras==2)
++        TpuFront::update_intrinsics({state->_cam_intrinsics_cameras.at(0),state->_cam_intrinsics_cameras.at(1)});
++#endif
+       return;
+     }
+   }
+@@ -317,7 +343,30 @@
    }
  
    // Call on our propagate and update function
@@ -401,6 +446,10 @@
 +  double tpu_backend_begin=TpuLk::now_ms(),tpu_backend_cpu=TpuLk::thread_cpu_ms();
 +#endif
    do_feature_propagate_update(message);
++#ifdef OPENVINS_C906_FRONTEND
++  if(state->_options.num_cameras==2)
++    TpuFront::update_intrinsics({state->_cam_intrinsics_cameras.at(0),state->_cam_intrinsics_cameras.at(1)});
++#endif
 +#ifdef OPENVINS_C906_TPU_LK
 +  const double tpu_backend_end=TpuLk::now_ms();
 +  TpuLk::record("backend",message.timestamp,tpu_backend_begin,tpu_backend_end,TpuLk::thread_cpu_ms()-tpu_backend_cpu);
@@ -409,6 +458,20 @@
  }
  
  void VioManager::do_feature_propagate_update(const ov_core::CameraData &message) {
+@@ -338,7 +387,13 @@
+   // NOTE: if the state is already at the given time (can happen in sim)
+   // NOTE: then no need to prop since we already are at the desired timestep
+   if (state->_timestamp != message.timestamp) {
++#ifdef OPENVINS_C906_TPU_LK
++    const double prop_begin=TpuLk::now_ms(),prop_cpu=TpuLk::thread_cpu_ms();
++#endif
+     propagator->propagate_and_clone(state, message.timestamp);
++#ifdef OPENVINS_C906_TPU_LK
++    TpuLk::record("propagate",message.timestamp,prop_begin,TpuLk::now_ms(),TpuLk::thread_cpu_ms()-prop_cpu);
++#endif
+   }
+   rT3 = boost::posix_time::microsec_clock::local_time();
+ 
 --- a/ov_msckf/CMakeLists.txt
 +++ b/ov_msckf/CMakeLists.txt
 @@ -58,6 +58,10 @@

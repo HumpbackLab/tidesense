@@ -106,7 +106,14 @@ int main(int argc,char **argv) {
 #endif
       auto t=std::chrono::steady_clock::now();
       const double main_cpu=cpu_time_ms(CLOCK_THREAD_CPUTIME_ID),process_cpu=cpu_time_ms(CLOCK_PROCESS_CPUTIME_ID);
+#ifdef OPENVINS_C906_TPU_LK
+      const double camera_begin=ov_core::TpuLk::now_ms();
+#endif
       system.feed_measurement_camera(image);
+#ifdef OPENVINS_C906_TPU_LK
+      ov_core::TpuLk::record("camera",image.timestamp,camera_begin,ov_core::TpuLk::now_ms(),
+          cpu_time_ms(CLOCK_THREAD_CPUTIME_ID)-main_cpu);
+#endif
       double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t).count();total+=ms;
       bool ready=system.initialized();initialized+=ready;poses<<rows[i][0]<<','<<ready;
       if(ready) {

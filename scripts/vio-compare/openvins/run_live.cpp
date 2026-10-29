@@ -147,6 +147,7 @@ int main(int argc, char** argv) {
 #ifdef OPENVINS_C906_FRONTEND
               << " frontend=" << ov_core::TpuFront::enabled()
               << " front_early=" << ov_core::TpuFront::early()
+              << " latest_intrinsics=" << ov_core::TpuFront::latest_intrinsics()
 #endif
               << '\n';
 #endif
@@ -224,7 +225,14 @@ int main(int argc, char** argv) {
 #endif
 #endif
       const auto camera_begin = std::chrono::steady_clock::now();
+#ifdef OPENVINS_C906_TPU_LK
+      const double camera_trace_begin=ov_core::TpuLk::now_ms(),camera_trace_cpu=ov_core::TpuLk::thread_cpu_ms();
+#endif
       system.feed_measurement_camera(image);
+#ifdef OPENVINS_C906_TPU_LK
+      ov_core::TpuLk::record("camera",image.timestamp,camera_trace_begin,ov_core::TpuLk::now_ms(),
+          ov_core::TpuLk::thread_cpu_ms()-camera_trace_cpu);
+#endif
       const auto camera_end = std::chrono::steady_clock::now();
       if (frames == 99) {
         if (const char* snapshots = std::getenv("OPENVINS_SNAPSHOT_DIR")) {

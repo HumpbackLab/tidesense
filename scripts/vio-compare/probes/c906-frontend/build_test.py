@@ -8,6 +8,10 @@ for line in (build/'CMakeFiles/run_record.dir/flags.make').read_text().splitline
   k,v=line.split(' = ',1);flags[k]=shlex.split(v)
 args=flags['CXX_DEFINES']+flags['CXX_INCLUDES']+flags['CXX_FLAGS']+['-I'+str(sdk/'cvi_mpi/include')]
 if os.environ.get('FRONT_TEST_FAST_FILL')=='1':args+=['-DFRONT_FAST_FILL=1']
+for option in os.environ.get('FRONT_TEST_OPTS','').split(','):
+ if not option:continue
+ if option not in ['SPARSE_NMS','LAZY_MASK']:raise ValueError('Unknown frontend test option: '+option)
+ args+=['-DFRONT_'+option+'=1']
 compiler='g++-11'if arch=='host'else str(sdk/'host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-g++')
 if arch=='a53':args+=['-DFRONT_DEVICE_TEST=1']
 for name in ['front_kernel','front_test']:

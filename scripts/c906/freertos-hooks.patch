@@ -1,7 +1,7 @@
 diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
 --- a/cvitek/task/comm/CMakeLists.txt
 +++ b/cvitek/task/comm/CMakeLists.txt
-@@ -17,3 +17,41 @@
+@@ -17,3 +17,78 @@
  add_library(comm STATIC ${_SOURCES})
  install(TARGETS comm DESTINATION lib)
  
@@ -28,8 +28,37 @@ diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
 +    target_compile_definitions(comm PRIVATE TIDESENSE_C906_TPU_PROBE)
 +endif()
 +
++option(TIDESENSE_C906_LK_DUAL_BATCH "Experimental independent dual LK states with TDMA/TIU overlap" OFF)
++if(TIDESENSE_C906_LK_DUAL_BATCH)
++    target_compile_definitions(comm PRIVATE LK_TPU_DUAL_BATCH=1)
++endif()
++
++option(TIDESENSE_C906_LK_ROI_CACHE "Reuse unchanged current-image LK windows in TPU local memory" OFF)
++if(TIDESENSE_C906_LK_ROI_CACHE)
++    target_compile_definitions(comm PRIVATE LK_TPU_ROI_CACHE=1)
++endif()
++
++if(TIDESENSE_C906_LK_DUAL_BATCH AND (NOT TIDESENSE_C906_LK_ROI_CACHE OR NOT TIDESENSE_C906_LK_BATCH STREQUAL "16"))
++    message(FATAL_ERROR "Dual LK requires ROI cache and 16 lanes")
++endif()
++
++option(TIDESENSE_C906_LK_PROFILE_OCCUPANCY "Profile useful LK lanes and ROI reuse" OFF)
++if(TIDESENSE_C906_LK_PROFILE_OCCUPANCY)
++    target_compile_definitions(comm PRIVATE LK_TPU_PROFILE_OCCUPANCY=1)
++endif()
++
++option(TIDESENSE_C906_LK_FAST_ROI "Avoid libm floor calls in bounded LK patch addressing" OFF)
++if(TIDESENSE_C906_LK_FAST_ROI)
++    target_compile_definitions(comm PRIVATE LK_TPU_FAST_ROI=1)
++endif()
++
 +option(TIDESENSE_C906_FRONTEND "Enable experimental pixel-only C906 TPU frontend" OFF)
 +option(TIDESENSE_C906_FRONT_FASTMEM "Use aligned scalar stores in frontend fills" OFF)
++option(TIDESENSE_C906_FRONT_PROFILE "Profile pixel frontend sub-stages" OFF)
++option(TIDESENSE_C906_FRONT_SPARSE_NMS "Visit only FAST candidates during NMS" OFF)
++option(TIDESENSE_C906_FRONT_LAZY_MASK "Build top-up masks only when detection is needed" OFF)
++option(TIDESENSE_C906_FRONT_LATEST_INTRINSICS "Read latest coherent camera calibration without waiting for a frame" OFF)
++option(TIDESENSE_C906_FRONT_TPU_BASE_CACHE "Cache fixed TPU bases within one exclusively owned frame" OFF)
 +if(TIDESENSE_C906_FRONTEND)
 +    if(NOT TIDESENSE_C906_TPU_LK)
 +        message(FATAL_ERROR "C906 frontend requires batched TPU LK")
@@ -41,6 +70,14 @@ diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
 +    if(TIDESENSE_C906_FRONT_FASTMEM)
 +        target_compile_definitions(comm PRIVATE FRONT_FAST_FILL=1)
 +    endif()
++    if(TIDESENSE_C906_FRONT_PROFILE)
++        target_compile_definitions(comm PRIVATE FRONT_PROFILE=1)
++    endif()
++    foreach(_opt SPARSE_NMS LAZY_MASK TPU_BASE_CACHE LATEST_INTRINSICS)
++        if(TIDESENSE_C906_FRONT_${_opt})
++            target_compile_definitions(comm PRIVATE FRONT_${_opt}=1)
++        endif()
++    endforeach()
 +    set_source_files_properties("${_front}" PROPERTIES COMPILE_FLAGS "-O3 -march=rv64imafdc -mabi=lp64d -mcmodel=medany -ffunction-sections -fdata-sections -fno-exceptions -fno-rtti -fno-threadsafe-statics")
 +endif()
 diff --git a/cvitek/task/comm/src/riscv64/comm_main.c b/cvitek/task/comm/src/riscv64/comm_main.c

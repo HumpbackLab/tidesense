@@ -4,6 +4,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cvikernel/cvikernel.h"
+#ifdef OPENVINS_C906_FRONTEND
+#include "openvins_frontend_config.h"
+#endif
+#ifndef LK_TPU_ROI_CACHE
+#define LK_TPU_ROI_CACHE 0
+#endif
+#ifndef LK_TPU_DUAL_BATCH
+#define LK_TPU_DUAL_BATCH 0
+#endif
 #include "lk_shared.h"
 extern int cvi181x_dmabuf_size(uint8_t *, size_t, size_t *, size_t *);
 extern int cvi181x_dmabuf_convert(uint8_t *, size_t, uint8_t *);
@@ -63,6 +72,14 @@ static void center(cvk_context_t *c,cvk_tl_t *a)
         .b_const={.val=(int16_t)0xc300,.is_signed=1}}; /* -128 */
     c->ops->tiu_add(c,&p);
 }
+#if LK_TPU_ROI_CACHE
+static void center_copy(cvk_context_t *c,cvk_tl_t *src,cvk_tl_t *dst)
+{
+    cvk_tiu_add_param_t p={.res_low=dst,.a_low=src,.b_is_const=1,
+        .b_const={.val=(int16_t)0xc300,.is_signed=1}};
+    c->ops->tiu_add(c,&p);
+}
+#endif
 static void scharr(cvk_context_t *c,cvk_tl_t *image,cvk_tl_t *out,
                     cvk_tl_t *kernel,cvk_tl_t *rows,cvk_tl_t *cols)
 {
@@ -83,6 +100,8 @@ static void reduce(cvk_context_t *c, cvk_tl_t *product, cvk_tl_t *sum,
     c->ops->tiu_average_pooling(c,&p);store(c,sum,dst);
 }
 
+#include "lk_dual_jobs.h"
+
 int lk_tpu_make_jobs(uint8_t *shared, uint64_t phys)
 {
     struct lk_tpu_control *m=(void *)(shared+LK_TPU_META_OFF);
@@ -90,8 +109,16 @@ int lk_tpu_make_jobs(uint8_t *shared, uint64_t phys)
     uint8_t *storage=calloc(1,131072);
     cvk_reg_info_t reg={.chip_ver_str="cv181x",.cmdbuf_size=131072,.cmdbuf=storage};
     cvk_context_t *c=storage?cvikernel_register(&reg):NULL;
-    cvk_tl_t *allocated[13]; unsigned count=0; int ret=-1;
+    cvk_tl_t *allocated[14]; unsigned count=0; int ret=-1;
     if(!c) goto done;
+    m->dual_magic=0;
+    m->cached_magic=m->cached_dma_bytes=m->cache_hits=m->cache_misses=0;
+#if LK_TPU_ROI_CACHE
+    const char *cache_env=getenv("OPENVINS_TPU_LK_ROI_CACHE");
+    const int use_cache=!cache_env || strcmp(cache_env,"0");
+#else
+    const int use_cache=0;
+#endif
 #define ALLOC(var,sh) cvk_tl_t *var=c->ops->lmem_alloc_tensor(c,(sh),CVK_FMT_BF16,1); \
     if(!var){goto done;} allocated[count++]=var
     cvk_tl_shape_t rawshape={1,LK_TPU_BATCH,LK_TPU_H+1,LK_TPU_W+1};
@@ -103,12 +130,17 @@ int lk_tpu_make_jobs(uint8_t *shared, uint64_t phys)
     ALLOC(gx,shape);ALLOC(gy,shape);ALLOC(sample,shape);ALLOC(product,shape);ALLOC(sum,sumshape);
     ALLOC(image,imageshape);ALLOC(kernelx,kernelshape);ALLOC(kernely,kernelshape);
     ALLOC(rows,rowshape);ALLOC(cols,colshape);
+#if LK_TPU_ROI_CACHE
+    // Keep an unmodified current-image window. Centering is out of place, so
+    // a cache hit cannot subtract 128 from an already centered window.
+    ALLOC(current_cache,rawshape);
+#endif
     const float kx[9]={-3,0,3,-10,0,10,-3,0,3},ky[9]={-3,-10,-3,0,0,0,3,10,3};
     for(unsigned ch=0;ch<LK_TPU_BATCH;++ch)for(unsigned k=0;k<9;++k) {
         ((uint16_t *)(shared+LK_TPU_KERNEL_X_OFF))[ch*9+k]=lk_tpu_bf16(kx[k]/32);
         ((uint16_t *)(shared+LK_TPU_KERNEL_Y_OFF))[ch*9+k]=lk_tpu_bf16(ky[k]/32);
     }
-    for(unsigned job=0;job<2;++job) {
+    for(unsigned job=0;job<(use_cache?3u:2u);++job) {
         load(c,weights,phys+LK_TPU_WEIGHTS_OFF,0);
         if(job==0) {
             load(c,kernelx,phys+LK_TPU_KERNEL_X_OFF,0);load(c,kernely,phys+LK_TPU_KERNEL_Y_OFF,0);
@@ -123,8 +155,16 @@ int lk_tpu_make_jobs(uint8_t *shared, uint64_t phys)
             reduce(c,product,sum,gx,gy,phys+LK_TPU_HESS_OFF+LK_TPU_BATCH*2);
             reduce(c,product,sum,gy,gy,phys+LK_TPU_HESS_OFF+LK_TPU_BATCH*4);
         } else {
-            gather(c,raw,phys+LK_TPU_PLANES_OFF,0x2000);
-            center(c,raw);
+#if LK_TPU_ROI_CACHE
+            if(use_cache){
+                if(job==1)gather(c,current_cache,phys+LK_TPU_PLANES_OFF,0x2000);
+                center_copy(c,current_cache,raw);
+            } else
+#endif
+            {
+                gather(c,raw,phys+LK_TPU_PLANES_OFF,0x2000);
+                center(c,raw);
+            }
             interpolate(c,raw,weights,sample);
             cvk_tiu_sub_param_t sub={.res_low=sample,.a_low=tmpl,.b_low=sample};
             c->ops->tiu_sub(c,&sub);
@@ -133,11 +173,13 @@ int lk_tpu_make_jobs(uint8_t *shared, uint64_t phys)
         }
         uint32_t cmdbytes=0;size_t dmabytes=0,pmu=0;
         uint8_t *commands=c->ops->acquire_cmdbuf(c,&cmdbytes);
-        unsigned off=job?LK_TPU_ITER_DMA_OFF:LK_TPU_INIT_DMA_OFF;
+        unsigned off=job==0?LK_TPU_INIT_DMA_OFF:job==1?LK_TPU_ITER_DMA_OFF:LK_TPU_CACHED_DMA_OFF;
+        unsigned limit=job==2?LK_TPU_WEIGHTS_OFF-LK_TPU_CACHED_DMA_OFF:
+                       use_cache && job==1?LK_TPU_CACHED_DMA_OFF-LK_TPU_ITER_DMA_OFF:40000u;
         if(!commands || cvi181x_dmabuf_size(commands,cmdbytes,&dmabytes,&pmu) ||
-           dmabytes>40000 || cvi181x_dmabuf_convert(commands,cmdbytes,shared+off) ||
+           dmabytes>limit || cvi181x_dmabuf_convert(commands,cmdbytes,shared+off) ||
            cvi181x_dmabuf_relocate(shared+off,phys+off,dmabytes,0)) goto done;
-        m->dma_bytes[job]=dmabytes;
+        if(job==2)m->cached_dma_bytes=dmabytes;else m->dma_bytes[job]=dmabytes;
         const struct tpu_probe_dma_header *h=(void *)(shared+off);
         const struct tpu_probe_cpu_desc *d=(const void *)(h+1);
         unsigned found=0;
@@ -148,18 +190,23 @@ int lk_tpu_make_jobs(uint8_t *shared, uint64_t phys)
                 unsigned rel=(uint8_t *)td-(shared+off);
                 if(!job && tag>=0x1000 && tag<0x1000+LK_TPU_BATCH) {
                     m->init_patch[(tag-0x1000)/LK_TPU_BATCH][(tag-0x1000)%LK_TPU_BATCH]=rel;found++;
-                } else if(job && tag>=0x2000 && tag<0x2000+LK_TPU_BATCH) {
+                } else if(job==1 && tag>=0x2000 && tag<0x2000+LK_TPU_BATCH) {
                     m->iter_patch[tag-0x2000]=rel;found++;
                 }
             }
         }
         printf("LK job=%u dma_bytes=%zu tiu=%u tdma=%u segments=%u patches=%u\n",
                job,dmabytes,h->tiu_count,h->tdma_count,h->cpu_count,found);
-        if(found!=LK_TPU_BATCH)goto done;
+        if(found!=(job==2?0u:LK_TPU_BATCH))goto done;
         c->ops->reset(c);
     }
+    if(use_cache)m->cached_magic=LK_TPU_CACHE_MAGIC;
     ret=0;
 done:
     if(c) {while(count)c->ops->lmem_free_tensor(c,allocated[--count]);c->ops->cleanup(c);free(c);}
-    free(storage);return ret;
+    free(storage);
+#if LK_TPU_DUAL_BATCH
+    if(!ret)ret=lk_tpu_make_dual_jobs(shared,phys);
+#endif
+    return ret;
 }

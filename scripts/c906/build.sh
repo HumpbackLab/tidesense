@@ -19,6 +19,7 @@ elif [[ $# != 0 ]]; then
     echo "usage: $0 [--tpu-probe|--lk-probe|--frontend-probe]" >&2
     exit 2
 fi
+lk_roi_cache=${C906_LK_ROI_CACHE:-$front}
 rtos="$repo/freertos/cvitek"
 riscv="$repo/host-tools/gcc/riscv64-elf-x86_64/bin/riscv64-unknown-elf-"
 arm="$repo/host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
@@ -55,7 +56,16 @@ cmake -G Ninja -S "$rtos/task" -B "$rtos/build/c906-reload" \
     -DRUN_ARCH=riscv64 -DRUN_TYPE=CVIRTOS -DBOARD_FPGA=n \
     -DTIDESENSE_C906_RELOAD=ON -DTIDESENSE_C906_TPU_PROBE="$probe" \
     -DTIDESENSE_C906_FRONTEND="$front" -DTIDESENSE_C906_TPU_LK="$lk" -DTIDESENSE_C906_LK_BATCH="$batch" \
-    -DTIDESENSE_C906_FRONT_FASTMEM="${C906_FRONT_FASTMEM:-$front}"
+    -DTIDESENSE_C906_LK_DUAL_BATCH="${C906_LK_DUAL_BATCH:-OFF}" \
+    -DTIDESENSE_C906_LK_ROI_CACHE="$lk_roi_cache" \
+    -DTIDESENSE_C906_LK_PROFILE_OCCUPANCY="${C906_LK_PROFILE_OCCUPANCY:-OFF}" \
+    -DTIDESENSE_C906_LK_FAST_ROI="${C906_LK_FAST_ROI:-$front}" \
+    -DTIDESENSE_C906_FRONT_FASTMEM="${C906_FRONT_FASTMEM:-$front}" \
+    -DTIDESENSE_C906_FRONT_LATEST_INTRINSICS="${C906_FRONT_LATEST_INTRINSICS:-$front}" \
+    -DTIDESENSE_C906_FRONT_PROFILE="${C906_FRONT_PROFILE:-OFF}" \
+    -DTIDESENSE_C906_FRONT_SPARSE_NMS="${C906_FRONT_SPARSE_NMS:-$front}" \
+    -DTIDESENSE_C906_FRONT_LAZY_MASK="${C906_FRONT_LAZY_MASK:-$front}" \
+    -DTIDESENSE_C906_FRONT_TPU_BASE_CACHE="${C906_FRONT_TPU_BASE_CACHE:-$front}"
 cmake --build "$rtos/build/c906-reload" --target install
 name=cvirtos-reload-base
 [[ "$probe" == OFF ]] || name=cvirtos-reload-tpu
@@ -81,6 +91,6 @@ if [[ "$probe" == ON ]]; then
     cp "$repo/scripts/vio-compare/probes/c906-tpu/c906_tpu_bridge.ko" "$out/"
 fi
 if [[ "$lk" == ON ]]; then
-    C906_LK_BATCH="$batch" C906_OUT="$out" python3 "$repo/scripts/vio-compare/probes/c906-tpu/build_lk.py"
+    C906_LK_ROI_CACHE="$lk_roi_cache" C906_LK_BATCH="$batch" C906_OUT="$out" python3 "$repo/scripts/vio-compare/probes/c906-tpu/build_lk.py"
 fi
 echo "Built $out/$name.bin, c906-reload, c906_loader.ko"
