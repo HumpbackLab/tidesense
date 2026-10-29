@@ -564,3 +564,96 @@ OPENVINS_QR7POINT=0 OPENVINS_MICRO_ROS=0 ./run-front.sh \
 固件及 Linux TPU 驱动。首轮高增益画面下未初始化，没有用于新旧性能比较；
 该测试没有调整曝光和标定参数。实时短静止/ZUPT 测试用于验证接入，强运动
 吞吐和轨迹精度以前述 FPV 回放为准。
+
+## A53 空闲时领取 16 点尾部 LK（实验）
+
+应用编译选项 `OPENVINS_FRONT_CPU_TAIL`、小核选项
+`TIDESENSE_C906_FRONT_CPU_TAIL` 均默认 OFF。编入后还需显式设置
+`OPENVINS_TPU_CPU_TAIL=1`；不设置或设为 0 时继续由 C906／TPU 完成全部点。
+本实验没有更改逐相机几何处理，也没有恢复 A53 直方图实验。
+
+应用在第一轮有效后端执行之后，才允许在消费前端结果的等待区间声明空闲。
+C906 在开始右路时序 LK 时，如果 A53 已声明空闲、该路至少有 48 个点，
+便交出最后 16 点，并继续计算其余点。每帧最多交接一次；点少或 A53 仍忙时
+全部按原路径完成。初始化阶段保留原路径，后端计算期间不领取任务。
+
+A53 复用同一对共享灰度金字塔，仅计算所领窗口的 Scharr，使用原 NEON LK。
+CPU 计算完成后由 C906 按原索引合并，点的 ID 和顺序保持不变。
+任务、结果以及两侧控制状态使用独立缓存行，一侧只写自己拥有的区域；
+通过 cache clean／invalidate 发布，不使用跨处理器 compare/exchange。
+协作区位于共享 ION 偏移 1024000，长度 1024 字节，不改变前端 v3 原字段。
+单帧仍是一条邮箱请求，CPU／TPU 迭代中间无需 A53 串接提交。
+
+配对固件会确认协议。应用开启实验但固件不支持时明确报错；CPU 出错或失去
+响应时，小核分别返回 -71／-72，等待上限 500 ms。独立的模拟缓存测试覆盖
+无空闲声明、点数不足、重复领取、成功合并、CPU 失败及超时。
+启动时在 CPU 私有图像上预热 LK 和工作区，减少首次调用的开销。没有在运行中重建整图梯度。后端保持 FP64，150 点、LK 16×15、30 次
+迭代上限、噪声及 RANSAC 参数沿用原设置。
+
+构建实验配对程序：
+
+```sh
+C906_FRONT_CPU_TAIL=ON C906_LK_DUAL_BATCH=ON \
+  scripts/c906/build.sh --frontend-probe
+python3 scripts/vio-compare/openvins/build_tpu.py \
+  --frontend --early-pipeline --sparse-nms --lazy-mask --latest-intrinsics \
+  --lk-batch 16 --lk-roi-cache --lk-dual --qr7 --cpu-tail --arch a53
+```
+
+实验部署目录为 `/mnt/data/openvins-c906-front/cpu-tail`，正式 `live`、`tools`
+仍是原版本。回放命令：
+
+```sh
+exp=/mnt/data/openvins-c906-front/cpu-tail
+C906_TOOLS_DIR="$exp/tools" OPENVINS_TPU_FRONTEND=1 OPENVINS_TPU_CPU_TAIL=1 \
+  /mnt/data/openvins-c906-front/live/with-tpu.sh "$exp/run_tail.a53" \
+  /mnt/data/openvins-c906-tpu/config-fpv/estimator_config.yaml \
+  /mnt/data/openvins-c906-tpu/dataset "$exp/results/manual.csv" 1970 0
+```
+
+`front_tail_jobs` 是本帧交接批数（0／1），每批 16 点；`front_tail_ms`／
+`front_tail_cpu_ms` 是 CPU 任务 wall／CPU 时间，`front_tail_sync_ms` 是任务和
+共享灰度读取同步，`front_tail_remote_wait_ms` 是 C906 在本地工作完成后等待
+CPU 的时间。`front_total_ms` 包含这段合并等待；`consume_wait` 区间现在也
+包含 CPU 任务，不能将整个区间都当作 A53 空闲时间。
+
+### 精度及未锁页重复对照
+
+两轮完整开启回放均处理 1970 帧、初始化后输出 1781 帧，ATE 分别为
+0.298629／0.298635 m，原 TPU 基线为 0.286721 m。使用相同的 816 个真值时刻、
+官方 -16.684572 ms 时间偏移、SE(3) 对齐，不拟合尺度。首轮相对基线的最大
+位置差约 0.178 m、末帧差约 0.141 m，最大姿态差约 0.254°，未见发散。
+GT 只覆盖录像的一部分；GT 范围外的比较是相对基线，不能当作绝对精度。
+
+混合 CPU／TPU 路径有舍入和收敛差异，结果不是逐位等价。两轮完整回放虽然
+ATE 接近，参与分流的帧仍可能因运行时空闲时机而不同。关闭开关的对照与原
+硬件参考逐行一致。没有修改噪声、视觉阈值、初始化或协方差精度来补偿差异。
+
+同一 FPV RAM 窗口 1002–1037 帧，按 camera 入口计算帧周期，两轮未锁页对照：
+
+| 项目 | 首轮关闭 | 首轮开启 | 复测关闭 | 复测开启 |
+| --- | ---: | ---: | ---: | ---: |
+| 平均完整帧周期 | 53.137 ms | 52.270 ms | 53.721 ms | 53.252 ms |
+| 完整帧周期 P95 | 87.322 ms | 81.588 ms | 88.460 ms | 85.134 ms |
+| 窗口内 CPU 批数 | 0 | 16 | 0 | 19 |
+
+相邻配对平均节省 0.47–0.87 ms，约 0.9%–1.6%，收益较小且有调度波动。
+整段 SD 回放 wall 时间不用于评价计算吞吐。
+
+验证协议与分析精度：
+
+```sh
+g++-11 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -pthread \
+  scripts/vio-compare/probes/c906-frontend/tail_protocol_test.cpp \
+  -o /tmp/tidesense-tail-protocol-test
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1 \
+  /tmp/tidesense-tail-protocol-test
+python3 scripts/vio-compare/probes/qr7point/evaluate.py \
+  install/openvins-c906-frontend/cpu-tail/results \
+  --modes on on-full-repeat locked-on \
+  --reference install/openvins-c906-frontend/qr7/board/qr.csv
+```
+
+原始轨迹、逐帧指标、trace、缺页采样及汇总保存在
+`install/openvins-c906-frontend/cpu-tail/` 和设备同名实验目录。
+主机 CPU 模拟仍走原路径；不能用该模拟回放替代板上混合计算的精度验证。

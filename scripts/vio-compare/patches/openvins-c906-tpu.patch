@@ -67,7 +67,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
  
  #ifndef OPENVINS_RANSAC_CAP_200
  #define OPENVINS_RANSAC_CAP_200 0
-@@ -51,6 +60,37 @@
+@@ -51,6 +60,46 @@
      std::exit(EXIT_FAILURE);
    }
  
@@ -83,6 +83,15 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
 +  TpuLk::clear_cache();
 +  if(tpu_next_) {
 +    const double wait_begin=TpuLk::now_ms(),wait_cpu=TpuLk::thread_cpu_ms();
++#if defined(OPENVINS_C906_FRONTEND) && OPENVINS_FRONT_CPU_TAIL
++    if(TpuFront::cpu_tail() && TpuLk::stats().backend_wall_ms>0 && tpu_next_->prepared_front.valid()){
++      auto r=tpu_next_->prepared_front.get();
++      while(tpu_next_->worker.wait_for(std::chrono::microseconds(0))!=std::future_status::ready){
++        TpuFront::assist_tail(r,message.timestamp);
++        tpu_next_->worker.wait_for(std::chrono::microseconds(50));
++      }
++    }
++#endif
 +    tpu_next_->worker.get();
 +    const double wait_end=TpuLk::now_ms();
 +    TpuLk::record("consume_wait",message.timestamp,wait_begin,wait_end,TpuLk::thread_cpu_ms()-wait_cpu);
@@ -105,7 +114,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
    // Preprocessing steps that we do not parallelize
    // NOTE: DO NOT PARALLELIZE THESE!
    // NOTE: These seem to be much slower if you parallelize them...
-@@ -62,8 +102,14 @@
+@@ -62,8 +111,14 @@
      size_t cam_id = message.sensor_ids.at(msg_id);
      std::lock_guard<std::mutex> lck(mtx_feeds.at(cam_id));
  
@@ -121,7 +130,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
      if (histogram_method == HistogramMethod::HISTOGRAM) {
        cv::equalizeHist(message.images.at(msg_id), img);
      } else if (histogram_method == HistogramMethod::CLAHE) {
-@@ -76,14 +122,23 @@
+@@ -76,14 +131,23 @@
      }
  
      // Extract image pyramid
@@ -146,7 +155,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
    // Either call our stereo or monocular version
    // If we are doing binocular tracking, then we should parallize our tracking
    if (num_images == 1) {
-@@ -100,6 +155,21 @@
+@@ -100,6 +164,21 @@
      PRINT_ERROR(RED "[ERROR]: invalid number of images passed %zu, we only support mono or stereo tracking", num_images);
      std::exit(EXIT_FAILURE);
    }
@@ -168,7 +177,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
  }
  
  void TrackKLT::feed_monocular(const CameraData &message, size_t msg_id) {
-@@ -136,6 +206,11 @@
+@@ -136,6 +215,11 @@
    int pts_before_detect = (int)pts_last[cam_id].size();
    auto pts_left_old = pts_last[cam_id];
    auto ids_left_old = ids_last[cam_id];
@@ -180,7 +189,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
    perform_detection_monocular(img_pyramid_last[cam_id], img_mask_last[cam_id], pts_left_old, ids_left_old);
    rT3 = boost::posix_time::microsec_clock::local_time();
  
-@@ -231,6 +306,12 @@
+@@ -231,6 +315,12 @@
      // Track into the new image
      std::vector<cv::KeyPoint> good_left, good_right;
      std::vector<size_t> good_ids_left, good_ids_right;
@@ -193,7 +202,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
      perform_detection_stereo(imgpyr_left, imgpyr_right, mask_left, mask_right, cam_id_left, cam_id_right, good_left, good_right,
                               good_ids_left, good_ids_right);
      // Save the current image and pyramid
-@@ -255,6 +336,12 @@
+@@ -255,6 +345,12 @@
    auto pts_right_old = pts_last[cam_id_right];
    auto ids_left_old = ids_last[cam_id_left];
    auto ids_right_old = ids_last[cam_id_right];
@@ -206,7 +215,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
    perform_detection_stereo(img_pyramid_last[cam_id_left], img_pyramid_last[cam_id_right], img_mask_last[cam_id_left],
                             img_mask_last[cam_id_right], cam_id_left, cam_id_right, pts_left_old, pts_right_old, ids_left_old,
                             ids_right_old);
-@@ -677,8 +764,12 @@
+@@ -677,8 +773,12 @@
        // perform_matching(img0pyr, img1pyr, kpts0_new, kpts1_new, cam_id_left, cam_id_right, mask);
        std::vector<float> error;
        cv::TermCriteria term_crit = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
@@ -219,7 +228,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
  
        // Loop through and record only ones that are valid
        for (size_t i = 0; i < pts0_new.size(); i++) {
-@@ -864,7 +955,22 @@
+@@ -864,7 +964,22 @@
    std::vector<uchar> mask_klt;
    std::vector<float> error;
    cv::TermCriteria term_crit = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
@@ -242,7 +251,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
  
    // Normalize these points, so we can then do ransac
    // We don't want to do ransac on distorted image uvs since the mapping is nonlinear
-@@ -892,6 +998,11 @@
+@@ -892,6 +1007,11 @@
    // Keep the existing minimum of ten correspondences.
    if (ransac_indices.size() >= 10)
  #endif
@@ -254,7 +263,7 @@ diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
  #if OPENVINS_RANSAC_CAP_200
    cv::findFundamentalMat(pts0_n, pts1_n, cv::FM_RANSAC, 2.0 / max_focallength, 0.999, 200, mask_rsc);
  #else
-@@ -918,3 +1029,108 @@
+@@ -918,3 +1038,108 @@
      kpts1.at(i).pt = pts1.at(i);
    }
  }

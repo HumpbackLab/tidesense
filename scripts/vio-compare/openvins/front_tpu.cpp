@@ -6,6 +6,10 @@
 #include "../probes/c906-frontend/front_intrinsics.h"
 #include <mutex>
 #include "../probes/c906-frontend/front_detail.h"
+#if OPENVINS_FRONT_CPU_TAIL
+#include "../probes/c906-frontend/front_tail.h"
+#include "../probes/cpu-window-lk/window_lk.hpp"
+#endif
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -40,6 +44,9 @@ struct Workspace {
   unsigned char *base=nullptr;unsigned width=0,height=0;
   std::vector<unsigned char> emulated;
   front_intrinsics_data last_intrinsics{};
+#if OPENVINS_FRONT_CPU_TAIL
+  std::unique_ptr<window_lk::Workspace> tail;
+#endif
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
   CVI_U64 physical=0;int fd=-1;
 #endif
@@ -60,6 +67,19 @@ struct Workspace {
       if(fd>=0)close(fd);
       CVI_SYS_IonFree(physical,base);base=nullptr;
       throw std::runtime_error("Frontend command preparation failed");}
+#if OPENVINS_FRONT_CPU_TAIL
+    if(TpuFront::cpu_tail()){
+      // Fault in the sparse-gradient/LK code and workspace before live jobs.
+      // These private warm-up images never modify C906-owned pyramid slots.
+      cv::Mat image(h,w,CV_8UC1);
+      for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x)image.ptr(y)[x]=(x*x+y*15+x*y)&255;
+      std::vector<cv::Mat> dummy;cv::buildOpticalFlowPyramid(image,dummy,cv::Size(16,15),4,false);
+      tail.reset(new window_lk::Workspace(dummy));
+      std::vector<cv::Point2f> points,out;std::vector<unsigned char> valid;
+      for(unsigned i=0;i<16;++i)points.emplace_back(w*.5f+i*.125f,h*.5f+i*.125f);
+      tail->prepare(dummy,points);tail->track(dummy,points,out,valid);
+    }
+#endif
 #endif
   }
   ~Workspace(){
@@ -126,6 +146,53 @@ bool TpuFront::latest_intrinsics(){
  return false;
 #endif
 }
+bool TpuFront::cpu_tail(){
+#if OPENVINS_FRONT_CPU_TAIL
+ return enabled() && !emulate() && flag("OPENVINS_TPU_CPU_TAIL");
+#else
+ return false;
+#endif
+}
+void TpuFront::assist_tail(const std::shared_ptr<TpuFrontRequest>& r,double timestamp){
+#if OPENVINS_FRONT_CPU_TAIL && !defined(OPENVINS_TPU_LK_EMULATED_BUILD)
+ if(!cpu_tail() || r->tail_jobs)return;
+ auto w=std::static_pointer_cast<Workspace>(r->workspace);
+ auto clean=[&](unsigned off,unsigned bytes){if(CVI_SYS_IonFlushCache(w->physical+off,w->base+off,bytes))throw std::runtime_error("CPU tail publication failed");};
+ auto invalidate=[&](unsigned off,unsigned bytes){if(CVI_SYS_IonInvalidateCache(w->physical+off,w->base+off,bytes))throw std::runtime_error("CPU tail invalidation failed");};
+ auto *host=FRONT_TAIL_PTR(front_tail_host,w->base,FRONT_TAIL_HOST_OFF);
+ if(host->state==FRONT_TAIL_IDLE){host->state=FRONT_TAIL_AVAILABLE;clean(FRONT_TAIL_OFF,64);}
+ invalidate(FRONT_TAIL_OFF+FRONT_TAIL_REMOTE_OFF,64);
+ const auto *remote=FRONT_TAIL_PTR(front_tail_remote,w->base,FRONT_TAIL_REMOTE_OFF);
+ if(remote->magic!=FRONT_TAIL_MAGIC || remote->timestamp!=stamp(timestamp) || remote->state!=FRONT_TAIL_OFFERED)return;
+ const double begin=TpuLk::now_ms(),cpu=TpuLk::thread_cpu_ms();
+ try{
+   invalidate(FRONT_TAIL_OFF+FRONT_TAIL_TASK_OFF,sizeof(front_tail_task));
+   const auto task=*FRONT_TAIL_PTR(front_tail_task,w->base,FRONT_TAIL_TASK_OFF);
+   if(task.timestamp!=stamp(timestamp) || task.count!=16 || task.first+task.count>FRONT_POINTS || !task.levels || task.levels>LK_TPU_LEVELS)
+     throw std::runtime_error("Invalid CPU tail descriptor");
+   for(unsigned l=0;l<task.levels;++l)for(const auto *v:{&task.previous[l],&task.current[l]}){
+     unsigned bytes=(v->height+36)*v->row_bytes;
+     if(v->row_bytes!=v->width+36 || v->width>640 || v->height>480 || v->planes[0]<FRONT_PYR_OFF || v->planes[0]>FRONT_BYTES-bytes)
+       throw std::runtime_error("Invalid CPU tail pyramid");
+     invalidate(v->planes[0],bytes);
+   }
+   r->tail_sync_ms=TpuLk::now_ms()-begin;
+   auto previous=pyramid(w->base,task.previous,task.levels),current=pyramid(w->base,task.current,task.levels);
+   std::vector<cv::Point2f> points,out;points.reserve(16);
+   for(unsigned i=0;i<16;++i)points.emplace_back(task.input[i].x,task.input[i].y);
+   std::vector<unsigned char> valid;
+   w->tail->prepare(previous,points);w->tail->track(current,points,out,valid);
+   auto *result=FRONT_TAIL_PTR(front_tail_result,w->base,FRONT_TAIL_RESULT_OFF);
+   for(unsigned i=0;i<16;++i){result->output[i]={out[i].x,out[i].y};result->valid[i]=valid[i];}
+   clean(FRONT_TAIL_OFF+FRONT_TAIL_RESULT_OFF,sizeof(*result));
+   host->state=FRONT_TAIL_HOST_DONE;clean(FRONT_TAIL_OFF,64);
+   r->tail_ms=TpuLk::now_ms()-begin;r->tail_cpu_ms=TpuLk::thread_cpu_ms()-cpu;r->tail_jobs=1;
+   TpuLk::record("front_tail_cpu",timestamp,begin,begin+r->tail_ms,r->tail_cpu_ms);
+ }catch(...){host->state=FRONT_TAIL_HOST_FAILED;clean(FRONT_TAIL_OFF,64);throw;}
+#else
+ (void)r;(void)timestamp;
+#endif
+}
 void TpuFront::update_intrinsics(const std::array<std::shared_ptr<CamBase>,2>& cameras){
  if(!latest_intrinsics())return;
  std::lock_guard<std::mutex> lock(intrinsics_mutex);
@@ -160,6 +227,13 @@ std::shared_ptr<TpuFrontRequest> TpuFront::prepare(const CameraData &message,dou
  f.num_features=features;f.threshold=threshold;f.grid_x=gx;f.grid_y=gy;f.min_px_dist=minpx;
  f.currid=currid;f.timestamp=stamp(message.timestamp);f.previous_timestamp=stamp(previous);f.deadline_us=500000;
  f.deferred_snapshot=deferred;
+#if OPENVINS_FRONT_CPU_TAIL
+ std::memset(w.base+FRONT_TAIL_OFF,0,FRONT_TAIL_BYTES);
+ if(cpu_tail()){
+   auto *host=FRONT_TAIL_PTR(front_tail_host,w.base,FRONT_TAIL_HOST_OFF);
+   host->magic=FRONT_TAIL_MAGIC;host->timestamp=f.timestamp;
+ }
+#endif
  auto *snapshot=(front_snapshot*)(w.base+FRONT_SNAPSHOT_OFF);
  if(deferred){__atomic_store_n(&snapshot->ready,0,__ATOMIC_RELEASE);}
  for(unsigned cam=0;cam<2;++cam){
@@ -178,6 +252,9 @@ std::shared_ptr<TpuFrontRequest> TpuFront::prepare(const CameraData &message,dou
      CVI_SYS_IonFlushCache(w.physical+FRONT_META_OFF,&f,sizeof(f)) ||
      CVI_SYS_IonFlushCache(w.physical+FRONT_RAW_OFF,w.base+FRONT_RAW_OFF,2*FRONT_PIXELS) ||
      CVI_SYS_IonFlushCache(w.physical+FRONT_INPUT_MASK_OFF,w.base+FRONT_INPUT_MASK_OFF,2*FRONT_PIXELS))throw std::runtime_error("Frontend input flush failed");
+#if OPENVINS_FRONT_CPU_TAIL
+  if(CVI_SYS_IonFlushCache(w.physical+FRONT_TAIL_OFF,w.base+FRONT_TAIL_OFF,FRONT_TAIL_BYTES))throw std::runtime_error("CPU tail reset flush failed");
+#endif
  }
 #endif
  r->workspace=workspace;r->prepare_end=TpuLk::now_ms();r->prepare_cpu=TpuLk::thread_cpu_ms()-cpu;return r;
@@ -221,6 +298,16 @@ void TpuFront::execute(const std::shared_ptr<TpuFrontRequest>& r){
 #endif
  r->end=TpuLk::now_ms();r->wait_cpu=TpuLk::thread_cpu_ms()-cpu;
  if(ret)throw std::runtime_error("C906 frontend failed: "+std::to_string(ret));
+#if OPENVINS_FRONT_CPU_TAIL && !defined(OPENVINS_TPU_LK_EMULATED_BUILD)
+ if(cpu_tail()){
+   if(CVI_SYS_IonInvalidateCache(w->physical+FRONT_TAIL_OFF+FRONT_TAIL_REMOTE_OFF,w->base+FRONT_TAIL_OFF+FRONT_TAIL_REMOTE_OFF,64))
+     throw std::runtime_error("CPU tail completion invalidate failed");
+   const auto *remote=FRONT_TAIL_PTR(front_tail_remote,w->base,FRONT_TAIL_REMOTE_OFF);
+   if(remote->magic!=FRONT_TAIL_MAGIC || remote->state!=FRONT_TAIL_FINISHED || remote->timestamp!=((front_control*)(w->base+FRONT_META_OFF))->timestamp)
+     throw std::runtime_error("C906 firmware does not acknowledge CPU tail protocol");
+   r->tail_remote_wait_ms=remote->wait_ticks/25000.;
+ }
+#endif
  r->result=*(front_control*)(w->base+FRONT_META_OFF);
  const auto &f=r->result;
  if(f.magic!=FRONT_MAGIC || f.version!=FRONT_VERSION || f.width!=w->width || f.height!=w->height ||
@@ -231,6 +318,8 @@ void TpuFront::accept(const std::shared_ptr<TpuFrontRequest>& r,double timestamp
  last_detail=*front_detail_at(std::static_pointer_cast<Workspace>(r->workspace)->base);
  if(last_detail.magic!=FRONT_DETAIL_MAGIC)last_detail={};
  ++totals.calls;totals.prepare_ms+=r->prepare_end-r->prepare_begin;totals.prepare_cpu_ms+=r->prepare_cpu;
+ totals.tail_jobs+=r->tail_jobs;totals.tail_ms+=r->tail_ms;totals.tail_cpu_ms+=r->tail_cpu_ms;
+ totals.tail_sync_ms+=r->tail_sync_ms;totals.tail_remote_wait_ms+=r->tail_remote_wait_ms;
  totals.remote_ms+=r->end-r->begin;totals.wait_cpu_ms+=r->wait_cpu;
  totals.snapshot_cpu_ms+=r->snapshot_cpu;
  totals.snapshot_wait_ms+=r->result.snapshot_wait_ticks/25000.0;
@@ -240,7 +329,7 @@ void TpuFront::accept(const std::shared_ptr<TpuFrontRequest>& r,double timestamp
  TpuLk::record("front_request",timestamp,r->begin,r->end,r->wait_cpu);
  if(r->snapshot_end)TpuLk::record("front_snapshot",timestamp,r->snapshot_begin,r->snapshot_end,r->snapshot_cpu);
 }
-#define FRONT_FIELDS(X) X(calls) X(prepare_ms) X(prepare_cpu_ms) X(remote_ms) X(wait_cpu_ms) X(equalize_ms) X(pyramid_ms) X(detect_ms) X(lk_ms) X(total_ms) X(snapshot_cpu_ms) X(snapshot_wait_ms)
+#define FRONT_FIELDS(X) X(calls) X(prepare_ms) X(prepare_cpu_ms) X(remote_ms) X(wait_cpu_ms) X(equalize_ms) X(pyramid_ms) X(detect_ms) X(lk_ms) X(total_ms) X(snapshot_cpu_ms) X(snapshot_wait_ms) X(tail_jobs) X(tail_ms) X(tail_cpu_ms) X(tail_sync_ms) X(tail_remote_wait_ms)
 std::string TpuFront::diagnostic_header(){std::string out;
 #define FIELD(n) out+=",front_" #n;
  FRONT_FIELDS(FIELD)

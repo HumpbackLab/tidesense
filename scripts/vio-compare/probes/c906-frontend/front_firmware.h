@@ -2,6 +2,9 @@
 #include "front_shared.h"
 #include "front_detail.h"
 #include "front_intrinsics.h"
+#ifdef FRONT_CPU_TAIL
+#include "front_tail_firmware.h"
+#endif
 static int front_equalize_tpu(void *memory,struct front_control *f,struct front_state *s,unsigned slot,unsigned cam,const unsigned char *lut) {
     uintptr_t base=(uintptr_t)memory;struct tpu_probe_control *ctl=memory;struct lk_tpu_level *l=&s->pyramid[slot][cam][0];
     unsigned camoff=FRONT_PYR_OFF+(slot*2+cam)*FRONT_CAM_BYTES;
@@ -57,7 +60,11 @@ static int front_flow_tpu(void *memory,const struct lk_tpu_level *a,const struct
     detail->lk_planes_ticks+=probe_clock()-planes_begin;
     detail->lk_calls++;
 #endif
-    for(unsigned first=0;first<count;first+=LK_TPU_POINTS){m->count=count-first;if(m->count>LK_TPU_POINTS)m->count=LK_TPU_POINTS;
+    unsigned gpu_count=count;
+#ifdef FRONT_CPU_TAIL
+    unsigned tail=front_tail_offer(memory,a,b,levels,points,count);gpu_count-=tail;
+#endif
+    for(unsigned first=0;first<gpu_count;first+=LK_TPU_POINTS){m->count=gpu_count-first;if(m->count>LK_TPU_POINTS)m->count=LK_TPU_POINTS;
         for(unsigned i=0;i<m->count;++i){unsigned point=first+i;
             m->input[i]=m->initial[i]=(struct lk_tpu_point){points[point].x,points[point].y};}
         c906_tpu_lk_impl(base,probe_clock(),FRONT_BYTES,0);
@@ -74,6 +81,9 @@ static int front_flow_tpu(void *memory,const struct lk_tpu_level *a,const struct
         for(unsigned i=0;i<m->count;++i){unsigned point=first+i;
             output[point]=m->output[i];valid[point]=m->valid[i];}
     }
+#ifdef FRONT_CPU_TAIL
+    if(tail)return front_tail_join(base,output+gpu_count,valid+gpu_count);
+#endif
     return 0;
 }
 static int front_wait_snapshot(void *memory,struct front_control *f) {
@@ -108,7 +118,13 @@ static void c906_tpu_front(uintptr_t base) {
     probe_begin_frame();
 #endif
     struct front_ops ops={probe_clock,front_pyramid_tpu,front_flow_tpu,front_equalize_tpu,front_wait_snapshot};
+#ifdef FRONT_CPU_TAIL
+    front_tail_begin(base,f);
+#endif
     int result=front_run((void*)base,&ops);ctl->status=result;ctl->completed=result?0:1;
+#ifdef FRONT_CPU_TAIL
+    front_tail_end(base,result);
+#endif
 #ifdef FRONT_LATEST_INTRINSICS
     // Read at use time, retaining the last complete version on a concurrent write.
     front_intrinsics_read((void*)base,&front_latest_intrinsics,front_invalidate_intrinsics);

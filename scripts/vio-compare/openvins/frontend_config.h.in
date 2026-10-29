@@ -3,3 +3,4 @@
 #cmakedefine01 LK_TPU_ROI_CACHE
 #cmakedefine01 LK_TPU_DUAL_BATCH
 #cmakedefine01 OPENVINS_FRONT_QR7POINT
+#cmakedefine01 OPENVINS_FRONT_CPU_TAIL

@@ -93,6 +93,7 @@ def main():
                     c906_tpu_lk="OPENVINS_C906_TPU_LK:BOOL=ON" in cache,
                     c906_frontend="OPENVINS_C906_FRONTEND:BOOL=ON" in cache,
                     qr7point="OPENVINS_FRONT_QR7POINT:BOOL=ON" in cache,
+                    cpu_tail="OPENVINS_FRONT_CPU_TAIL:BOOL=ON" in cache,
                     c906_lk_dual_batch="OPENVINS_TPU_LK_DUAL_BATCH:BOOL=ON" in cache,
                     c906_lk_roi_cache="OPENVINS_TPU_LK_ROI_CACHE:BOOL=ON" in cache,
                     c906_latest_intrinsics="OPENVINS_FRONT_LATEST_INTRINSICS:BOOL=ON" in cache,
