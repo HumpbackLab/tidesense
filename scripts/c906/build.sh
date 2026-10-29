@@ -42,6 +42,7 @@ text = '\n'.join(lines)
 if not target.exists() or target.read_text() != text:
     target.write_text(text)
 PY
+cmake --build "$rtos/build/common" --target install
 cmake --build "$rtos/build/kernel" --target install
 cmake -G Ninja -S "$rtos/task" -B "$rtos/build/c906-reload" \
     -DCMAKE_TOOLCHAIN_FILE="$rtos/scripts/toolchain-riscv64-elf.cmake" \

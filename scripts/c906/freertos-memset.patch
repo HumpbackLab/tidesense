@@ -1,0 +1,8 @@
+--- a/cvitek/common/src/riscv64/memset.c
++++ b/cvitek/common/src/riscv64/memset.c
+@@ -7,4 +7,5 @@
+     for(int i = 0 ; i < size; i++) {
+         *pd++ = (char) value;
+     }
++    return dest;
+ }
