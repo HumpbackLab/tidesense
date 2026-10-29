@@ -25,6 +25,12 @@
 #include "live_imu.hpp"
 #include "imu_intrinsics.hpp"
 #include "micro_ros_bridge.hpp"
+#ifdef OPENVINS_C906_TPU_LK
+#include "tpu_lk.hpp"
+#ifdef OPENVINS_C906_FRONTEND
+#include "front_tpu.hpp"
+#endif
+#endif
 
 static_assert(std::is_same<decltype(ov_msckf::StateHelper::get_full_covariance(
     std::declval<std::shared_ptr<ov_msckf::State>>())), Eigen::MatrixXd>::value,
@@ -110,7 +116,14 @@ int main(int argc, char** argv) {
     LiveVioManager system(options);
     std::ofstream poses(argv[4]);
     if (!poses) throw std::runtime_error("Cannot open pose CSV");
-    poses << "camera_timestamp_ns,imu_timestamp_ns,sequence,initialized,updated,px,py,pz,qx,qy,qz,qw,camera_ms,frame_ms,frame_age_ms,msckf_points,slam_points\n";
+    poses << "camera_timestamp_ns,imu_timestamp_ns,sequence,initialized,updated,px,py,pz,qx,qy,qz,qw,camera_ms,frame_ms,frame_age_ms,msckf_points,slam_points";
+#ifdef OPENVINS_C906_TPU_LK
+    poses << ",tpu_hits,tpu_prepare_ms,tpu_remote_ms,tpu_wait_cpu_ms,tpu_overlap_ms" << ov_core::TpuLk::diagnostic_header();
+#ifdef OPENVINS_C906_FRONTEND
+    poses << ov_core::TpuFront::diagnostic_header();
+#endif
+#endif
+    poses << '\n';
     poses << std::setprecision(15);
     struct sigaction action{};
     action.sa_handler = interrupt;
@@ -128,14 +141,28 @@ int main(int argc, char** argv) {
     std::cerr << "openvins: precision=fp64 original, FP64 products/covariance/solve/writeback, num_pts=" << options.num_pts
               << " per_camera_target=" << options.num_pts / 2 << " right_rotation=180 camera_offset_ns=" << camera_offset
               << " micro_ros=" << bridge.enabled() << " ZUPT_startup=" << options.try_zupt << '\n';
+#ifdef OPENVINS_C906_TPU_LK
+    std::cerr << "openvins: tpu_lk=" << ov_core::TpuLk::enabled()
+              << " lookahead_pipeline=" << ov_core::TpuLk::pipeline()
+#ifdef OPENVINS_C906_FRONTEND
+              << " frontend=" << ov_core::TpuFront::enabled()
+              << " front_early=" << ov_core::TpuFront::early()
+#endif
+              << '\n';
+#endif
     uint64_t frames = 0, initialized = 0, imu_count = 0, last_imu = 0, last_camera = 0, first_camera = 0;
     uint64_t sequence_gaps = 0, previous_sequence = 0, startup_skipped = 1;
     double camera_sum = 0, initialized_sum = 0, camera_max = 0, age_max = 0;
     bool was_initialized = false;
+    LivePair lookahead_pair;
+    bool have_lookahead_pair = false;
     const auto begin = std::chrono::steady_clock::now();
     while (!interrupted && (!limit || frames < uint64_t(limit))) {
       LivePair pair;
-      if (!camera.next(pair, interrupted)) break;
+      if (have_lookahead_pair) {
+        pair = std::move(lookahead_pair);
+        have_lookahead_pair = false;
+      } else if (!camera.next(pair, interrupted)) break;
       if (!(pair.header.flags & CAMERA_FSIN)) throw std::runtime_error("Hardware-synchronized stereo required");
       const auto raw_ns = pair.header.left_ns;
       const uint64_t imu_ns = shifted(raw_ns, camera_offset);
@@ -143,7 +170,7 @@ int main(int argc, char** argv) {
       if (raw_ns <= last_camera) throw std::runtime_error("Camera timestamp is not increasing");
       const uint64_t now = clock_ns(CLOCK_MONOTONIC);
       if (now < raw_ns) throw std::runtime_error("Camera PTS must use CLOCK_MONOTONIC");
-      const double age_ms = (now - raw_ns) * 1e-6;
+      double age_ms = (now - raw_ns) * 1e-6;
       age_max = std::max(age_max, age_ms);
       if (!first_camera) first_camera = raw_ns;
       last_camera = raw_ns;
@@ -171,6 +198,31 @@ int main(int argc, char** argv) {
       cv::flip(pair.right, pair.right, -1);
       image.images = {pair.left, pair.right};
       image.masks = {cv::Mat::zeros(pair.left.size(), CV_8UC1), cv::Mat::zeros(pair.right.size(), CV_8UC1)};
+#ifdef OPENVINS_C906_TPU_LK
+      // Before initialization there is no backend to overlap; consume latest frames.
+      if (ov_core::TpuLk::pipeline() && system.live_initialized() && (!limit || frames + 1 < uint64_t(limit))) {
+        if (!camera.next(lookahead_pair, interrupted)) break;
+        have_lookahead_pair = true;
+        if (!(lookahead_pair.header.flags & CAMERA_FSIN) || lookahead_pair.header.left_ns <= raw_ns)
+          throw std::runtime_error("Invalid synchronized lookahead camera frame");
+        ov_core::CameraData hint;
+        hint.timestamp = lookahead_pair.header.left_ns * 1e-9;
+        hint.sensor_ids = {0, 1};
+        cv::Mat right;
+        cv::flip(lookahead_pair.right, right, -1);
+        hint.images = {lookahead_pair.left, right};
+        hint.masks = {cv::Mat::zeros(right.size(), CV_8UC1), cv::Mat::zeros(right.size(), CV_8UC1)};
+        system.set_next_camera_for_lk(hint);
+        age_ms = (clock_ns(CLOCK_MONOTONIC) - raw_ns) * 1e-6;
+        age_max = std::max(age_max, age_ms);
+      }
+#endif
+#ifdef OPENVINS_C906_TPU_LK
+      const auto tpu_before = ov_core::TpuLk::stats();
+#ifdef OPENVINS_C906_FRONTEND
+      const auto front_before = ov_core::TpuFront::stats();
+#endif
+#endif
       const auto camera_begin = std::chrono::steady_clock::now();
       system.feed_measurement_camera(image);
       const auto camera_end = std::chrono::steady_clock::now();
@@ -214,7 +266,20 @@ int main(int argc, char** argv) {
         poses << ',' << position[0] << ',' << position[1] << ',' << position[2]
               << ',' << orientation[0] << ',' << orientation[1] << ',' << orientation[2] << ',' << orientation[3];
       } else poses << ",,,,,,,";
-      poses << ',' << camera_ms << ',' << frame_ms << ',' << age_ms << ',' << msckf_points << ',' << slam_points << '\n';
+      poses << ',' << camera_ms << ',' << frame_ms << ',' << age_ms << ',' << msckf_points << ',' << slam_points;
+#ifdef OPENVINS_C906_TPU_LK
+      const auto tpu_after = ov_core::TpuLk::stats();
+      poses << ',' << tpu_after.cache_hits - tpu_before.cache_hits
+            << ',' << tpu_after.prepare_ms - tpu_before.prepare_ms
+            << ',' << tpu_after.remote_ms - tpu_before.remote_ms
+            << ',' << tpu_after.wait_cpu_ms - tpu_before.wait_cpu_ms
+            << ',' << tpu_after.overlap_ms - tpu_before.overlap_ms
+            << ov_core::TpuLk::diagnostic_delta(tpu_before);
+#ifdef OPENVINS_C906_FRONTEND
+      poses << ov_core::TpuFront::diagnostic_delta(front_before);
+#endif
+#endif
+      poses << '\n';
       if (!poses) throw std::runtime_error("Pose CSV write failed");
       ++frames;
       if (is_initialized && !was_initialized) std::cerr << "openvins: INITIALIZED frame=" << frames << '\n';
@@ -247,6 +312,19 @@ int main(int argc, char** argv) {
               << " sequence_gaps=" << sequence_gaps << " startup_skipped=" << startup_skipped
               << " peak_rss_kb=" << usage.ru_maxrss
               << " wall_s=" << std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count() << '\n';
+#ifdef OPENVINS_C906_TPU_LK
+    const auto tpu_total = ov_core::TpuLk::stats();
+    std::cerr << "openvins: TPU calls=" << tpu_total.calls << " points=" << tpu_total.points
+              << " hits=" << tpu_total.cache_hits << " overlap_ms=" << tpu_total.overlap_ms
+              << " wait_cpu_ms=" << tpu_total.wait_cpu_ms << '\n';
+#ifdef OPENVINS_C906_FRONTEND
+    const auto front_total = ov_core::TpuFront::stats();
+    std::cerr << "openvins: FRONT calls=" << front_total.calls
+              << " avg_device_ms=" << (front_total.calls ? front_total.total_ms / front_total.calls : 0)
+              << " snapshot_wait_ms=" << front_total.snapshot_wait_ms
+              << " upload_cpu_ms=" << front_total.prepare_cpu_ms << '\n';
+#endif
+#endif
     return camera_status || !frames ? 1 : 0;
   } catch (const std::exception& error) {
     std::cerr << "openvins: ERROR: " << error.what() << '\n';

@@ -1,0 +1,424 @@
+--- a/ov_core/src/track/TrackKLT.h
++++ b/ov_core/src/track/TrackKLT.h
+@@ -23,6 +23,12 @@
+ #define OV_CORE_TRACK_KLT_H
+ 
+ #include "TrackBase.h"
++#ifdef OPENVINS_C906_TPU_LK
++#include "tpu_lk.hpp"
++#ifdef OPENVINS_C906_FRONTEND
++#include "front_tpu.hpp"
++#endif
++#endif
+ 
+ // Keep the default consistent for consumers of this inline constructor.
+ #ifndef OPENVINS_LK_WINDOW_16X15
+@@ -66,6 +72,16 @@
+    * @param message Contains our timestamp, images, and camera ids
+    */
+   void feed_new_camera(const CameraData &message) override;
++
++#ifdef OPENVINS_C906_TPU_LK
++  void prefetch_next_camera(const CameraData &message);
++#ifdef OPENVINS_C906_FRONTEND
++  void hint_front_camera(const CameraData &message){front_hint_=message;}
++#endif
++  void mark_prefetch_backend(double begin,double end) {
++    if(tpu_next_){tpu_next_->backend_begin=begin;tpu_next_->backend_end=end;}
++  }
++#endif
+ 
+ protected:
+   /**
+@@ -136,6 +152,15 @@
+   void perform_matching(const std::vector<cv::Mat> &img0pyr, const std::vector<cv::Mat> &img1pyr, std::vector<cv::KeyPoint> &pts0,
+                         std::vector<cv::KeyPoint> &pts1, size_t id0, size_t id1, std::vector<uchar> &mask_out);
+ 
++#ifdef OPENVINS_C906_TPU_LK
++  std::shared_ptr<TpuNextFrame> tpu_next_;
++#ifdef OPENVINS_C906_FRONTEND
++  double front_previous_timestamp_=0;
++  CameraData front_hint_{};
++  std::shared_ptr<TpuNextFrame> prepare_front_camera(const CameraData &message,bool deferred=false,double previous=0);
++#endif
++#endif
++
+   // Parameters for our FAST grid detector
+   int threshold;
+   int grid_x;
+--- a/ov_core/src/track/TrackKLT.cpp
++++ b/ov_core/src/track/TrackKLT.cpp
+@@ -20,6 +20,9 @@
+  */
+ 
+ #include "TrackKLT.h"
++#ifdef OPENVINS_C906_TPU_LK
++#include <thread>
++#endif
+ #include <cmath>
+ 
+ #ifndef OPENVINS_RANSAC_CAP_200
+@@ -51,6 +54,37 @@
+     std::exit(EXIT_FAILURE);
+   }
+ 
++#ifdef OPENVINS_C906_TPU_LK
++  if(TpuLk::enabled() && cv::getNumThreads()!=1)cv::setNumThreads(1);
++#ifdef OPENVINS_C906_FRONTEND
++  if(TpuFront::enabled() && !(tpu_next_ && tpu_next_->timestamp==message.timestamp && tpu_next_->ids==message.sensor_ids)) {
++    if(tpu_next_){tpu_next_->worker.get();tpu_next_.reset();}
++    tpu_next_=prepare_front_camera(message);
++  }
++#endif
++  bool tpu_prepared=tpu_next_ && tpu_next_->timestamp==message.timestamp && tpu_next_->ids==message.sensor_ids;
++  TpuLk::clear_cache();
++  if(tpu_next_) {
++    const double wait_begin=TpuLk::now_ms(),wait_cpu=TpuLk::thread_cpu_ms();
++    tpu_next_->worker.get();
++    const double wait_end=TpuLk::now_ms();
++    TpuLk::record("consume_wait",message.timestamp,wait_begin,wait_end,TpuLk::thread_cpu_ms()-wait_cpu);
++    for(const auto &e:tpu_next_->events)TpuLk::record(e.kind,tpu_next_->timestamp,e.begin,e.end,e.cpu);
++#ifdef OPENVINS_C906_FRONTEND
++    if(tpu_prepared && tpu_next_->frontend)TpuFront::accept(tpu_next_->frontend,message.timestamp);
++#endif
++    if(tpu_prepared)for(auto &r:tpu_next_->requests)
++      TpuLk::accept(r,tpu_next_->backend_begin,tpu_next_->backend_end,message.timestamp,wait_begin,wait_end);
++  }
++#endif
++
++#ifdef OPENVINS_C906_FRONTEND
++  std::shared_ptr<TpuNextFrame> early_next;
++  if(TpuFront::early() && front_hint_.timestamp>message.timestamp)
++    early_next=prepare_front_camera(front_hint_,true,message.timestamp);
++  front_hint_=CameraData();
++#endif
++
+   // Preprocessing steps that we do not parallelize
+   // NOTE: DO NOT PARALLELIZE THESE!
+   // NOTE: These seem to be much slower if you parallelize them...
+@@ -62,8 +96,14 @@
+     size_t cam_id = message.sensor_ids.at(msg_id);
+     std::lock_guard<std::mutex> lck(mtx_feeds.at(cam_id));
+ 
++    cv::Mat img;
++    std::vector<cv::Mat> imgpyr;
++#ifdef OPENVINS_C906_TPU_LK
++    if(tpu_prepared) {img=tpu_next_->images[msg_id];imgpyr=tpu_next_->pyramids[msg_id];}
++    else
++#endif
++    {
+     // Histogram equalize
+-    cv::Mat img;
+     if (histogram_method == HistogramMethod::HISTOGRAM) {
+       cv::equalizeHist(message.images.at(msg_id), img);
+     } else if (histogram_method == HistogramMethod::CLAHE) {
+@@ -76,14 +116,23 @@
+     }
+ 
+     // Extract image pyramid
+-    std::vector<cv::Mat> imgpyr;
++#ifdef OPENVINS_C906_TPU_LK
++    cv::buildOpticalFlowPyramid(img, imgpyr, win_size, pyr_levels, !TpuLk::enabled());
++#else
+     cv::buildOpticalFlowPyramid(img, imgpyr, win_size, pyr_levels);
++#endif
++
++    }
+ 
+     // Save!
+     img_curr[cam_id] = img;
+     img_pyramid_curr[cam_id] = imgpyr;
+   }
+ 
++#ifdef OPENVINS_C906_TPU_LK
++  if(!tpu_prepared)tpu_next_.reset();
++  else if(tpu_next_->detection_ready)currid=tpu_next_->currid_end;
++#endif
+   // Either call our stereo or monocular version
+   // If we are doing binocular tracking, then we should parallize our tracking
+   if (num_images == 1) {
+@@ -100,6 +149,21 @@
+     PRINT_ERROR(RED "[ERROR]: invalid number of images passed %zu, we only support mono or stereo tracking", num_images);
+     std::exit(EXIT_FAILURE);
+   }
++#ifdef OPENVINS_C906_TPU_LK
++#ifdef OPENVINS_C906_FRONTEND
++  if(TpuFront::enabled())front_previous_timestamp_=message.timestamp;
++#endif
++  tpu_next_.reset();
++#ifdef OPENVINS_C906_FRONTEND
++  if(early_next){
++    auto r=early_next->prepared_front.get();
++    std::array<std::vector<cv::KeyPoint>,2> points={pts_last[0],pts_last[1]};
++    std::array<std::vector<size_t>,2> ids={ids_last[0],ids_last[1]};
++    TpuFront::publish(r,early_next->timestamp,points,ids,currid.load(),num_features);
++    tpu_next_=early_next;
++  }
++#endif
++#endif
+ }
+ 
+ void TrackKLT::feed_monocular(const CameraData &message, size_t msg_id) {
+@@ -136,6 +200,11 @@
+   int pts_before_detect = (int)pts_last[cam_id].size();
+   auto pts_left_old = pts_last[cam_id];
+   auto ids_left_old = ids_last[cam_id];
++#ifdef OPENVINS_C906_TPU_LK
++  if(tpu_next_ && tpu_next_->detection_ready) {
++    pts_left_old=tpu_next_->old_points.at(msg_id);ids_left_old=tpu_next_->old_ids.at(msg_id);
++  } else
++#endif
+   perform_detection_monocular(img_pyramid_last[cam_id], img_mask_last[cam_id], pts_left_old, ids_left_old);
+   rT3 = boost::posix_time::microsec_clock::local_time();
+ 
+@@ -231,6 +300,12 @@
+     // Track into the new image
+     std::vector<cv::KeyPoint> good_left, good_right;
+     std::vector<size_t> good_ids_left, good_ids_right;
++#ifdef OPENVINS_C906_FRONTEND
++    if(tpu_next_ && tpu_next_->frontend && tpu_next_->frontend->result.reset) {
++      good_left=tpu_next_->old_points.at(msg_id_left);good_right=tpu_next_->old_points.at(msg_id_right);
++      good_ids_left=tpu_next_->old_ids.at(msg_id_left);good_ids_right=tpu_next_->old_ids.at(msg_id_right);
++    } else
++#endif
+     perform_detection_stereo(imgpyr_left, imgpyr_right, mask_left, mask_right, cam_id_left, cam_id_right, good_left, good_right,
+                              good_ids_left, good_ids_right);
+     // Save the current image and pyramid
+@@ -255,6 +330,12 @@
+   auto pts_right_old = pts_last[cam_id_right];
+   auto ids_left_old = ids_last[cam_id_left];
+   auto ids_right_old = ids_last[cam_id_right];
++#ifdef OPENVINS_C906_TPU_LK
++  if(tpu_next_ && tpu_next_->detection_ready) {
++    pts_left_old=tpu_next_->old_points.at(msg_id_left);ids_left_old=tpu_next_->old_ids.at(msg_id_left);
++    pts_right_old=tpu_next_->old_points.at(msg_id_right);ids_right_old=tpu_next_->old_ids.at(msg_id_right);
++  } else
++#endif
+   perform_detection_stereo(img_pyramid_last[cam_id_left], img_pyramid_last[cam_id_right], img_mask_last[cam_id_left],
+                            img_mask_last[cam_id_right], cam_id_left, cam_id_right, pts_left_old, pts_right_old, ids_left_old,
+                            ids_right_old);
+@@ -677,8 +758,12 @@
+       // perform_matching(img0pyr, img1pyr, kpts0_new, kpts1_new, cam_id_left, cam_id_right, mask);
+       std::vector<float> error;
+       cv::TermCriteria term_crit = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
++#ifdef OPENVINS_C906_TPU_LK
++      TpuLk::flow(img0pyr,img1pyr,pts0_new,pts1_new,mask,error,win_size,pyr_levels,term_crit,cv::OPTFLOW_USE_INITIAL_FLOW);
++#else
+       cv::calcOpticalFlowPyrLK(img0pyr, img1pyr, pts0_new, pts1_new, mask, error, win_size, pyr_levels, term_crit,
+                                cv::OPTFLOW_USE_INITIAL_FLOW);
++#endif
+ 
+       // Loop through and record only ones that are valid
+       for (size_t i = 0; i < pts0_new.size(); i++) {
+@@ -864,7 +949,22 @@
+   std::vector<uchar> mask_klt;
+   std::vector<float> error;
+   cv::TermCriteria term_crit = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
++#ifdef OPENVINS_C906_TPU_LK
++#ifdef OPENVINS_C906_FRONTEND
++  if(tpu_next_ && tpu_next_->frontend) {
++    size_t cam=0;while(cam<tpu_next_->ids.size() && tpu_next_->ids[cam]!=(int)id0)++cam;
++    const auto &f=tpu_next_->frontend->result;
++    if(id0!=id1 || cam>=2 || f.count[cam]!=pts0.size())throw std::runtime_error("C906 frontend flow correspondence mismatch");
++    for(size_t i=0;i<pts0.size();++i){
++      if(pts0[i]!=cv::Point2f(f.old[cam][i].x,f.old[cam][i].y))throw std::runtime_error("C906 frontend point ordering mismatch");
++      pts1[i]=cv::Point2f(f.output[cam][i].x,f.output[cam][i].y);mask_klt.push_back(f.valid[cam][i]);
++    }
++  } else
++#endif
++  TpuLk::flow(img0pyr,img1pyr,pts0,pts1,mask_klt,error,win_size,pyr_levels,term_crit,cv::OPTFLOW_USE_INITIAL_FLOW);
++#else
+   cv::calcOpticalFlowPyrLK(img0pyr, img1pyr, pts0, pts1, mask_klt, error, win_size, pyr_levels, term_crit, cv::OPTFLOW_USE_INITIAL_FLOW);
++#endif
+ 
+   // Normalize these points, so we can then do ransac
+   // We don't want to do ransac on distorted image uvs since the mapping is nonlinear
+@@ -918,3 +1018,108 @@
+     kpts1.at(i).pt = pts1.at(i);
+   }
+ }
++
++#ifdef OPENVINS_C906_TPU_LK
++void TrackKLT::prefetch_next_camera(const CameraData &message) {
++  if(!TpuLk::pipeline())return;
++#ifdef OPENVINS_C906_FRONTEND
++  if(TpuFront::early() && tpu_next_ && tpu_next_->timestamp==message.timestamp && tpu_next_->ids==message.sensor_ids)return;
++#endif
++  if(tpu_next_)throw std::runtime_error("Unconsumed TPU lookahead frame");
++#ifdef OPENVINS_C906_FRONTEND
++  if(TpuFront::enabled()){tpu_next_=prepare_front_camera(message);return;}
++#endif
++  TpuLk::clear_cache();
++  auto frame=std::make_shared<TpuNextFrame>();
++  frame->timestamp=message.timestamp;frame->ids=message.sensor_ids;
++  // Pixel-only detector owns its IDs and vectors. It never touches the live
++  // feature database or reads calibration while the backend updates it.
++  auto detector=std::make_shared<TrackKLT>(camera_calib,num_features,0,use_stereo,
++      histogram_method,threshold,grid_x,grid_y,min_px_dist);
++  detector->currid=currid.load();
++  for(auto id:message.sensor_ids) {
++    detector->img_pyramid_last[id]=img_pyramid_last.at(id);
++    detector->img_mask_last[id]=img_mask_last.at(id);
++    frame->old_points.push_back(pts_last[id]);frame->old_ids.push_back(ids_last[id]);
++  }
++  auto *raw=frame.get();
++  auto submitted=std::make_shared<std::promise<void>>();
++  auto kickoff=submitted->get_future();
++  frame->worker=std::async(std::launch::async,[raw,detector,message,submitted](){
++    const double worker_begin=TpuLk::now_ms(),worker_cpu=TpuLk::thread_cpu_ms();
++    raw->worker_started.store(true);
++    TpuLk::Deferred defer(raw->requests,submitted.get());
++    for(const auto &input:message.images) {
++      cv::Mat img;
++      if(detector->histogram_method==HistogramMethod::HISTOGRAM)cv::equalizeHist(input,img);
++      else if(detector->histogram_method==HistogramMethod::CLAHE)cv::createCLAHE(10.0,cv::Size(8,8))->apply(input,img);
++      else img=input;
++      std::vector<cv::Mat> pyramid;
++      cv::buildOpticalFlowPyramid(img,pyramid,detector->win_size,detector->pyr_levels,false);
++      raw->images.push_back(img);raw->pyramids.push_back(pyramid);
++    }
++    const double preprocess_end=TpuLk::now_ms(),preprocess_cpu=TpuLk::thread_cpu_ms();
++    raw->events.push_back({"preprocess",worker_begin,preprocess_end,preprocess_cpu-worker_cpu});
++    // Preserve first-frame / all-tracks-lost detection on the new image.
++    if(raw->ids.size()==2 && detector->use_stereo &&
++        (!raw->old_points[0].empty() || !raw->old_points[1].empty())) {
++      auto a=raw->ids[0],b=raw->ids[1];
++      detector->perform_detection_stereo(detector->img_pyramid_last.at(a),detector->img_pyramid_last.at(b),
++          detector->img_mask_last.at(a),detector->img_mask_last.at(b),a,b,
++          raw->old_points[0],raw->old_points[1],raw->old_ids[0],raw->old_ids[1]);
++      raw->detection_ready=true;
++    } else if(raw->ids.size()==1 && !raw->old_points[0].empty()) {
++      auto id=raw->ids[0];
++      detector->perform_detection_monocular(detector->img_pyramid_last.at(id),detector->img_mask_last.at(id),
++          raw->old_points[0],raw->old_ids[0]);
++      raw->detection_ready=true;
++    }
++    raw->events.push_back({"detection",preprocess_end,TpuLk::now_ms(),TpuLk::thread_cpu_ms()-preprocess_cpu});
++    raw->currid_end=detector->currid.load();
++    if(raw->detection_ready)for(size_t i=0;i<raw->ids.size();++i) {
++      std::vector<cv::Point2f> points;
++      for(const auto &p:raw->old_points[i])points.push_back(p.pt);
++      // perform_matching returns without LK below ten points.
++      if(points.size()<10)continue;
++      auto r=TpuLk::prepare(detector->img_pyramid_last.at(raw->ids[i]),raw->pyramids[i],points,points);
++      TpuLk::execute(r);raw->requests.push_back(r);
++    }
++    raw->events.push_back({"worker",worker_begin,TpuLk::now_ms(),TpuLk::thread_cpu_ms()-worker_cpu});
++  });
++  // Blocking kickoff is a comparison mode, disabled by default.
++  const double wait_begin=TpuLk::now_ms(),wait_cpu=TpuLk::thread_cpu_ms();
++  if(TpuLk::kickoff_wait())kickoff.wait();
++  TpuLk::record("kickoff_wait",message.timestamp,wait_begin,TpuLk::now_ms(),TpuLk::thread_cpu_ms()-wait_cpu);
++  tpu_next_=frame;
++}
++#ifdef OPENVINS_C906_FRONTEND
++std::shared_ptr<TpuNextFrame> TrackKLT::prepare_front_camera(const CameraData &message,bool deferred,double previous) {
++  if(message.images.size()!=2 || !use_stereo)throw std::runtime_error("C906 frontend currently supports stereo tracking only");
++  int hist=-1;if(histogram_method==HistogramMethod::NONE)hist=0;else if(histogram_method==HistogramMethod::HISTOGRAM)hist=1;
++  auto frame=std::make_shared<TpuNextFrame>();frame->timestamp=message.timestamp;frame->ids=message.sensor_ids;
++  // A53 only needs image dimensions for geometric filtering. Pixel processing
++  // and padded pyramids stay in the persistent C906-owned workspace.
++  frame->images=message.images;for(const auto &image:message.images)frame->pyramids.push_back({image});
++  std::array<std::vector<cv::KeyPoint>,2> points;
++  std::array<std::vector<size_t>,2> ids;
++  if(!deferred){points={pts_last[message.sensor_ids[0]],pts_last[message.sensor_ids[1]]};
++    ids={ids_last[message.sensor_ids[0]],ids_last[message.sensor_ids[1]]};previous=front_previous_timestamp_;}
++  size_t seed=currid.load();
++  int features=num_features,fast=threshold,gx=grid_x,gy=grid_y,minpx=min_px_dist;
++  auto *raw=frame.get();
++  auto prepared=std::make_shared<std::promise<std::shared_ptr<TpuFrontRequest>>>();
++  frame->prepared_front=prepared->get_future().share();
++  frame->worker=std::async(std::launch::async,[raw,message,points,ids,seed,previous,features,fast,gx,gy,minpx,hist,deferred,prepared](){
++    std::shared_ptr<TpuFrontRequest> r;
++    try {r=TpuFront::prepare(message,previous,points,ids,seed,features,fast,gx,gy,minpx,hist,deferred);}
++    catch(...){prepared->set_exception(std::current_exception());throw;}
++    prepared->set_value(r);
++    TpuFront::execute(r);raw->frontend=r;raw->old_points.resize(2);raw->old_ids.resize(2);
++    for(size_t cam=0;cam<2;++cam)for(unsigned i=0;i<r->result.count[cam];++i){const auto &p=r->result.old[cam][i];
++      raw->old_points[cam].emplace_back(cv::Point2f(p.x,p.y),7,-1,p.response);raw->old_ids[cam].push_back(p.id);}
++    raw->currid_end=r->result.currid;raw->detection_ready=true;
++  });
++  return frame;
++}
++#endif
++#endif
+--- a/ov_msckf/src/core/VioManager.h
++++ b/ov_msckf/src/core/VioManager.h
+@@ -79,6 +79,9 @@
+    * @param message Contains our timestamp, images, and camera ids
+    */
+   void feed_measurement_camera(const ov_core::CameraData &message) { track_image_and_update(message); }
++#ifdef OPENVINS_C906_TPU_LK
++  void set_next_camera_for_lk(const ov_core::CameraData &message) {tpu_lookahead_=message;}
++#endif
+ 
+   /**
+    * @brief Feed function for a synchronized simulated cameras
+@@ -178,6 +181,9 @@
+ 
+   /// Manager parameters
+   VioManagerOptions params;
++#ifdef OPENVINS_C906_TPU_LK
++  ov_core::CameraData tpu_lookahead_{};
++#endif
+ 
+   /// Our master state object :D
+   std::shared_ptr<State> state;
+--- a/ov_msckf/src/core/VioManager.cpp
++++ b/ov_msckf/src/core/VioManager.cpp
+@@ -277,6 +277,15 @@
+     message.masks.at(i) = mask_temp;
+   }
+ 
++#ifdef OPENVINS_C906_FRONTEND
++  // New-image preprocessing does not depend on this frame's RANSAC result.
++  if(is_initialized_vio && TpuFront::early() && !params.downsample_cameras &&
++     tpu_lookahead_.timestamp>message.timestamp){
++    auto tracker=std::dynamic_pointer_cast<TrackKLT>(trackFEATS);
++    if(tracker)tracker->hint_front_camera(tpu_lookahead_);
++  }
++#endif
++
+   // Perform our feature tracking!
+   trackFEATS->feed_new_camera(message);
+ 
+@@ -317,7 +326,26 @@
+   }
+ 
+   // Call on our propagate and update function
++#ifdef OPENVINS_C906_TPU_LK
++  auto tpu_tracker=std::dynamic_pointer_cast<TrackKLT>(trackFEATS);
++  if(tpu_tracker && TpuLk::pipeline() && tpu_lookahead_.timestamp>message.timestamp) {
++    auto next=tpu_lookahead_;
++    for(size_t i=0;i<next.images.size() && params.downsample_cameras;++i) {
++      cv::Mat img,mask;
++      cv::pyrDown(next.images[i],img,cv::Size(next.images[i].cols/2,next.images[i].rows/2));
++      cv::pyrDown(next.masks[i],mask,cv::Size(next.masks[i].cols/2,next.masks[i].rows/2));
++      next.images[i]=img;next.masks[i]=mask;
++    }
++    tpu_tracker->prefetch_next_camera(next);
++  }
++  double tpu_backend_begin=TpuLk::now_ms(),tpu_backend_cpu=TpuLk::thread_cpu_ms();
++#endif
+   do_feature_propagate_update(message);
++#ifdef OPENVINS_C906_TPU_LK
++  const double tpu_backend_end=TpuLk::now_ms();
++  TpuLk::record("backend",message.timestamp,tpu_backend_begin,tpu_backend_end,TpuLk::thread_cpu_ms()-tpu_backend_cpu);
++  if(tpu_tracker)tpu_tracker->mark_prefetch_backend(tpu_backend_begin,tpu_backend_end);
++#endif
+ }
+ 
+ void VioManager::do_feature_propagate_update(const ov_core::CameraData &message) {
+--- a/ov_msckf/CMakeLists.txt
++++ b/ov_msckf/CMakeLists.txt
+@@ -58,6 +58,10 @@
+ # PUBLIC keeps the inline TrackKLT constructor consistent in library consumers.
+ target_compile_definitions(ov_msckf_lib PUBLIC
+     OPENVINS_LK_WINDOW_16X15=$<BOOL:${OPENVINS_LK_WINDOW_16X15}>)
++option(OPENVINS_C906_TPU_LK "Compile optional TideSense C906/TPU LK" OFF)
++if(OPENVINS_C906_TPU_LK)
++  include("${OPENVINS_TPU_SDK_ROOT}/scripts/vio-compare/openvins/tpu.cmake")
++endif()
+ 
+ 
+ add_executable(run_record ${CMAKE_CURRENT_SOURCE_DIR}/../../run_record.cpp)

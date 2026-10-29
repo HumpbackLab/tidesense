@@ -24,6 +24,11 @@
 #define LK_TPU_KERNEL_X_OFF 137216u
 #define LK_TPU_KERNEL_Y_OFF 139264u
 #define LK_TPU_PLANES_OFF 196608u
+/* Optional appended telemetry; LK v3 offsets remain backwards compatible. */
+#define LK_TPU_TRACE_MAGIC 0x4c4b5452u
+#define LK_TPU_TRACE_OFF 147456u
+#define LK_TPU_TRACE_MAX 2048u
+struct lk_tpu_trace_span { probe_u64 begin, end; };
 struct lk_tpu_point { float x, y; };
 struct lk_tpu_level {
     probe_u32 width, height, row_bytes;
@@ -40,6 +45,8 @@ struct lk_tpu_control {
     probe_u32 iterations[LK_TPU_POINTS];
     probe_u64 prepare_ticks, execute_ticks, solve_ticks, total_ticks;
     probe_u32 submissions, valid_count;
+    probe_u32 trace_flags, trace_magic, trace_count, trace_overflow;
+    probe_u64 trace_begin, trace_end;
 };
 #ifndef __KERNEL__
 static inline unsigned short lk_tpu_bf16(float f)

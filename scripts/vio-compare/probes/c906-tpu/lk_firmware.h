@@ -42,16 +42,24 @@ static int lk_tpu_submit(uintptr_t base, struct tpu_probe_control *ctl,
     t=probe_clock();
     int ret=probe_execute_at(ctl,base,off);
     if(ret)probe_resync();
-    m->execute_ticks+=probe_clock()-t;m->submissions++;
+    uint64_t finished=probe_clock();
+    m->execute_ticks+=finished-t;m->submissions++;
+    if(m->trace_flags==LK_TPU_TRACE_MAGIC) {
+        if(m->trace_count<LK_TPU_TRACE_MAX) {
+            struct lk_tpu_trace_span *spans=(void *)(base+LK_TPU_TRACE_OFF);
+            spans[m->trace_count++]=(struct lk_tpu_trace_span){t,finished};
+        } else m->trace_overflow=1;
+    }
     inv_dcache_range(base+LK_TPU_HESS_OFF,512);
     return ret;
 }
-static void c906_tpu_lk(uintptr_t base)
+static void c906_tpu_lk_impl(uintptr_t base, uint64_t received, unsigned available_bytes, int invalidate)
 {
     struct tpu_probe_control *ctl=(void *)base;
     struct lk_tpu_control *m=(void *)(base+LK_TPU_META_OFF);
-    inv_dcache_range(base,LK_TPU_BYTES);
+    if(invalidate)inv_dcache_range(base,LK_TPU_BYTES);
     ctl->status=-20;ctl->completed=0;
+    m->trace_magic=0;m->trace_count=0;m->trace_overflow=0;m->trace_begin=received;
     if(base>0x8ff40000u-LK_TPU_BYTES || m->version!=LK_TPU_VERSION ||
        m->batch!=LK_TPU_BATCH ||
        !m->count || m->count>LK_TPU_POINTS || !m->levels || m->levels>LK_TPU_LEVELS ||
@@ -69,7 +77,7 @@ static void c906_tpu_lk(uintptr_t base)
            v->row_bytes!=v->width+2*LK_TPU_BORDER)goto done;
         for(unsigned p=0;p<2;++p)
             if(v->planes[p]<LK_TPU_PLANES_OFF ||
-               v->planes[p]>LK_TPU_BYTES-(v->height+2*LK_TPU_BORDER)*v->row_bytes)goto done;
+               v->planes[p]>available_bytes-(v->height+2*LK_TPU_BORDER)*v->row_bytes)goto done;
     }
     for(unsigned p=0;p<m->count;++p) {
         if(!isfinite(m->input[p].x) || !isfinite(m->input[p].y) ||
@@ -148,5 +156,12 @@ static void c906_tpu_lk(uintptr_t base)
     }
     m->total_ticks=probe_clock()-begin;ctl->status=0;ctl->completed=1;
 done:
+    if(m->trace_flags==LK_TPU_TRACE_MAGIC) {
+        m->trace_end=probe_clock();m->trace_magic=LK_TPU_TRACE_MAGIC;
+        clean_dcache_range(base+LK_TPU_TRACE_OFF,m->trace_count*sizeof(struct lk_tpu_trace_span));
+    }
     clean_dcache_range(base,TPU_PROBE_CONTROL_BYTES);
 }
+
+static void c906_tpu_lk(uintptr_t base,uint64_t received)
+{c906_tpu_lk_impl(base,received,LK_TPU_BYTES,1);}

@@ -1,5 +1,9 @@
 # TideSense C906 固件在线重载
 
+完整 OpenVINS 像素前端实验使用 `scripts/c906/build.sh --frontend-probe`，
+生成单独的 `cvirtos-reload-tpu-front.bin`，见
+[完整前端部署与实测](../vio-compare/openvins/README-frontend.md)。
+
 Linux 可以将兼容的 C906 固件复制到小核保留内存并重新启动其 FreeRTOS，
 不需要重启 A53，也不写 SD 卡。当前实现是小核配合的**软件重启**：旧固件
 通过邮箱进入保留区外的跳板，关闭中断、清理缓存并等待；Linux 更新固件和

@@ -11,8 +11,10 @@
 #include "rtos_cmdqu.h"
 #include "shared.h"
 #include "lk_shared.h"
+#include "../c906-frontend/front_shared.h"
 
 #define PROBE_IOCTL _IOW('T', 1, __u32)
+#define FRONT_IOCTL _IOW('T', 4, __u32)
 #define LK_IOCTL _IOW('T', 2, __u32)
 static struct device *tpu_device;
 static struct clk *axi_clock, *fab_clock;
@@ -25,10 +27,10 @@ static long probe_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
     int ret;
     cmdqu_t msg = {0};
     if (!capable(CAP_SYS_RAWIO)) return -EPERM;
-    if (cmd != PROBE_IOCTL && cmd != LK_IOCTL) return -EINVAL;
+    if (cmd != PROBE_IOCTL && cmd != LK_IOCTL && cmd != FRONT_IOCTL) return -EINVAL;
     if (copy_from_user(&phys, (void __user *)arg, sizeof(phys))) return -EFAULT;
     if ((phys & 63u) || phys < 0x80000000u ||
-        phys > 0x8ff40000u - (cmd == LK_IOCTL ? LK_TPU_BYTES : TPU_PROBE_BYTES)) return -EINVAL;
+        phys > 0x8ff40000u - (cmd == FRONT_IOCTL ? FRONT_BYTES : cmd == LK_IOCTL ? LK_TPU_BYTES : TPU_PROBE_BYTES)) return -EINVAL;
     if (mutex_lock_interruptible(&probe_lock)) return -ERESTARTSYS;
     msg.ip_id = IP_SYSTEM;
     msg.cmd_id = TPU_PROBE_CMD;

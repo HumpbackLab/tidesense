@@ -1,8 +1,7 @@
 diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
-index 8890ed220..ae7f7cdbf 100644
 --- a/cvitek/task/comm/CMakeLists.txt
 +++ b/cvitek/task/comm/CMakeLists.txt
-@@ -17,3 +17,25 @@ include_directories(${CMAKE_INSTALL_INC_PREFIX}/hal/config)
+@@ -17,3 +17,41 @@
  add_library(comm STATIC ${_SOURCES})
  install(TARGETS comm DESTINATION lib)
  
@@ -28,8 +27,23 @@ index 8890ed220..ae7f7cdbf 100644
 +if(TIDESENSE_C906_TPU_PROBE)
 +    target_compile_definitions(comm PRIVATE TIDESENSE_C906_TPU_PROBE)
 +endif()
++
++option(TIDESENSE_C906_FRONTEND "Enable experimental pixel-only C906 TPU frontend" OFF)
++option(TIDESENSE_C906_FRONT_FASTMEM "Use aligned scalar stores in frontend fills" OFF)
++if(TIDESENSE_C906_FRONTEND)
++    if(NOT TIDESENSE_C906_TPU_LK)
++        message(FATAL_ERROR "C906 frontend requires batched TPU LK")
++    endif()
++    enable_language(CXX)
++    set(_front "${TOP_DIR}/../../scripts/vio-compare/probes/c906-frontend/front_kernel.cpp")
++    target_sources(comm PRIVATE "${_front}")
++    target_compile_definitions(comm PRIVATE TIDESENSE_C906_FRONTEND)
++    if(TIDESENSE_C906_FRONT_FASTMEM)
++        target_compile_definitions(comm PRIVATE FRONT_FAST_FILL=1)
++    endif()
++    set_source_files_properties("${_front}" PROPERTIES COMPILE_FLAGS "-O3 -march=rv64imafdc -mabi=lp64d -mcmodel=medany -ffunction-sections -fdata-sections -fno-exceptions -fno-rtti -fno-threadsafe-statics")
++endif()
 diff --git a/cvitek/task/comm/src/riscv64/comm_main.c b/cvitek/task/comm/src/riscv64/comm_main.c
-index 454581662..1d461136e 100644
 --- a/cvitek/task/comm/src/riscv64/comm_main.c
 +++ b/cvitek/task/comm/src/riscv64/comm_main.c
 @@ -19,6 +19,14 @@
@@ -47,8 +61,28 @@ index 454581662..1d461136e 100644
  
  //#define __DEBUG__
  
-@@ -108,9 +116,16 @@ TASK_CTX_S gTaskCtx[E_QUEUE_MAX] = {
- 	},
+@@ -92,7 +100,11 @@
+-	},
++	},
+-	{
++	{
+-		.name = "CMDQU",
++		.name = "CMDQU",
++#ifdef TIDESENSE_C906_FRONTEND
++		.stack_size = configMINIMAL_STACK_SIZE*2,
++#else
+-		.stack_size = configMINIMAL_STACK_SIZE,
++		.stack_size = configMINIMAL_STACK_SIZE,
++#endif
+-		.priority = tskIDLE_PRIORITY + 5,
++		.priority = tskIDLE_PRIORITY + 5,
+-		.runTask = prvCmdQuRunTask,
++		.runTask = prvCmdQuRunTask,
+-		.queLength = 30,
++		.queLength = 30,
+@@ -108,9 +120,16 @@
+-	},
++	},
  };
  
 +#ifdef TIDESENSE_C906_RELOAD
@@ -64,18 +98,23 @@ index 454581662..1d461136e 100644
  
  /****************************************************************************
   * Function definitions
-@@ -201,11 +216,33 @@ void prvCmdQuRunTask(void *pvParameters)
+@@ -201,11 +220,33 @@
  
- 	cvi_spinlock_init();
- 	printf("prvCmdQuRunTask run\n");
+-	cvi_spinlock_init();
++	cvi_spinlock_init();
+-	printf("prvCmdQuRunTask run\n");
++	printf("prvCmdQuRunTask run\n");
 +#ifdef TIDESENSE_C906_RELOAD
 +    c906_reload_ready();
 +#endif
  
- 	for (;;) {
- 		xQueueReceive(gTaskCtx[E_QUEUE_CMDQU].queHandle, &rtos_cmdq, portMAX_DELAY);
+-	for (;;) {
++	for (;;) {
+-		xQueueReceive(gTaskCtx[E_QUEUE_CMDQU].queHandle, &rtos_cmdq, portMAX_DELAY);
++		xQueueReceive(gTaskCtx[E_QUEUE_CMDQU].queHandle, &rtos_cmdq, portMAX_DELAY);
  
- 		switch (rtos_cmdq.cmd_id) {
+-		switch (rtos_cmdq.cmd_id) {
++		switch (rtos_cmdq.cmd_id) {
 +#ifdef TIDESENSE_C906_RELOAD
 +            case C906_RELOAD_CAP_CMD:
 +                rtos_cmdq.param_ptr = C906_RELOAD_MAGIC;
@@ -96,19 +135,22 @@ index 454581662..1d461136e 100644
 +#endif
 +
  #if ( configUSE_TRACE_FACILITY == 1 )
- 			case SYS_CMD_INFO_TRACE_SNAPSHOT_START:
- 				debug_printf("SYS_CMD_INFO_TRACE_SNAPSHOT_START\n");
+-			case SYS_CMD_INFO_TRACE_SNAPSHOT_START:
++			case SYS_CMD_INFO_TRACE_SNAPSHOT_START:
+-				debug_printf("SYS_CMD_INFO_TRACE_SNAPSHOT_START\n");
++				debug_printf("SYS_CMD_INFO_TRACE_SNAPSHOT_START\n");
 diff --git a/cvitek/task/main/CMakeLists.txt b/cvitek/task/main/CMakeLists.txt
-index 800821812..160090213 100644
 --- a/cvitek/task/main/CMakeLists.txt
 +++ b/cvitek/task/main/CMakeLists.txt
-@@ -46,6 +46,13 @@ link_directories("${TOP_DIR}/install/lib")
+@@ -46,6 +46,15 @@
  
  add_executable(cvirtos.elf ${_SOURCES})
  
 +# Reserve room for the optional debug reload hook in the 768 KiB carveout.
 +# Task heaps retain their normal size; only the boot stack changes 128 -> 120 KiB.
-+if(TIDESENSE_C906_RELOAD)
++if(TIDESENSE_C906_FRONTEND)
++    target_link_options(cvirtos.elf PRIVATE "-Wl,--defsym=_STACK_SIZE=0x18000")
++elseif(TIDESENSE_C906_RELOAD)
 +    target_link_options(cvirtos.elf PRIVATE "-Wl,--defsym=_STACK_SIZE=0x1e000")
 +endif()
 +

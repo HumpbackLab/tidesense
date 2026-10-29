@@ -2,6 +2,8 @@
 
 在 SG2002 A53 上运行 FP64 OpenVINS 双目惯性 VIO。输入为 OV9281 双目 640×400、约 20 Hz，以及 SC7U22 IMU 200 Hz。实时入口使用独立相机辅助进程和 IIO 读取层；运行前须停止其他相机与 IMU 消费者。micro-ROS 可在运行时关闭。
 
+完整像素前端迁至 C906＋TPU 的可选版本，见[前端卸载说明](README-frontend.md)。
+
 ## 构建与标定
 
 在 SDK 根目录构建 FP64 核心和实时入口：
@@ -60,3 +62,7 @@ OPENVINS_MICRO_ROS=1 OPENVINS_MICRO_ROS_AGENT=192.168.123.2 \
 `/tidesense/pose` 为 `geometry_msgs/msg/PoseStamped`，表示 IMU/body 到 odom 的位姿；`/tidesense/tracking` 为 `std_msgs/msg/Bool`。两者使用 best effort QoS。位姿按完成的视觉更新发布，不提供 IMU 频率的预测位姿。ROS 时间戳由设备单调时钟映射到系统时间，设备需先校时。Agent 断开后通信线程会重连，VIO 继续运行。
 
 输出 CSV 包含相机与 IMU 时刻、帧序号、初始化状态、位姿和处理耗时。运行期间丢失跟踪或尚未初始化时，输出不代表有效定位；评估精度需结合真值和场景。
+# 可选 C906/TPU LK
+
+C906/TPU 卸载与前后端并行的独立构建、运行命令和完整回放结果见
+[README-tpu.md](README-tpu.md)。常规 FP64 安装包和默认 CPU 路径保持可用。

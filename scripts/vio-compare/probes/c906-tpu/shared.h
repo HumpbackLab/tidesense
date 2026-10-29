@@ -25,6 +25,7 @@ typedef uint64_t probe_u64;
 #define TPU_PROBE_REGS 12u
 #define TPU_PROBE_READ 0u
 #define TPU_PROBE_RUN 1u
+#define TPU_PROBE_CLOCK 3u /* optional rdtime / host monotonic alignment */
 
 struct tpu_probe_control {
     probe_u32 magic, version, operation, repeats;

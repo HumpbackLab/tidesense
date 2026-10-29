@@ -120,18 +120,32 @@ static int probe_execute_at(struct tpu_probe_control *ctl, uintptr_t base, unsig
 #ifdef TIDESENSE_C906_TPU_LK
 #include "lk_firmware.h"
 #endif
+#ifdef TIDESENSE_C906_FRONTEND
+#include "../c906-frontend/front_firmware.h"
+#endif
 
 static void c906_tpu_probe(uintptr_t base)
 {
     struct tpu_probe_control *ctl = (void *)base;
     unsigned i;
     uint64_t start;
-    inv_dcache_range(base, TPU_PROBE_BYTES);
+    uint64_t received = probe_clock();
+    inv_dcache_range(base, TPU_PROBE_CONTROL_BYTES);
     if (ctl->magic != TPU_PROBE_MAGIC || ctl->version != TPU_PROBE_VERSION)
         return;
+    if (ctl->operation == TPU_PROBE_CLOCK) {
+        ctl->run_ticks[0] = probe_clock();
+        ctl->status = 0;ctl->completed = 1;
+        clean_dcache_range(base, TPU_PROBE_CONTROL_BYTES);
+        return;
+    }
+#ifdef TIDESENSE_C906_FRONTEND
+    if(ctl->operation==TPU_PROBE_FRONT){c906_tpu_front(base);return;}
+#endif
+    inv_dcache_range(base+TPU_PROBE_CONTROL_BYTES, TPU_PROBE_BYTES-TPU_PROBE_CONTROL_BYTES);
 #ifdef TIDESENSE_C906_TPU_LK
     if (ctl->operation == TPU_PROBE_LK) {
-        c906_tpu_lk(base);
+        c906_tpu_lk(base, received);
         return;
     }
 #endif

@@ -28,7 +28,9 @@ def main():
     for option in ("OPENVINS_FP32_BACKEND", "OPENVINS_EKF_MA_EXPERIMENT"):
         if f"-D{option}" in flags or f"{option}:BOOL=ON" in cache:
             raise RuntimeError(f"FP64 live adapter must not compile {option}")
-    source = core.parent / "base_source"
+    home = next(line.split("=", 1)[1] for line in cache.splitlines()
+                if line.startswith("CMAKE_HOME_DIRECTORY:INTERNAL="))
+    source = Path(home).parent
     if "Eigen::MatrixXd _Cov;" not in (source / "ov_msckf/src/state/State.h").read_text():
         raise RuntimeError("Expected FP64 State covariance")
     consumer_flags = (core / "CMakeFiles/run_record.dir/flags.make").read_text()
@@ -88,6 +90,9 @@ def main():
     strip = compiler.removesuffix("g++") + "strip"
     subprocess.run([strip, "--strip-debug", "-o", str(stripped), str(output)], check=True)
     manifest = dict(core_build=str(core), precision="fp64", ekf_ma_mode="original", micro_ros=args.micro_ros,
+                    c906_tpu_lk="OPENVINS_C906_TPU_LK:BOOL=ON" in cache,
+                    c906_frontend="OPENVINS_C906_FRONTEND:BOOL=ON" in cache,
+                    c906_frontend_early="OPENVINS_C906_FRONTEND_EARLY:BOOL=ON" in cache,
                     core_library_sha256=hashlib.sha256((core / "libov_msckf_lib.a").read_bytes()).hexdigest(),
                     binary_sha256=hashlib.sha256(stripped.read_bytes()).hexdigest(),
                     core_compile_flags=flags, link_command=command,
@@ -101,6 +106,12 @@ def main():
     shutil.copy2(HERE / "run-live.sh", output.parent.parent / "run-live.sh")
     (output.parent.parent / "run-live.sh").chmod(0o755)
     shutil.copy2(HERE / "README-live.md", output.parent.parent / "README.md")
+    if "OPENVINS_C906_TPU_LK:BOOL=ON" in cache:
+        shutil.copy2(HERE / "with-tpu.sh", output.parent.parent / "with-tpu.sh")
+    if "OPENVINS_C906_FRONTEND:BOOL=ON" in cache:
+        shutil.copy2(HERE / "run-front.sh", output.parent.parent / "run-front.sh")
+        (output.parent.parent / "run-front.sh").chmod(0o755)
+        shutil.copy2(HERE / "README-frontend.md", output.parent.parent / "README-frontend.md")
     print(stripped)
 
 
