@@ -42,7 +42,7 @@ NONE/HISTOGRAM 两种均衡模式，不支持 CLAHE；每相机目标最多 120 
 
 ```sh
 C906_FRONT_FASTMEM=ON C906_LK_DUAL_BATCH=ON scripts/c906/build.sh --frontend-probe
-python3 scripts/vio-compare/openvins/build_tpu.py --frontend --early-pipeline --sparse-nms --lazy-mask --latest-intrinsics --lk-batch 16 --lk-roi-cache --lk-dual --arch a53 --jobs 4
+python3 scripts/vio-compare/openvins/build_tpu.py --frontend --early-pipeline --sparse-nms --lazy-mask --latest-intrinsics --lk-batch 16 --lk-roi-cache --lk-dual --qr7 --arch a53 --jobs 4
 python3 scripts/vio-compare/openvins/build_live.py \
   --core-build install/openvins-c906-tpu/build-a53 \
   --output install/openvins-c906-frontend/live/bin/openvins_live --micro-ros on
@@ -479,3 +479,88 @@ python3 scripts/vio-compare/openvins/compare_front_kernels.py \
 3 次 sequence gap 均在初始化前，初始化后未新增丢帧。摄像头 19.95 Hz、
 IMU 199.54 Hz，当前短静止/ZUPT 场景仅验证接入，不代表强运动吞吐。
 退出后恢复普通固件及 Linux TPU 驱动；运行时关闭 ROI 缓存的回退路径亦已上板验证。
+
+## 七点法 double QR 零空间求解
+
+独立编译选项 `OPENVINS_FRONT_QR7POINT` 默认 OFF，通过
+`build_tpu.py --frontend --qr7` 编入；已编入时默认启用，
+`OPENVINS_QR7POINT=0` 可在同一程序中回到原 OpenCV SVD。
+`OPENVINS_QR7POINT_FORCE_SVD=1` 是诊断选项：保留同一个自定义 callback，
+但每次假设都调用原七点法，用来核对与原注册器的采样和输出一致性。
+
+只替换七点法中 7×9 齐次方程的二维零空间求解。使用 double Householder QR，
+对 QR 对角线比例、正交性、零空间残差、三次多项式和模型残差做检查，失败时
+回退原 SVD。使用 OpenCV 的固定随机种子生成零向量方向，尽量保持原三次方程
+的基底方向和模型输出顺序。普通 QR 基底的首轮试验仍能跟踪，但本机 ATE 从
+0.2748 m 变为 0.2853 m；该版本没有部署，原始数据保存在 `qr7/host-plain/`。
+最终基底对齐版本通过了完整轨迹逐行一致性检查。
+
+随机采样、共线检查、误差定义、RANSAC 自适应终止继续使用本 SDK 的 OpenCV
+3.4 注册器，阈值仍为 `2/max_focal_length`、置信度 0.999，上限保持原 1000。
+少于 15 对应点时沿用原接口的 LMeDS 路径；现有 RANSAC-200 选项没有开启。
+后端保持原始 FP64，点数、LK 阈值、噪声和初始化参数没有改变。
+实现绑定 SDK 的 OpenCV 3.4 私有 callback 接口，编译时检查版本；移植到其他
+版本需重新核对 ABI。OpenCV BSD 声明见 `probes/qr7point/NOTICE`，实时包附带
+`NOTICE-OpenCV-QR7.txt`。
+
+### 精度与耗时
+
+1000 组七点样本、40 组 RANSAC 对照及退化样本通过；强制 SVD 路径与原接口
+输出一致。A53 的 QR/SVD 模型集合及输出顺序最大归一化差约 7.3e-12。
+主机 ASan/UBSan 检查通过，编译时关闭宏的分支也通过检查。
+
+本机完整 1970 帧、1781 帧初始化后位姿与关闭优化逐行一致，ATE 为 0.2748 m。
+A53 完整 1970 帧同样与上一版硬件参考逐行一致，ATE 保持 0.2867 m。
+ATE 均使用相同的 816 个真值覆盖时刻，应用官方 -16.684572 ms 时间偏移，
+SE(3) 对齐，不拟合尺度。A53 运行 119227 次假设，均走 QR；退化回退由单元
+测试覆盖。
+
+SG2002 A53 1 GHz、C906 750 MHz，关闭 ROS、150 点、相同 FPV RAM 窗口
+1002–1037 帧，同一程序运行时切换：
+
+| 指标 | 原 SVD | double QR |
+| --- | ---: | ---: |
+| 几何／维护及相关同步平均 | 13.754 ms | 9.330 ms |
+| C906＋TPU 前端实际计算 | 40.073 ms | 40.078 ms |
+| 前端＋几何维护平均预算 | 53.827 ms | 49.407 ms |
+| 前端＋几何维护 P95 | 81.824 ms | 69.774 ms |
+| 完整帧周期平均 | 56.177 ms | 53.374 ms |
+| 完整帧周期 P95 | 101.283 ms | 86.774 ms |
+| 吞吐 | 17.80 Hz | 18.74 Hz |
+
+几何平均快约 32%，完整帧周期快约 5%。前端本身没有加速，精度与特征集合保持
+一致。两项平均预算已低于 50 ms，但该窗口约 47% 的帧两项之和仍超过 50 ms，
+尚非逐帧达标或稳定 20 Hz；FP64 后端也仍有长尾。此处几何区间从当前前端结果
+返回到后端开始，包含维护、共享快照及相关调度；前端和几何原本部分重叠，
+两项之和仅是预算指标，实际吞吐以 camera 入口周期为准。
+
+原始数据位于 `install/openvins-c906-frontend/qr7/`。核对命令：
+
+```sh
+python3 scripts/vio-compare/probes/qr7point/build_test.py --arch host
+install/openvins-c906-frontend/qr7/qr7_test-host force
+install/openvins-c906-frontend/qr7/qr7_test-host
+python3 scripts/vio-compare/probes/qr7point/build_test.py --sanitize
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1 \
+  install/openvins-c906-frontend/qr7/qr7_test-host-asan
+python3 scripts/vio-compare/probes/qr7point/evaluate.py \
+  install/openvins-c906-frontend/qr7/host
+python3 scripts/vio-compare/probes/qr7point/evaluate.py \
+  install/openvins-c906-frontend/qr7/board --modes qr \
+  --reference install/openvins-c906-frontend/lk-dual/replay/parallel.csv
+```
+
+最终版本已部署到 `/mnt/data/openvins-c906-front/live`，原启动命令不变。
+源码编译开关仍默认 OFF，部署构建显式使用 `--qr7`。同一二进制切回原实现：
+
+```sh
+cd /mnt/data/openvins-c906-front/live
+OPENVINS_QR7POINT=0 OPENVINS_MICRO_ROS=0 ./run-front.sh \
+  config/estimator_config.yaml /mnt/data/sensor_cfg.ini auto pose-svd.csv 0
+```
+
+实时开关对照各 100 帧，均有 61 帧初始化后输出；两者在初始化切换附近均出现
+1 次 sequence gap。QR 复测执行 426 次模型求解，全部走 QR，退出后恢复普通
+固件及 Linux TPU 驱动。首轮高增益画面下未初始化，没有用于新旧性能比较；
+该测试没有调整曝光和标定参数。实时短静止/ZUPT 测试用于验证接入，强运动
+吞吐和轨迹精度以前述 FPV 回放为准。

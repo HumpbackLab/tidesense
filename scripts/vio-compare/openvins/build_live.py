@@ -92,6 +92,7 @@ def main():
     manifest = dict(core_build=str(core), precision="fp64", ekf_ma_mode="original", micro_ros=args.micro_ros,
                     c906_tpu_lk="OPENVINS_C906_TPU_LK:BOOL=ON" in cache,
                     c906_frontend="OPENVINS_C906_FRONTEND:BOOL=ON" in cache,
+                    qr7point="OPENVINS_FRONT_QR7POINT:BOOL=ON" in cache,
                     c906_lk_dual_batch="OPENVINS_TPU_LK_DUAL_BATCH:BOOL=ON" in cache,
                     c906_lk_roi_cache="OPENVINS_TPU_LK_ROI_CACHE:BOOL=ON" in cache,
                     c906_latest_intrinsics="OPENVINS_FRONT_LATEST_INTRINSICS:BOOL=ON" in cache,
@@ -116,6 +117,8 @@ def main():
         shutil.copy2(HERE / "run-front.sh", output.parent.parent / "run-front.sh")
         (output.parent.parent / "run-front.sh").chmod(0o755)
         shutil.copy2(HERE / "README-frontend.md", output.parent.parent / "README-frontend.md")
+    if "OPENVINS_FRONT_QR7POINT:BOOL=ON" in cache:
+        shutil.copy2(HERE.parent / "probes/qr7point/NOTICE", output.parent.parent / "NOTICE-OpenCV-QR7.txt")
     print(stripped)
 
 

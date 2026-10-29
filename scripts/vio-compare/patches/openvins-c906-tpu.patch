@@ -1,3 +1,4 @@
+diff --git a/ov_core/src/track/TrackKLT.h b/ov_core/src/track/TrackKLT.h
 --- a/ov_core/src/track/TrackKLT.h
 +++ b/ov_core/src/track/TrackKLT.h
 @@ -23,6 +23,12 @@
@@ -46,9 +47,10 @@
    // Parameters for our FAST grid detector
    int threshold;
    int grid_x;
+diff --git a/ov_core/src/track/TrackKLT.cpp b/ov_core/src/track/TrackKLT.cpp
 --- a/ov_core/src/track/TrackKLT.cpp
 +++ b/ov_core/src/track/TrackKLT.cpp
-@@ -20,6 +20,9 @@
+@@ -20,7 +20,16 @@
   */
  
  #include "TrackKLT.h"
@@ -56,9 +58,16 @@
 +#include <thread>
 +#endif
  #include <cmath>
++#ifdef OPENVINS_C906_FRONTEND
++#include "openvins_frontend_config.h"
++#if OPENVINS_FRONT_QR7POINT
++#include "qr_fundamental.hpp"
++#endif
++#endif
  
  #ifndef OPENVINS_RANSAC_CAP_200
-@@ -51,6 +54,37 @@
+ #define OPENVINS_RANSAC_CAP_200 0
+@@ -51,6 +60,37 @@
      std::exit(EXIT_FAILURE);
    }
  
@@ -96,7 +105,7 @@
    // Preprocessing steps that we do not parallelize
    // NOTE: DO NOT PARALLELIZE THESE!
    // NOTE: These seem to be much slower if you parallelize them...
-@@ -62,8 +96,14 @@
+@@ -62,8 +102,14 @@
      size_t cam_id = message.sensor_ids.at(msg_id);
      std::lock_guard<std::mutex> lck(mtx_feeds.at(cam_id));
  
@@ -112,7 +121,7 @@
      if (histogram_method == HistogramMethod::HISTOGRAM) {
        cv::equalizeHist(message.images.at(msg_id), img);
      } else if (histogram_method == HistogramMethod::CLAHE) {
-@@ -76,14 +116,23 @@
+@@ -76,14 +122,23 @@
      }
  
      // Extract image pyramid
@@ -137,7 +146,7 @@
    // Either call our stereo or monocular version
    // If we are doing binocular tracking, then we should parallize our tracking
    if (num_images == 1) {
-@@ -100,6 +149,21 @@
+@@ -100,6 +155,21 @@
      PRINT_ERROR(RED "[ERROR]: invalid number of images passed %zu, we only support mono or stereo tracking", num_images);
      std::exit(EXIT_FAILURE);
    }
@@ -159,7 +168,7 @@
  }
  
  void TrackKLT::feed_monocular(const CameraData &message, size_t msg_id) {
-@@ -136,6 +200,11 @@
+@@ -136,6 +206,11 @@
    int pts_before_detect = (int)pts_last[cam_id].size();
    auto pts_left_old = pts_last[cam_id];
    auto ids_left_old = ids_last[cam_id];
@@ -171,7 +180,7 @@
    perform_detection_monocular(img_pyramid_last[cam_id], img_mask_last[cam_id], pts_left_old, ids_left_old);
    rT3 = boost::posix_time::microsec_clock::local_time();
  
-@@ -231,6 +300,12 @@
+@@ -231,6 +306,12 @@
      // Track into the new image
      std::vector<cv::KeyPoint> good_left, good_right;
      std::vector<size_t> good_ids_left, good_ids_right;
@@ -184,7 +193,7 @@
      perform_detection_stereo(imgpyr_left, imgpyr_right, mask_left, mask_right, cam_id_left, cam_id_right, good_left, good_right,
                               good_ids_left, good_ids_right);
      // Save the current image and pyramid
-@@ -255,6 +330,12 @@
+@@ -255,6 +336,12 @@
    auto pts_right_old = pts_last[cam_id_right];
    auto ids_left_old = ids_last[cam_id_left];
    auto ids_right_old = ids_last[cam_id_right];
@@ -197,7 +206,7 @@
    perform_detection_stereo(img_pyramid_last[cam_id_left], img_pyramid_last[cam_id_right], img_mask_last[cam_id_left],
                             img_mask_last[cam_id_right], cam_id_left, cam_id_right, pts_left_old, pts_right_old, ids_left_old,
                             ids_right_old);
-@@ -677,8 +758,12 @@
+@@ -677,8 +764,12 @@
        // perform_matching(img0pyr, img1pyr, kpts0_new, kpts1_new, cam_id_left, cam_id_right, mask);
        std::vector<float> error;
        cv::TermCriteria term_crit = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
@@ -210,7 +219,7 @@
  
        // Loop through and record only ones that are valid
        for (size_t i = 0; i < pts0_new.size(); i++) {
-@@ -864,7 +949,22 @@
+@@ -864,7 +955,22 @@
    std::vector<uchar> mask_klt;
    std::vector<float> error;
    cv::TermCriteria term_crit = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
@@ -233,7 +242,19 @@
  
    // Normalize these points, so we can then do ransac
    // We don't want to do ransac on distorted image uvs since the mapping is nonlinear
-@@ -918,3 +1018,108 @@
+@@ -892,6 +998,11 @@
+   // Keep the existing minimum of ten correspondences.
+   if (ransac_indices.size() >= 10)
+ #endif
++#if defined(OPENVINS_C906_FRONTEND) && OPENVINS_FRONT_QR7POINT
++  if(ov_core::qr7::enabled())
++    ov_core::qr7::find(pts0_n,pts1_n,2.0/max_focallength,0.999,OPENVINS_RANSAC_CAP_200?200:1000,mask_rsc);
++  else
++#endif
+ #if OPENVINS_RANSAC_CAP_200
+   cv::findFundamentalMat(pts0_n, pts1_n, cv::FM_RANSAC, 2.0 / max_focallength, 0.999, 200, mask_rsc);
+ #else
+@@ -918,3 +1029,108 @@
      kpts1.at(i).pt = pts1.at(i);
    }
  }
@@ -342,6 +363,7 @@
 +}
 +#endif
 +#endif
+diff --git a/ov_msckf/src/core/VioManager.h b/ov_msckf/src/core/VioManager.h
 --- a/ov_msckf/src/core/VioManager.h
 +++ b/ov_msckf/src/core/VioManager.h
 @@ -79,6 +79,9 @@
@@ -364,6 +386,7 @@
  
    /// Our master state object :D
    std::shared_ptr<State> state;
+diff --git a/ov_msckf/src/core/VioManager.cpp b/ov_msckf/src/core/VioManager.cpp
 --- a/ov_msckf/src/core/VioManager.cpp
 +++ b/ov_msckf/src/core/VioManager.cpp
 @@ -97,6 +97,11 @@
@@ -472,6 +495,7 @@
    }
    rT3 = boost::posix_time::microsec_clock::local_time();
  
+diff --git a/ov_msckf/CMakeLists.txt b/ov_msckf/CMakeLists.txt
 --- a/ov_msckf/CMakeLists.txt
 +++ b/ov_msckf/CMakeLists.txt
 @@ -58,6 +58,10 @@
