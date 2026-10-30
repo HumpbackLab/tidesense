@@ -823,3 +823,267 @@ python3 scripts/vio-compare/probes/qr7point/evaluate.py \
   install/openvins-c906-frontend/tail-latency --modes pack-on ram-tail-pack \
   --reference install/openvins-c906-frontend/qr7/board/qr.csv
 ```
+
+## IVE 候选方案与独立验证（2026-10-30）
+
+本节记录独立验证及 OpenVINS 实验接入。Linux 调用硬件 IVE、C906 直接控制和
+完整前端回调均已实现。C906 实验**没有修改 Linux 设备树、内核镜像或 SD 启动文件**。
+板上存在 `/dev/cvi-ive`，`cv181x_ive` 已加载，IVE 时钟 300 MHz。
+SDK 的 `cvi_mpi/modules/ive` 通过 ioctl 调用该独立引擎，寄存器驱动在
+`osdrv/interdrv/ive/hal/cv181x/cvi_ive_platform.c`。它与主要复用 TPU 的
+`ive/` 图像库是不同路径；后者的 Hist／EqualizeHist 在当前源码中还是 CPU
+实现，不能仅凭 IVE 函数名判断加速或并行关系。
+
+### 已测：直方图与 LUT
+
+独立探针使用共享物理内存，输入提前填入并 clean cache；计时包含双目两次
+ioctl、完成等待及输出 cache invalidate，排除分配、输入填充和结果校验。
+测试随机灰度、两段常值灰度两种输入，每个尺寸／模式预热一次、计时 50 次。
+每次检查全部 256 个直方图桶，Map 检查所有输出像素；均与 CPU 参考一致。
+这不是 C906 实测，也未包含 IVE 与 TPU 同时工作时的总线争用。
+
+| 双目输入 | 模式 | Hist wall／A53 CPU | Map wall／A53 CPU |
+| --- | --- | ---: | ---: |
+| 640×400 | 轮询 `bInstant=1` | 1.883／1.882 ms | 约 2.28–2.37／2.28 ms |
+| 640×400 | 中断 `bInstant=0` | 1.904／0.182 ms | 2.35／0.525 ms |
+| 640×480 | 轮询 `bInstant=1` | 2.231／约 2.23 ms | 约 2.65–2.66／2.64–2.65 ms |
+| 640×480 | 中断 `bInstant=0` | 2.247／0.182 ms | 约 2.71–2.72／0.53 ms |
+
+SDK 头文件将 `bInstant` 写成 dummy，但当前驱动实际区分两条路径：1 在
+`cvi_ive_go()` 中 `udelay(10)` 轮询；0 开中断并等待 completion。因此 Linux
+路径也不必烧掉整个硬件运行时间的 A53 CPU，中断模式实测仅约 0.18 ms／双目。
+探针直接检查 ioctl 返回值，避免 SDK 包装函数吞掉 ioctl 错误而误判成功。
+原始源码、输出和运行日志保存在 `install/openvins-c906-frontend/ive-check/`，
+设备探针在 `/mnt/data/openvins-c906-front/ive-check-20261030/probe.a53`：
+
+```sh
+# 参数 1 为轮询，0 为中断等待；仅在 IVE 没有其他使用者时运行。
+timeout 25 /mnt/data/openvins-c906-front/ive-check-20261030/probe.a53 0
+```
+
+此前带细分计时的同一 FPV RAM 窗口，C906 双目直方图及 LUT 生成约 7.10 ms，
+TPU 应用 LUT 约 0.76 ms。优先尝试 **IVE Hist＋C906 生成 LUT＋TPU 应用 LUT**。
+7.10−2.25≈4.85 ms 只是这部分的理论时间差，还要扣除 LUT 生成、缓存同步及
+接入成本；不能直接当作整帧收益。Map 当前比 TPU 路径慢，暂不迁移。
+
+### 已测：不修改设备树的 C906 直控
+
+源码及复现命令见 [`../probes/c906-ive/README.md`](../probes/c906-ive/README.md)。
+启动时临时卸载 Linux IVE 模块，桥接模块以 `ive=1` 预留现有
+`a0a0000.ive` 的 MMIO 区域，C906 独占执行。退出后恢复原小核固件与 Linux
+TPU／IVE 驱动。现有时钟提供者已经将 `clk_ive_vip` 标为 `CLK_IS_CRITICAL`，
+无需调整设备树、增加 reserved-memory 或更改共享 VIP 复位。
+
+A53 只在启动时用 SDK 原有分块逻辑生成固定物理缓冲的寄存器表；每次作业由
+C906 写寄存器并检查完成、超时。批内无 A53 阶段性提交。固件的
+`C906_FRONT_IVE_HIST`、`C906_FRONT_IVE_ST` 均默认关闭。下文的完整流水线实验
+需要程序、固件和桥接模块配套，单独在旧的正式程序上设置环境变量不能启用。
+
+640×400／480 各测试常值、直边、8 像素棋盘格、固定种子随机灰度及三张
+UZH-FPV `indoor_forward_6` 实图，共 14 组输入。每组先用 Linux 驱动生成两次
+ST 参考并逐字节比较，再测 C906 Hist、ST、带非对齐输入整理的 ST，各连续
+20 次。42 组计时全部完成；每组结束后检查完整 256 桶或全部输出像素及 DMA
+保护区，均无错误。ST 参考仅证明与 SDK 硬件路径一致，不代表与 OpenCV 检测器
+等价或 VIO 精度已经验证。
+
+| 单图输入 | Hist | ST，已对齐输入 | 整理输入＋ST | 其中整理及缓存同步 |
+| --- | ---: | ---: | ---: | ---: |
+| 640×400 | 0.936 ms | 2.067 ms | 3.026 ms | 0.958 ms |
+| 640×480 | 1.107 ms | 2.452 ms | 3.602 ms | 1.150 ms |
+
+表中为 C906 计时的各组均值；640×480 三种路径的最大单次分别为
+1.109／2.453／3.606 ms。排除一次性生成、分配、主机填充和末尾校验；
+整理路径包含每次小核拷贝及输入 cache invalidate／目标 clean。一次 mailbox
+等待 20 个作业，A53 CPU 合计约 0.04–0.06 ms；这不是每帧 OpenVINS 开销。
+日志和解析结果保存在 `install/openvins-c906-frontend/ive-c906/suite/`。
+
+原来的金字塔带 18 像素边框，640 宽时 stride=676、像素起点非对齐，不能直接
+交给 ST。初试该布局会超时，Linux 同布局也异常；使用独立的对齐灰度缓冲后
+通过校验。探针的小核整理使用对齐 64 位加载拼接，避免 C906 非对齐访存。
+这个独立探针的整理成本为约 1.15 ms／图。完整前端实验改用上游直接输出对齐
+灰度的方案，不执行这次整理。IVE 与 TPU 的异步并发提交尚未实现。
+
+### 完整 C906＋TPU＋IVE 前端实验
+
+对齐开关为 `OPENVINS_FRONT_ALIGNED_IMAGES`／`C906_FRONT_ALIGNED_IMAGES`，默认
+关闭。支持 **640×400 和 640×480**，保持每侧 18 像素 REFLECT_101 边框，
+仅调整 row stride 和 padded plane 的起点。首层两种尺寸均为 stride=688，
+有效图像地址及每行起点都按 16 字节对齐。TPU LUT 直接写入该布局，后续 TPU
+金字塔、LK、A53 尾部分流的 Mat 视图都使用实际 stride，不产生 ST 整理拷贝。
+每个 camera slot 的五层金字塔分别占 431,296／506,880 字节，仍小于既有
+655,360 字节的 slot，不增加小核 reserved-memory。新布局前端版本为 4，
+旧布局为 3；程序和固件不匹配会在执行前端时拒绝请求。
+
+两种尺寸各用 6 对 FPV 图像上板检查：五层有效像素、完整 18 像素边框、
+特征跟踪与参考一致；直接对 TPU 输出运行 IVE Hist、ST，直方图全部桶正确，
+ST 与独立连续缓冲参考逐像素一致，`pack_ticks=0`。直接读取 stride=688 的
+ST 单图约 2.061 ms（400 高）／2.444 ms（480 高）。这是布局／算子验证；
+完整流水线收益必须另测。
+
+完整前端按独立宏接入以下回调，均默认关闭：
+
+| 功能 | A53 编译选项 | 固件环境变量 | 运行开关 |
+| --- | --- | --- | --- |
+| 对齐灰度 | `--aligned-images` | `C906_FRONT_ALIGNED_IMAGES=ON` | 编译时决定，程序与固件必须一致 |
+| IVE 直方图 | `--ive-hist` | `C906_FRONT_IVE_HIST=ON` | `OPENVINS_TPU_IVE_HIST=1` |
+| IVE ST 候选图 | `--ive-st` | `C906_FRONT_IVE_ST=ON` | `OPENVINS_TPU_IVE_ST=1` |
+
+Hist 使用原始连续灰度，C906 从硬件 256 桶沿用原 CDF、常值图和舍入规则，TPU
+继续应用 LUT。ST 仅在需要补点时读取当前检测源 slot 的对齐灰度；硬件输出
+U8 响应图，C906 做局部最大值筛选、网格选点、掩码、间距检查和原亚像素细化。
+ST 改变候选定义和点集，与 FAST 路径不等价。`OPENVINS_TPU_IVE_QUALITY` 为
+1..255 的硬件质量阈值；程序和对照脚本缺省均为 **16**。初轮使用 3，后续按
+实际点数调到 16，结果见下文。原 FAST threshold 不是这个参数。
+按本轮要求未做 ST 的完整精度回归，ST 功能本身暂不默认开启。
+
+A53 在启动时生成两个 Hist 和四个 ST 固定缓冲寄存器表，每帧仍只提交一次完整
+前端。IVE 回调不额外往返 A53；完整 IVE 请求使用桥接 ioctl 6，要求桥接模块
+已经以 `ive=1` 独占 IVE，否则拒绝执行。固件能力和实际调用次数均检查，
+CSV 中增加 `front_ive_histogram_calls`／`front_ive_st_calls` 及硬件作业时间。
+`front_detect_ms` 才包含 ST 响应生成、软件选点和细化的完整耗时。
+
+```sh
+# 仓库根目录：编译配套固件与 FP64 程序。
+C906_OUT="$PWD/install/openvins-c906-frontend/aligned-images/tools" \
+C906_FRONT_ALIGNED_IMAGES=ON C906_FRONT_IVE_HIST=ON C906_FRONT_IVE_ST=ON \
+C906_LK_DUAL_BATCH=ON C906_FRONT_PROFILE=ON \
+scripts/c906/build.sh --frontend-probe
+python3 scripts/vio-compare/openvins/build_tpu.py \
+  --frontend --early-pipeline --sparse-nms --lazy-mask --latest-intrinsics \
+  --lk-batch 16 --lk-roi-cache --lk-dual --qr7 --cpu-tail --lock-exec \
+  --fp64-pack --backend-detail --aligned-images --ive-hist --ive-st --arch a53
+
+# 设备独立实验目录：配好 run_ive.a53、with-tpu.sh、benchmark_ive.sh、tools/。
+# tools/ 中保留原 cvirtos-reload-base.bin，退出恢复用。
+cd /mnt/data/openvins-c906-front/aligned-images
+./benchmark_ive.sh \
+  /mnt/data/openvins-c906-front/tail-latency/config/speed/estimator_config.yaml \
+  /mnt/data/openvins-c906-tpu/dataset results 1040
+```
+
+`benchmark_ive.sh` 对同一程序／固件切换 off、hist、st、both，保持 FP64 后端、
+packed FP64 优化、关闭 CPU 尾部分流，预载第 1000 帧起 40 对图到 RAM。
+日志和 CSV 先写 `/tmp`，每次完成才移到输出目录。前端统计排除 snapshot
+等待，整体周期从 camera trace 计算，分别报告均值、P95 和吞吐；同时记录
+左右特征数量，防止把少处理点造成的变快误认为等工作量收益。
+
+```sh
+# 将 results/ 取回本机后，分析同一 RAM 窗口。
+python3 scripts/vio-compare/openvins/analyse_ive.py \
+  install/openvins-c906-frontend/aligned-images/results
+```
+
+首轮（ST quality=3）完整流水线实测：A53=1 GHz、IVE=300 MHz、TPU=900 MHz，
+UZH-FPV `indoor_forward_6` 的 640×480 双目，运行前 1040 帧，统计 RAM 窗口
+1002..1037。四组使用相同 FP64 程序和小核固件，仅改变 IVE 运行开关。
+
+| 模式 | 前端有效时间均值 | 整体周期均值 | 周期 P95 | 吞吐 | 左／右点数均值 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| C906＋TPU，IVE 关闭 | 40.489 ms | 51.508 ms | 88.300 ms | 19.41 FPS | 49.8／54.5 |
+| 加 IVE Hist | 35.724 ms | 48.392 ms | 82.761 ms | 20.66 FPS | 49.8／54.5 |
+| 加 IVE ST | 46.586 ms | 72.308 ms | 143.544 ms | 13.83 FPS | 73.3／66.5 |
+| 加 IVE Hist＋ST | 41.801 ms | 70.439 ms | 138.940 ms | 14.20 FPS | 73.3／66.5 |
+
+Hist 是本轮有明确收益的路径：前端节省 4.765 ms，整体周期节省 3.116 ms，
+吞吐提升 6.44%。直方图＋CDF 细分由 7.116 降至 2.278 ms，其中双目硬件
+作业约 2.201 ms；点数、LK 迭代数、提交数及 QR7 调用统计均保持一致。
+平均吞吐超过 20 FPS，但 P95 仍超过 50 ms，不能称为每帧稳定 20 Hz。
+
+首轮 ST 替换不能作为等工作量加速结论：FAST threshold=50，而 ST 质量阈值
+设为 3／255，两者评分和阈值语义不同。相同目标 `num_pts=150` 分为每路 75，
+5×5 网格的 `cell_target=75/25+1=4`；这是补点目标，不是最终严格截断上限。
+ST 更容易补满网格，实际点数约增加 34%。检测本身由 14.045 降至 11.928 ms，
+但细化由 3.342 增至 6.559 ms，LK 由 14.456 增至 22.786 ms。
+窗口内 LK 总点迭代由每帧 3,983.5 增至 7,445.7，说明除了更多点，还存在
+更高的跟踪迭代工作量。全 1040 帧 QR7 核心调用由 11,878 增至 35,157。
+这证明当前 ST 点集使后续处理更重，尚不能把它归因于硬件 ST 算子速度。
+后续将 ST 阈值调至实际点数接近 FAST，再作速度对照，见下面的补充实测。
+
+完整测量输出位于 `install/openvins-c906-frontend/aligned-images/results/`，
+汇总为 `ive-comparison.json`。本次按要求未做完整轨迹精度回归；实验退出后已
+恢复原小核固件和 Linux TPU／IVE 驱动，正式应用未替换，三个新功能均默认关闭。
+
+### ST 质量阈值调参：接近 FAST 的实际点数
+
+保持上述 FP64 参数和同一 RAM 窗口，仅调整 `OPENVINS_TPU_IVE_QUALITY`。
+FAST 基准的左／右均值为 49.8／54.5，双目合计 104.33 点；下表各 ST 组
+同时启用 IVE Hist，未改变点数目标、网格或最小间距，也没有增加硬截断。
+
+| ST quality | 左／右点数均值 | 双目总数相对 FAST | 前端有效时间 | 整体周期 | 吞吐 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 3 | 73.3／66.5 | +33.97% | 41.801 ms | 70.439 ms | 14.20 FPS |
+| 12 | 54.8／59.4 | +9.40% | 34.575 ms | 52.857 ms | 18.92 FPS |
+| **16** | **48.4／55.0** | **−0.88%** | **33.896 ms** | **46.327 ms** | **21.59 FPS** |
+| 20 | 42.3／49.6 | −11.90% | 32.201 ms | 44.200 ms | 22.62 FPS |
+
+选择 **16**，而不是点数明显偏少的 20。与相同 IVE Hist、仍用 FAST 的基准
+相比，点数接近时加入 ST，前端 35.724→33.896 ms，整体周期
+48.392→46.327 ms，吞吐 20.66→21.59 FPS，额外提升 4.46%。
+与最初 C906＋TPU、IVE 全关闭的 19.41 FPS 相比，Hist＋ST 合计提升 11.18%。
+quality=16 的周期 P95 为 67.074 ms，仍不能称为每帧稳定 20 Hz。
+
+实验程序默认值和 `benchmark_ive.sh` 已统一为 16，可显式覆盖：
+
+```sh
+OPENVINS_TPU_IVE_QUALITY=16 OPENVINS_IVE_MODES=both \
+  ./benchmark_ive.sh CONFIG DATASET quality-16 1040
+```
+
+这是该 640×480 FPV 窗口上的近似等点数比较；ST／FAST 的点位置、存活时间和
+后续几何工作量仍不同，未据此推断轨迹精度。两种分辨率的布局支持保持不变。
+原始输出分别在 `aligned-images/quality-12`、`quality-16`、`quality-20`，
+汇总在 `install/openvins-c906-frontend/aligned-images/quality-tuning.json`。
+
+### 拟采用的 C906 调度
+
+* Linux 在进程启动时交出硬件 IVE，负责时钟、复位、共享内存及退出恢复；
+  C906 运行期间由小核独占，避免 Linux 驱动重新配置同一组寄存器。
+* 只移植 Hist 的最小寄存器配置、DMA 地址、启动和有超时的完成检查，复用
+  现有物理灰度缓冲。对 DMA 输入执行必要的 clean，对计数输出执行 invalidate。
+* C906 读取 256 桶计数后沿用原 CDF、常值图处理和舍入规则，TPU 继续应用 LUT。
+  A53 每帧仍只发一次完整前端请求，不插入逐阶段往返。
+* 可进一步尝试先完成左图 Hist，再启动右图 Hist，同时执行左图 TPU LUT／
+  金字塔。这是 IVE 与 TPU 两个引擎的并行，尚未测量。
+* 为新路径增加默认关闭的独立开关；检查固件代码、BSS 和栈的预留空间，
+  当前固件空间紧张，不搬入整套 Linux IVE 驱动。
+
+验证顺序：C906 可访问性与超时、双目全部桶／LUT／像素一致性、并发缓存与
+所有权、完整 FPV 回放精度、相同 RAM 窗口吞吐。先关闭 CPU 尾部分流作等价
+对照，再测组合模式。C906 控制不会让 IVE 硬件本身凭空变快，收益需实测。
+
+### 其他可用算子与优先级
+
+| 候选 | SDK 支持及用途 | 对当前前端的判断 |
+| --- | --- | --- |
+| ST 候选响应图，非完整 Shi–Tomasi 检测器 | 当前 SDK 的硬件 IVE 有 `STCandiCorner`：特征值计算及候选阈值处理，输出 U8 图；本轮已通过常值／直边／棋盘格基本检查 | 仍需软件提取坐标、排序、执行间距及网格选点，并核对硬件局部筛选与当前 NMS 规则；不能当作可直接替换 FAST 的完整检测器。点集、分数与阈值语义会变化，需要独立验证完整 FPV 精度及整条检测链耗时 |
+| Scharr／梯度 | Sobel 接口有可配置的 5×5 有符号系数，理论上可嵌入 3×3 Scharr 核，并输出 H／V 的 S16 图 | 需要验证系数方向、边界和位宽；当前 TPU 已按窗口计算且梯度留在片上，生成整图梯度会增加 DDR 写读、重排及格式转换，未必更快 |
+| 高斯／金字塔 | Filter 支持 5×5 系数和右移归一化，另有 Resize 及 DMA 间隔复制 | 可验证高斯滤波＋抽样；双线性 Resize 不是 `pyrDown` 的等价替代。现有双目 TPU 金字塔约 2 ms，先核对 REFLECT_101 边界、舍入和分块接缝，优先级低于 Hist |
+| DMA／掩码处理 | DMA、And、Or、阈值、形态学可搬运或处理整图 | 仅在能合并整图遍历／拷贝时考虑；少量点的画掩码、网格计数、排序和 ID 维护仍适合 C906，多个小作业的配置开销可能超过节省 |
+| SAD／NCC | 可用于块匹配或匹配质量检查 | 适合另做立体粗匹配／深度，或实验性质量门控；不能直接替代 LK 的亚像素采样、梯度残差、迭代求解和收敛判断 |
+
+需要区分两套 API：本地 `ive/include/ive.h` 图像库未提供 `STCandiCorner`，
+但 `cvi_mpi/include/cvi_ive.h` 有该接口，实际寄存器实现位于硬件驱动
+`cvi_ive_STCandiCorner()`，内部调用 `_CVI_HW_STBoxFltAndEigCalc()` 与
+`_CVI_HW_STCandiCorner()`。不能将这两套库的能力混为一谈。
+
+针对板上硬件的补充冒烟测试使用直接 ioctl 并检查返回值，输出预先填入
+0xA5，再 invalidate 后统计，确认结果被实际写回：
+
+| 输入 | 64×64 输出非零像素 | 640×480 输出非零像素 |
+| --- | ---: | ---: |
+| 常值灰度 | 0 | 0 |
+| 单条竖直边 | 0 | 0 |
+| 8×8 格子的棋盘格 | 196 | 18644 |
+
+这里统计的是响应图非零像素，**不是最终角点数**。640×480 单次 ioctl wall
+约 2.49–2.72 ms，包含驱动完整处理，不含后续软件选点；仅为各图一次的基本
+功能检查，未验证 OpenCV Shi–Tomasi 数值等价、自然图像质量或 FPV 精度，不能
+据此认定能加速当前前端。源码与结果分别为上述实验目录的
+`corner-probe.c`／`corner-results.csv`。
+
+除 Hist／Map 的重复测量和 ST 候选图的基本检查外，其余候选尚未做本轮硬件
+耗时或数值等价测试。尤其 640 像素
+宽的 Filter／Sobel 在现有驱动中会进入宽度大于 480 的分块路径，C906 移植必须
+处理该限制，不能仅搬一次寄存器设置。单个 IVE 引擎的 Hist、Map、Sobel 等
+作业还要串行排程，不能把每项估计收益相加；与 TPU 的并发也需计入 DDR 争用。
+这些方案作用于像素前端，RANSAC、特征库维护和 FP64 后端的长尾仍需分别处理。
