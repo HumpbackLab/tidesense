@@ -2,6 +2,9 @@
 #include "front_shared.h"
 #include "front_detail.h"
 #include "front_intrinsics.h"
+#if defined(FRONT_IVE_HIST) || defined(FRONT_IVE_ST)
+#include "../c906-ive/front_firmware.h"
+#endif
 #ifdef FRONT_CPU_TAIL
 #include "front_tail_firmware.h"
 #endif
@@ -118,10 +121,17 @@ static void c906_tpu_front(uintptr_t base) {
     probe_begin_frame();
 #endif
     struct front_ops ops={probe_clock,front_pyramid_tpu,front_flow_tpu,front_equalize_tpu,front_wait_snapshot};
+    int result=0;
+#if defined(FRONT_IVE_HIST) || defined(FRONT_IVE_ST)
+    result=front_ive_begin(base,f,&ops);
+#endif
 #ifdef FRONT_CPU_TAIL
     front_tail_begin(base,f);
 #endif
-    int result=front_run((void*)base,&ops);ctl->status=result;ctl->completed=result?0:1;
+    if(!result)result=front_run((void*)base,&ops);ctl->status=result;ctl->completed=result?0:1;
+#if defined(FRONT_IVE_HIST) || defined(FRONT_IVE_ST)
+    front_ive_end(result);
+#endif
 #ifdef FRONT_CPU_TAIL
     front_tail_end(base,result);
 #endif

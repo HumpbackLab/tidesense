@@ -22,9 +22,12 @@ p.add_argument('--qr7',action='store_true',help='Compile guarded double QR seven
 p.add_argument('--cpu-tail',action='store_true',help='Compile optional A53 16-point LK tail helper; requires --frontend')
 p.add_argument('--lock-exec',action='store_true',help='Compile optional executable page locking; requires --frontend')
 p.add_argument('--aligned-images',action='store_true',help='Align gray pixels and row pitches for direct IVE access; requires matching firmware')
+p.add_argument('--ive-hist',action='store_true',help='Compile optional C906 IVE histogram; requires aligned images')
+p.add_argument('--ive-st',action='store_true',help='Compile optional C906 IVE ST response; requires aligned images')
 p.add_argument('--fp64-pack',action='store_true',help='Compile optional packed FP64 covariance-Jacobian product')
 p.add_argument('--backend-detail',action='store_true',help='Compile opt-in backend stage/size diagnostics')
 a=p.parse_args()
+if (a.ive_hist or a.ive_st) and not a.aligned_images:p.error('IVE requires --aligned-images')
 if a.qr7 and not a.frontend:p.error('--qr7 requires --frontend')
 if a.lk_dual and (not a.lk_roi_cache or a.lk_batch!=16):p.error('--lk-dual requires --lk-roi-cache and --lk-batch 16')
 if a.early_pipeline and not a.frontend:p.error('--early-pipeline requires --frontend')
@@ -71,6 +74,8 @@ flags=['-DCMAKE_BUILD_TYPE=Release','-DENABLE_ROS=OFF','-DENABLE_ARUCO_TAGS=OFF'
        '-DOPENVINS_FRONT_CPU_TAIL='+('ON'if a.cpu_tail else'OFF'),
        '-DOPENVINS_FRONT_LOCK_EXEC='+('ON'if a.lock_exec else'OFF'),
        '-DOPENVINS_FRONT_ALIGNED_IMAGES='+('ON'if a.aligned_images else'OFF'),
+       '-DOPENVINS_FRONT_IVE_HIST='+('ON'if a.ive_hist else'OFF'),
+       '-DOPENVINS_FRONT_IVE_ST='+('ON'if a.ive_st else'OFF'),
        '-DOPENVINS_EKF_PACKED_F64='+('ON'if a.fp64_pack else'OFF'),
        '-DOPENVINS_BACKEND_DETAIL='+('ON'if a.backend_detail else'OFF')]
 if a.arch=='a53':

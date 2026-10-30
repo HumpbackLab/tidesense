@@ -11,6 +11,10 @@ if awk '$1=="c906_tpu_bridge" {found=1} END {exit !found}' /proc/modules; then
 fi
 linux_loaded=0
 if awk '$1=="cv181x_tpu" {found=1} END {exit !found}' /proc/modules; then linux_loaded=1; fi
+want_ive=0
+if [ "${OPENVINS_TPU_IVE:-0}" = 1 ] || [ "${OPENVINS_TPU_IVE_HIST:-0}" = 1 ] || [ "${OPENVINS_TPU_IVE_ST:-0}" = 1 ]; then want_ive=1; fi
+linux_ive_loaded=0
+if [ "$want_ive" = 1 ] && awk '$1=="cv181x_ive" {found=1} END {exit !found}' /proc/modules; then linux_ive_loaded=1; fi
 changed=0
 owned=0
 child=
@@ -19,6 +23,9 @@ cleanup() {
   if [ "$changed" = 1 ]; then "$tools/c906-reload" load "$tools/cvirtos-reload-base.bin" || true; changed=0; fi
   if [ "$linux_loaded" = 1 ] && ! awk '$1=="cv181x_tpu" {found=1} END {exit !found}' /proc/modules; then
     /sbin/insmod /mnt/system/ko/cv181x_tpu.ko || true
+  fi
+  if [ "$linux_ive_loaded" = 1 ] && ! awk '$1=="cv181x_ive" {found=1} END {exit !found}' /proc/modules; then
+    /sbin/insmod /mnt/system/ko/cv181x_ive.ko || true
   fi
 }
 interrupted() {
@@ -34,8 +41,13 @@ if [ "${OPENVINS_TPU_FRONTEND:-0}" != 0 ]; then firmware="$tools/cvirtos-reload-
 "$tools/c906-reload" load "$firmware"
 changed=1
 if [ "$linux_loaded" = 1 ]; then /sbin/rmmod cv181x_tpu; fi
+if [ "$linux_ive_loaded" = 1 ]; then /sbin/rmmod cv181x_ive; fi
 owned=1
-/sbin/insmod "$tools/c906_tpu_bridge.ko"
+if [ "$want_ive" = 1 ]; then
+  /sbin/insmod "$tools/c906_tpu_bridge.ko" ive=1
+else
+  /sbin/insmod "$tools/c906_tpu_bridge.ko"
+fi
 "$@" &
 child=$!
 set +e

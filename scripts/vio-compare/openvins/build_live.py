@@ -96,6 +96,8 @@ def main():
                     cpu_tail="OPENVINS_FRONT_CPU_TAIL:BOOL=ON" in cache,
                     lock_executable="OPENVINS_FRONT_LOCK_EXEC:BOOL=ON" in cache,
                     aligned_images="OPENVINS_FRONT_ALIGNED_IMAGES:BOOL=ON" in cache,
+                    ive_histogram="OPENVINS_FRONT_IVE_HIST:BOOL=ON" in cache,
+                    ive_st="OPENVINS_FRONT_IVE_ST:BOOL=ON" in cache,
                     ekf_packed_f64="OPENVINS_EKF_PACKED_F64:BOOL=ON" in cache,
                     c906_lk_dual_batch="OPENVINS_TPU_LK_DUAL_BATCH:BOOL=ON" in cache,
                     c906_lk_roi_cache="OPENVINS_TPU_LK_ROI_CACHE:BOOL=ON" in cache,

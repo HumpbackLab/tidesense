@@ -91,6 +91,8 @@ struct front_ops {
                 unsigned,const struct front_point*,unsigned,struct lk_tpu_point*,unsigned char*);
     int (*equalize)(void*,struct front_control*,struct front_state*,unsigned,unsigned,const unsigned char*);
     int (*snapshot)(void*,struct front_control*);
+    int (*histogram)(void*,unsigned,unsigned*);
+    int (*corners)(void*,const struct lk_tpu_level*,const unsigned char**);
 };
 #ifdef __cplusplus
 extern "C" {

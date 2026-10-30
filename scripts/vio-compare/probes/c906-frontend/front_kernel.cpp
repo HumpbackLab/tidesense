@@ -49,17 +49,21 @@ static void fill(void *memory,int value,size_t bytes){
     std::memset(memory,value,bytes);
 #endif
 }
+static void lut_from_histogram(const unsigned *bins,unsigned total,unsigned char *lut) {
+    unsigned first=0;while(first<256 && !bins[first])++first;
+    if(first==256){fill(lut,0,256);return;}
+    if(bins[first]==total){fill(lut,first,256);return;}
+    float scale=255.f/(total-bins[first]);unsigned sum=0;
+    fill(lut,0,first+1);
+    for(unsigned i=first+1;i<256;++i){sum+=bins[i];lut[i]=(unsigned char)std::min(255L,lrintf(sum*scale));}
+}
 static void prepare_lut(const unsigned char *__restrict src,unsigned total,bool histogram,unsigned char *lut) {
     if(!histogram){for(unsigned i=0;i<256;++i)lut[i]=i;return;}
     unsigned bins[4][256];fill(bins,0,sizeof(bins));
     unsigned i=0;for(;i+3<total;i+=4){++bins[0][src[i]];++bins[1][src[i+1]];++bins[2][src[i+2]];++bins[3][src[i+3]];}
     for(;i<total;++i)++bins[0][src[i]];
     for(i=0;i<256;++i)bins[0][i]+=bins[1][i]+bins[2][i]+bins[3][i];
-    unsigned first=0;while(!bins[0][first])++first;
-    if(bins[0][first]==total){fill(lut,first,256);return;}
-    float scale=255.f/(total-bins[0][first]);unsigned sum=0;
-    fill(lut,0,first+1);
-    for(i=first+1;i<256;++i){sum+=bins[0][i];lut[i]=(unsigned char)std::min(255L,lrintf(sum*scale));}
+    lut_from_histogram(bins[0],total,lut);
 }
 static void apply_lut(unsigned char *__restrict dst,const unsigned char *__restrict src,unsigned width,unsigned height,unsigned stride,const unsigned char *lut) {
     for(unsigned y=0;y<height;++y){auto *row=dst+y*stride;const auto *in=src+y*width;unsigned x=0;
@@ -164,9 +168,26 @@ static void refine(const unsigned char *im,unsigned stride,int width,int height,
     }
 }
 static bool stereo_id(const front_point *left,unsigned n,probe_u64 id){for(unsigned i=0;i<n;++i)if(left[i].id==id)return true;return false;}
-static unsigned detect(unsigned char *base,front_control &f,const lk_tpu_level &l,const unsigned char *mask,
+#ifdef FRONT_IVE_ST
+static unsigned ive_roi(const unsigned char *map,unsigned stride,int ox,int oy,int w,int h,Scratch &s){
+    unsigned count=0;
+    // Hardware retains equal-response plateaus. Select one deterministic
+    // raster-first local maximum, then preserve the existing grid policy.
+    for(int y=3;y<h-3;++y)for(int x=3;x<w-3;++x){
+        int px=ox+x,py=oy+y;unsigned value=map[py*stride+px];if(!value)continue;
+        bool keep=true;
+        for(int dy=-1;dy<=1 && keep;++dy)for(int dx=-1;dx<=1;++dx){
+            if(!dx && !dy)continue;unsigned other=map[(py+dy)*stride+px+dx];
+            if(other>value || (other==value && (dy<0 || (!dy && dx<0)))){keep=false;break;}
+        }
+        if(keep && count<FRONT_CANDIDATES)s.candidates[count++]={float(x),float(y),float(value),0,0};
+    }
+    return count;
+}
+#endif
+static int detect(unsigned char *base,front_control &f,const lk_tpu_level &l,const unsigned char *mask,
                        const unsigned char *rectangle_mask,front_point *pts,unsigned &count,
-                       const front_point *left,unsigned left_count,Scratch &s) {
+                       const front_point *left,unsigned left_count,Scratch &s,const front_ops *ops) {
     auto mask_begin=DETAIL_BEGIN(s);
     int cw=f.width/f.min_px_dist,ch=f.height/f.min_px_dist;
     fill(s.close,0,cw*ch);fill(s.grid,0,f.grid_x*f.grid_y);
@@ -204,10 +225,21 @@ static unsigned detect(unsigned char *base,front_control &f,const lk_tpu_level &
 #endif
     unsigned cell_target=f.num_features/(f.grid_x*f.grid_y)+1,cell_req=std::max(1u,cell_target/2);
     int cellw=f.width/f.grid_x,cellh=f.height/f.grid_y;auto *im=image(base,l);unsigned extracted=0;
+#ifdef FRONT_IVE_ST
+    const unsigned char *corner_map=nullptr;
+    if(ops->corners){int ret=ops->corners(base,&l,&corner_map);if(ret)return ret;}
+#else
+    (void)ops;
+#endif
     for(unsigned gx=0;gx<f.grid_x;++gx)for(unsigned gy=0;gy<f.grid_y;++gy){
         if(s.grid[gy*f.grid_x+gx]>=cell_req || mask[(gy*f.height/f.grid_y)*f.width+gx*f.width/f.grid_x]==255)continue;
         int ox=gx*cellw,oy=gy*cellh;
-        unsigned n=fast_roi(im+oy*l.row_bytes+ox,l.row_bytes,cellw,cellh,f.threshold,s);
+        unsigned n;
+#ifdef FRONT_IVE_ST
+        if(corner_map)n=ive_roi(corner_map,f.width,ox,oy,cellw,cellh,s);
+        else
+#endif
+        n=fast_roi(im+oy*l.row_bytes+ox,l.row_bytes,cellw,cellh,f.threshold,s);
         auto sort_begin=DETAIL_BEGIN(s);
         std::sort(s.candidates,s.candidates+n,[](const front_point &a,const front_point &b){return a.response>b.response;});
         DETAIL_ADD(s,sort,sort_begin);
@@ -281,7 +313,12 @@ extern "C" int front_run(void *memory,const front_ops *ops) {
     unsigned current=old<0?0:1-old;
     for(unsigned cam=0;cam<2;++cam){
         auto t=ops->clock();auto &l=state.pyramid[current][cam][0];
-        unsigned char lut[256];prepare_lut(base+FRONT_RAW_OFF+cam*FRONT_PIXELS,f.width*f.height,f.histogram!=0,lut);
+        unsigned char lut[256];
+#ifdef FRONT_IVE_HIST
+        if(f.histogram && ops->histogram){int ret=ops->histogram(base,cam,s.histogram);if(ret)return ret;lut_from_histogram(s.histogram,f.width*f.height,lut);}
+        else
+#endif
+        prepare_lut(base+FRONT_RAW_OFF+cam*FRONT_PIXELS,f.width*f.height,f.histogram!=0,lut);
         DETAIL_ADD(s,histogram,t);
         auto lut_begin=DETAIL_BEGIN(s);
         if(ops->equalize){int ret=ops->equalize(base,&f,&state,current,cam,lut);if(ret)return ret;}
@@ -306,7 +343,8 @@ extern "C" int front_run(void *memory,const front_ops *ops) {
     f.reset=!(f.input_count[0] || f.input_count[1]);unsigned source=f.reset?current:(unsigned)old;
     for(unsigned cam=0;cam<2;++cam){f.count[cam]=f.input_count[cam];std::memcpy(f.old[cam],f.input[cam],f.count[cam]*sizeof(front_point));}
     const unsigned char *mask0=base+FRONT_MASK_OFF+source*2*FRONT_PIXELS,*mask1=mask0+FRONT_PIXELS;
-    auto t=ops->clock();unsigned n=detect(base,f,state.pyramid[source][0][0],mask0,mask0,f.old[0],f.count[0],nullptr,0,s);
+    auto t=ops->clock();int found=detect(base,f,state.pyramid[source][0][0],mask0,mask0,f.old[0],f.count[0],nullptr,0,s,ops);
+    if(found<0)return found;unsigned n=found;
     if(n>FRONT_POINTS || f.count[0]+n>FRONT_POINTS)return -43;
     f.detect_ticks+=ops->clock()-t;
     if(n){
@@ -318,7 +356,8 @@ extern "C" int front_run(void *memory,const front_ops *ops) {
                 if(f.count[1]==FRONT_POINTS)return -44;
                 p.x=q.x;p.y=q.y;f.old[1][f.count[1]++]=p;}}
     }
-    t=ops->clock();n=detect(base,f,state.pyramid[source][1][0],mask1,mask0,f.old[1],f.count[1],f.old[0],f.count[0],s);
+    t=ops->clock();found=detect(base,f,state.pyramid[source][1][0],mask1,mask0,f.old[1],f.count[1],f.old[0],f.count[0],s,ops);
+    if(found<0)return found;n=found;
     if(n>FRONT_POINTS || f.count[1]+n>FRONT_POINTS)return -43;
     for(unsigned i=0;i<n;++i){auto p=s.extracted[i];p.id=++f.currid;f.old[1][f.count[1]++]=p;}f.detect_ticks+=ops->clock()-t;
     for(unsigned cam=0;cam<2;++cam){

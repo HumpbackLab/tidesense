@@ -21,6 +21,50 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 extern "C" int lk_tpu_make_jobs(unsigned char*,uint64_t);
+#ifdef FRONT_TEST_IVE
+#include "../c906-ive/shared.h"
+static unsigned verify_ive(unsigned char *base,CVI_U64 physical,int fd,const lk_tpu_level &level,const cv::Mat &expected){
+  CVI_U64 arena_phy=0;void *mapping=nullptr;
+  if(CVI_SYS_IonAlloc_Cached(&arena_phy,&mapping,"front_ive_test",IVE_ARENA_BYTES) || !mapping || arena_phy>0x8ff40000u-IVE_ARENA_BYTES)throw std::runtime_error("IVE arena allocation");
+  auto *arena=(unsigned char*)mapping;std::memset(arena,0xa5,IVE_ARENA_BYTES);
+  unsigned image_offset=level.planes[0]+LK_TPU_BORDER*level.row_bytes+LK_TPU_BORDER;
+  unsigned errors=0;
+  if(((physical+image_offset)|level.row_bytes)&15u)throw std::runtime_error("IVE input is not aligned");
+  // Only the reference receives a host copy. The direct job reads the exact
+  // gray buffer written by TPU LUT, with its original halo and row pitch.
+  std::memcpy(arena+IVE_PACK_OFF,expected.data,expected.total());
+  for(unsigned index:{0u,2u,3u}){
+    auto *program=(ive_program*)(arena+IVE_PROGRAM_OFF+index*IVE_PROGRAM_BYTES);
+    if(ive_make_program(program,index!=0,level.width,level.height,index==3?level.width:level.row_bytes,
+        index==3?arena_phy+IVE_PACK_OFF:physical+image_offset,
+        arena_phy+(index?IVE_ST_OUT_OFF:IVE_HIST_OFF),arena_phy+IVE_SCRATCH_OFF,25))throw std::runtime_error("IVE program generation");
+  }
+  if(CVI_SYS_IonFlushCache(arena_phy,arena,IVE_ARENA_BYTES))throw std::runtime_error("IVE arena clean");
+  auto *control=(ive_control*)(base+IVE_META_OFF);auto *ctl=(tpu_probe_control*)base;
+  std::vector<unsigned char> direct(expected.total());
+  for(unsigned index:{0u,2u,3u}){
+    std::memset(control,0,sizeof(*control));control->magic=IVE_MAGIC;control->version=IVE_VERSION;
+    control->arena=arena_phy;control->arena_bytes=IVE_ARENA_BYTES;control->flags=IVE_FLAG_HIST|IVE_FLAG_ST;
+    control->width=level.width;control->height=level.height;control->stride=level.row_bytes;control->test_program=index;control->repeats=20;
+    ctl->operation=IVE_PROBE_OPERATION;ctl->status=-99;ctl->completed=0;
+    if(CVI_SYS_IonFlushCache(physical+IVE_META_OFF,control,sizeof(*control)) || CVI_SYS_IonFlushCache(physical,base,TPU_PROBE_CONTROL_BYTES))throw std::runtime_error("IVE control clean");
+    uint32_t address=physical;
+    if(ioctl(fd,_IOW('T',5,uint32_t),&address) || CVI_SYS_IonInvalidateCache(physical,base,TPU_PROBE_CONTROL_BYTES) || CVI_SYS_IonInvalidateCache(physical+IVE_META_OFF,control,sizeof(*control)) || ctl->status || ctl->completed!=20)throw std::runtime_error("IVE execution");
+    if(CVI_SYS_IonInvalidateCache(arena_phy,arena,IVE_ARENA_BYTES))throw std::runtime_error("IVE output invalidate");
+    uint64_t total=0;for(unsigned i=0;i<20;++i)total+=control->run_ticks[i];
+    if(index==0){unsigned histogram[256]={0};for(size_t i=0;i<expected.total();++i)++histogram[expected.data[i]];
+      auto *bins=(unsigned*)(arena+IVE_HIST_OFF);for(unsigned i=0;i<256;++i)errors+=bins[i]!=histogram[i];
+    }else if(index==2)std::memcpy(direct.data(),arena+IVE_ST_OUT_OFF,direct.size());
+    else for(size_t i=0;i<direct.size();++i)errors+=direct[i]!=arena[IVE_ST_OUT_OFF+i];
+    for(unsigned i=IVE_SCRATCH_OFF+IVE_SCRATCH_BYTES;i<IVE_ST_OUT_OFF;++i)errors+=arena[i]!=0xa5;
+    for(unsigned i=IVE_ST_OUT_OFF+expected.total();i<IVE_PACK_OFF;++i)errors+=arena[i]!=0xa5;
+    std::cout<<"IVE_DIRECT height="<<level.height<<" stride="<<level.row_bytes<<" image_offset="<<image_offset<<" kind="<<(index==0?"hist":index==2?"st-direct":"st-contiguous-reference")<<" mean_ms="<<total/25000.0/20<<" pack_ticks="<<control->pack_ticks<<" errors="<<errors<<'\n';
+  }
+  std::memset(control,0,sizeof(*control));
+  if(CVI_SYS_IonFlushCache(physical+IVE_META_OFF,control,sizeof(*control)))throw std::runtime_error("IVE control clear");
+  CVI_SYS_IonFree(arena_phy,mapping);return errors;
+}
+#endif
 #endif
 struct Reference:ov_core::TrackKLT {
   Reference(int height,int threshold):TrackKLT({{0,std::make_shared<ov_core::CamRadtan>(640,height)},
@@ -128,6 +172,9 @@ int main(int argc,char **argv){
         cv::Mat padded(level.height+2*LK_TPU_BORDER,level.width+2*LK_TPU_BORDER,CV_8UC1,base+level.planes[0],level.row_bytes);
         if(cv::norm(padded,border,cv::NORM_INF)!=0){std::cerr<<"Halo differs "<<frame<<' '<<cam<<' '<<l<<'\n';++failures;}
       }
+#ifdef FRONT_TEST_IVE
+      failures+=verify_ive(base,physical,fd,state.pyramid[slot][cam][0],images[cam]);
+#endif
     }
     Reference reference(height,threshold);std::vector<cv::KeyPoint> points[2];std::vector<size_t> ids[2];auto mask=cv::Mat::zeros(height,640,CV_8UC1);
     reference.perform_detection_stereo(pyramids[0],pyramids[1],mask,mask,0,1,points[0],points[1],ids[0],ids[1]);

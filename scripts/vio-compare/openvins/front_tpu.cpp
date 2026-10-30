@@ -2,6 +2,7 @@
 #include "front_tpu.hpp"
 #include "tpu_lk.hpp"
 #include "openvins_frontend_config.h"
+#include "../probes/c906-ive/shared.h"
 #include "cam/CamEqui.h"
 #include "../probes/c906-frontend/front_intrinsics.h"
 #include <mutex>
@@ -34,6 +35,7 @@ namespace ov_core {
 namespace {
 TpuFront::Stats totals;
 front_detail last_detail{};
+unsigned last_points[2]{},last_valid[2]{};
 std::mutex intrinsics_mutex;
 front_intrinsics_data latest_camera_intrinsics{};
 bool flag(const char *key){const char *v=std::getenv(key);return v && std::strcmp(v,"0");}
@@ -62,6 +64,7 @@ void lock_executable(){
 #endif
 struct Workspace {
   unsigned char *base=nullptr;unsigned width=0,height=0;
+  unsigned ive_flags=0;
   std::vector<unsigned char> emulated;
   front_intrinsics_data last_intrinsics{};
 #if OPENVINS_FRONT_CPU_TAIL
@@ -69,12 +72,52 @@ struct Workspace {
 #endif
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
   CVI_U64 physical=0;int fd=-1;
+  struct IveAllocation {
+    CVI_U64 physical=0;void *memory=nullptr;
+    ~IveAllocation(){if(memory)CVI_SYS_IonFree(physical,memory);}
+  } ive;
+#if OPENVINS_FRONT_IVE_HIST || OPENVINS_FRONT_IVE_ST
+  void configure_ive(){
+    if(!ive_flags)return;
+    if(CVI_SYS_IonAlloc_Cached(&ive.physical,&ive.memory,"openvins_ive",IVE_ARENA_BYTES) || !ive.memory || ive.physical>0x8ff40000u-IVE_ARENA_BYTES)throw std::runtime_error("IVE ION allocation failed");
+    std::memset(ive.memory,0,IVE_ARENA_BYTES);
+    unsigned quality=16;
+    if(const char *value=std::getenv("OPENVINS_TPU_IVE_QUALITY")){
+      char *end=nullptr;unsigned long q=std::strtoul(value,&end,10);
+      if(!*value || *end || !q || q>255)throw std::runtime_error("IVE quality must be 1..255");quality=q;
+    }
+    for(unsigned index=0;index<IVE_PROGRAMS;++index){
+      bool hist=index<2;if(!(ive_flags&(hist?IVE_FLAG_HIST:IVE_FLAG_ST)))continue;
+      unsigned stride=width,source=physical+FRONT_RAW_OFF+index*FRONT_PIXELS;
+      if(!hist){lk_tpu_level levels[LK_TPU_LEVELS]{};
+        front_image_layout(levels,FRONT_PYR_OFF+(index-2)*FRONT_CAM_BYTES,width,height);
+        stride=levels[0].row_bytes;source=physical+levels[0].planes[0]+LK_TPU_BORDER*stride+LK_TPU_BORDER;
+      }
+      auto *program=(ive_program*)((unsigned char*)ive.memory+IVE_PROGRAM_OFF+index*IVE_PROGRAM_BYTES);
+      if(ive_make_program(program,hist?0:1,width,height,stride,source,
+          ive.physical+(hist?IVE_HIST_OFF+index*1024:IVE_ST_OUT_OFF),ive.physical+IVE_SCRATCH_OFF,quality))throw std::runtime_error("IVE register program generation failed");
+    }
+    auto &c=*(ive_control*)(base+IVE_META_OFF);c={};c.magic=IVE_MAGIC;c.version=IVE_VERSION;
+    c.arena=ive.physical;c.arena_bytes=IVE_ARENA_BYTES;c.flags=ive_flags;c.quality=quality;c.width=width;c.height=height;c.stride=front_image_stride(width);
+    if(CVI_SYS_IonFlushCache(ive.physical,ive.memory,IVE_ARENA_BYTES))throw std::runtime_error("IVE program clean failed");
+    std::cerr<<"FRONT_IVE flags="<<ive_flags<<" quality="<<quality<<" stride="<<c.stride<<" direct_gray=1\n";
+  }
+#endif
 #endif
   Workspace(unsigned w,unsigned h):width(w),height(h){
     static_assert(FRONT_META_OFF+sizeof(front_control)<FRONT_PYR_DMA_OFF,"Frontend metadata overlaps jobs");
     static_assert(FRONT_STATE_OFF+sizeof(front_state)<FRONT_WEIGHTS_OFF,"Frontend state overlaps weights");
     static_assert(FRONT_SNAPSHOT_OFF+sizeof(front_snapshot)<FRONT_INTRINSICS_OFF,"Snapshot overlaps calibration");
     static_assert(FRONT_INTRINSICS_OFF+sizeof(front_intrinsics_channel)<FRONT_PYR_OFF,"Calibration overlaps images");
+    static_assert(IVE_META_OFF+sizeof(ive_control)<FRONT_PYR_OFF,"IVE metadata overlaps images");
+    ive_flags=(flag("OPENVINS_TPU_IVE_HIST")?IVE_FLAG_HIST:0)|(flag("OPENVINS_TPU_IVE_ST")?IVE_FLAG_ST:0);
+#if !OPENVINS_FRONT_IVE_HIST
+    if(ive_flags&IVE_FLAG_HIST)throw std::runtime_error("IVE histogram was not compiled");
+#endif
+#if !OPENVINS_FRONT_IVE_ST
+    if(ive_flags&IVE_FLAG_ST)throw std::runtime_error("IVE ST was not compiled");
+#endif
+    if(ive_flags && (!FRONT_ALIGNED_IMAGES || emulate()))throw std::runtime_error("IVE requires aligned images and real C906 hardware");
     if(emulate()){emulated.resize(FRONT_BYTES);base=emulated.data();return;}
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
 #if OPENVINS_FRONT_LOCK_EXEC
@@ -86,10 +129,16 @@ struct Workspace {
       throw std::runtime_error("Frontend ION allocation failed");}
     base=(unsigned char*)mapping;std::memset(base,0,FRONT_BYTES);
     fd=open("/dev/c906-tpu-probe",O_RDWR);
-    if(fd<0 || lk_tpu_make_jobs(base,physical) || front_make_jobs(base,physical,w,h) || CVI_SYS_IonFlushCache(physical,base,FRONT_BYTES)){
+    if(fd<0 || lk_tpu_make_jobs(base,physical) || front_make_jobs(base,physical,w,h)){
       if(fd>=0)close(fd);
       CVI_SYS_IonFree(physical,base);base=nullptr;
       throw std::runtime_error("Frontend command preparation failed");}
+    try{
+#if OPENVINS_FRONT_IVE_HIST || OPENVINS_FRONT_IVE_ST
+      configure_ive();
+#endif
+      if(CVI_SYS_IonFlushCache(physical,base,FRONT_BYTES))throw std::runtime_error("Frontend command clean failed");
+    }catch(...){close(fd);fd=-1;CVI_SYS_IonFree(physical,base);base=nullptr;throw;}
 #if OPENVINS_FRONT_CPU_TAIL
     if(TpuFront::cpu_tail()){
       // Fault in the sparse-gradient/LK code and workspace before live jobs.
@@ -269,6 +318,8 @@ std::shared_ptr<TpuFrontRequest> TpuFront::prepare(const CameraData &message,dou
  }
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
  if(!emulate()){
+  if(w.ive_flags){auto &c=*(ive_control*)(w.base+IVE_META_OFF);c.capabilities=0;c.status=0;c.histogram_calls=c.st_calls=0;c.histogram_ticks=c.st_ticks=c.pack_ticks=0;
+    if(CVI_SYS_IonFlushCache(w.physical+IVE_META_OFF,&c,sizeof(c)))throw std::runtime_error("IVE metadata clean failed");}
   auto &ctl=*(tpu_probe_control*)w.base;ctl.magic=TPU_PROBE_MAGIC;ctl.version=TPU_PROBE_VERSION;ctl.operation=TPU_PROBE_FRONT;ctl.timeout_us=10000;ctl.completed=0;ctl.status=-99;
   if((deferred && CVI_SYS_IonFlushCache(w.physical+FRONT_SNAPSHOT_OFF,snapshot,sizeof(*snapshot))) ||
      CVI_SYS_IonFlushCache(w.physical,w.base,TPU_PROBE_CONTROL_BYTES) ||
@@ -313,10 +364,15 @@ void TpuFront::execute(const std::shared_ptr<TpuFrontRequest>& r){
  }
 #ifndef OPENVINS_TPU_LK_EMULATED_BUILD
  else{
-   uint32_t address=w->physical;ret=ioctl(w->fd,_IOW('T',4,uint32_t),&address);
+   uint32_t address=w->physical;
+   ret=w->ive_flags?ioctl(w->fd,_IOW('T',6,uint32_t),&address):ioctl(w->fd,_IOW('T',4,uint32_t),&address);
    if(ret || CVI_SYS_IonInvalidateCache(w->physical,w->base,TPU_PROBE_CONTROL_BYTES) ||
       CVI_SYS_IonInvalidateCache(w->physical+FRONT_META_OFF,w->base+FRONT_META_OFF,sizeof(front_control)))throw std::runtime_error("Frontend mailbox/cache failure");
    auto &ctl=*(tpu_probe_control*)w->base;ret=ctl.status;if(!ret && ctl.completed!=1)ret=-99;
+   if(w->ive_flags && !ret){auto &c=*(ive_control*)(w->base+IVE_META_OFF);
+     if(CVI_SYS_IonInvalidateCache(w->physical+IVE_META_OFF,&c,sizeof(c)) || (c.capabilities&w->ive_flags)!=w->ive_flags || c.status || c.pack_ticks)throw std::runtime_error("C906 IVE capability/status mismatch");
+     r->ive_histogram_calls=c.histogram_calls;r->ive_st_calls=c.st_calls;r->ive_histogram_ms=c.histogram_ticks/25000.;r->ive_st_ms=c.st_ticks/25000.;
+   }
  }
 #endif
  r->end=TpuLk::now_ms();r->wait_cpu=TpuLk::thread_cpu_ms()-cpu;
@@ -343,20 +399,24 @@ void TpuFront::accept(const std::shared_ptr<TpuFrontRequest>& r,double timestamp
  ++totals.calls;totals.prepare_ms+=r->prepare_end-r->prepare_begin;totals.prepare_cpu_ms+=r->prepare_cpu;
  totals.tail_jobs+=r->tail_jobs;totals.tail_ms+=r->tail_ms;totals.tail_cpu_ms+=r->tail_cpu_ms;
  totals.tail_sync_ms+=r->tail_sync_ms;totals.tail_remote_wait_ms+=r->tail_remote_wait_ms;
+ totals.ive_histogram_calls+=r->ive_histogram_calls;totals.ive_st_calls+=r->ive_st_calls;
+ totals.ive_histogram_ms+=r->ive_histogram_ms;totals.ive_st_ms+=r->ive_st_ms;
  totals.remote_ms+=r->end-r->begin;totals.wait_cpu_ms+=r->wait_cpu;
  totals.snapshot_cpu_ms+=r->snapshot_cpu;
  totals.snapshot_wait_ms+=r->result.snapshot_wait_ticks/25000.0;
  const auto &f=r->result;totals.equalize_ms+=f.equalize_ticks/25000.0;totals.pyramid_ms+=f.pyramid_ticks/25000.0;
+ for(unsigned cam=0;cam<2;++cam){last_points[cam]=f.count[cam];last_valid[cam]=0;for(unsigned i=0;i<f.count[cam];++i)last_valid[cam]+=f.valid[cam][i]!=0;}
  totals.detect_ms+=f.detect_ticks/25000.0;totals.lk_ms+=f.lk_ticks/25000.0;totals.total_ms+=f.total_ticks/25000.0;
  TpuLk::record("front_upload",timestamp,r->prepare_begin,r->prepare_end,r->prepare_cpu);
  TpuLk::record("front_request",timestamp,r->begin,r->end,r->wait_cpu);
  if(r->snapshot_end)TpuLk::record("front_snapshot",timestamp,r->snapshot_begin,r->snapshot_end,r->snapshot_cpu);
 }
-#define FRONT_FIELDS(X) X(calls) X(prepare_ms) X(prepare_cpu_ms) X(remote_ms) X(wait_cpu_ms) X(equalize_ms) X(pyramid_ms) X(detect_ms) X(lk_ms) X(total_ms) X(snapshot_cpu_ms) X(snapshot_wait_ms) X(tail_jobs) X(tail_ms) X(tail_cpu_ms) X(tail_sync_ms) X(tail_remote_wait_ms)
+#define FRONT_FIELDS(X) X(calls) X(prepare_ms) X(prepare_cpu_ms) X(remote_ms) X(wait_cpu_ms) X(equalize_ms) X(pyramid_ms) X(detect_ms) X(lk_ms) X(total_ms) X(snapshot_cpu_ms) X(snapshot_wait_ms) X(tail_jobs) X(tail_ms) X(tail_cpu_ms) X(tail_sync_ms) X(tail_remote_wait_ms) X(ive_histogram_calls) X(ive_st_calls) X(ive_histogram_ms) X(ive_st_ms)
 std::string TpuFront::diagnostic_header(){std::string out;
 #define FIELD(n) out+=",front_" #n;
  FRONT_FIELDS(FIELD)
 #undef FIELD
+ out+=",front_left_points,front_right_points,front_left_valid,front_right_valid";
  out+=",detail_flags";
 #define FIELD(n) out+=",detail_" #n "_ms";
  FRONT_DETAIL_TIMES(FIELD)
@@ -370,6 +430,8 @@ std::string TpuFront::diagnostic_delta(const Stats &old){std::ostringstream out;
 #define FIELD(n) out<<','<<totals.n-old.n;
  FRONT_FIELDS(FIELD)
 #undef FIELD
+ out<<','<<(totals.calls>old.calls?last_points[0]:0)<<','<<(totals.calls>old.calls?last_points[1]:0)
+    <<','<<(totals.calls>old.calls?last_valid[0]:0)<<','<<(totals.calls>old.calls?last_valid[1]:0);
  const auto d=totals.calls>old.calls ? last_detail : front_detail{};
  out<<','<<d.flags;
 #define FIELD(n) out<<','<<d.n##_ticks/25000.0;

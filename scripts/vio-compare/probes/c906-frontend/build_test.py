@@ -16,6 +16,9 @@ for option in os.environ.get('FRONT_TEST_OPTS','').split(','):
  args+=['-DFRONT_'+option+'=1']
 compiler='g++-11'if arch=='host'else str(sdk/'host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-g++')
 if arch=='a53':args+=['-DFRONT_DEVICE_TEST=1']
+if os.environ.get('FRONT_TEST_IVE')=='1':
+ if arch!='a53' or 'ALIGNED_IMAGES' not in os.environ.get('FRONT_TEST_OPTS','').split(','):raise ValueError('IVE direct test requires a53 and ALIGNED_IMAGES')
+ args+=['-DFRONT_TEST_IVE=1']
 for name in ['front_kernel','front_test']:
  subprocess.run([compiler,*args,'-I'+str(here),'-c',str(here/(name+'.cpp')),'-o',str(out/(name+'.o'))],check=True)
 link=shlex.split((build/'CMakeFiles/run_record.dir/link.txt').read_text());i=link.index('-o')
@@ -23,5 +26,10 @@ extra=[]
 if arch=='a53':
  subprocess.run([compiler.removesuffix('g++')+'gcc',*[x for x in args if not x.startswith('-std=')],'-I'+str(sdk/'cvikernel/include'),'-c',str(here/'front_jobs.c'),'-o',str(out/'front_jobs.o')],check=True)
  extra=[str(out/'front_jobs.o'),str(build/'CMakeFiles/ov_msckf_lib.dir/home/ncer/sophpi/scripts/vio-compare/probes/c906-tpu/lk_jobs.c.o')]
+ if os.environ.get('FRONT_TEST_IVE')=='1':
+  ive=here.parent/'c906-ive'
+  subprocess.run(['python3',str(ive/'generate_sdk.py'),str(out/'ive_sdk_generated.inc')],check=True)
+  subprocess.run([compiler.removesuffix('g++')+'gcc',*[x for x in args if not x.startswith('-std=')],'-I'+str(out),'-I'+str(sdk/'osdrv/interdrv/ive/hal/cv181x'),'-c',str(ive/'ive_jobs.c'),'-o',str(out/'ive_jobs.o')],check=True)
+  extra+=[str(out/'ive_jobs.o')]
 subprocess.run([compiler,str(out/'front_kernel.o'),str(out/'front_test.o'),*extra,*(['-static']if arch=='a53'else[]),'-o',str(out/('front_test-'+arch)),*link[i+2:]],cwd=build,check=True)
 print(out/('front_test-'+arch))

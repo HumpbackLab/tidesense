@@ -169,6 +169,9 @@ static int probe_execute_at(struct tpu_probe_control *ctl, uintptr_t base, unsig
 #ifdef TIDESENSE_C906_TPU_LK
 #include "lk_firmware.h"
 #endif
+#if defined(FRONT_IVE_HIST) || defined(FRONT_IVE_ST)
+#include "../c906-ive/ive_firmware.h"
+#endif
 #ifdef TIDESENSE_C906_FRONTEND
 #include "../c906-frontend/front_firmware.h"
 #endif
@@ -188,6 +191,9 @@ static void c906_tpu_probe(uintptr_t base)
         clean_dcache_range(base, TPU_PROBE_CONTROL_BYTES);
         return;
     }
+#if defined(FRONT_IVE_HIST) || defined(FRONT_IVE_ST)
+    if(ctl->operation==IVE_PROBE_OPERATION){c906_ive_probe(base);return;}
+#endif
 #ifdef TIDESENSE_C906_FRONTEND
     if(ctl->operation==TPU_PROBE_FRONT){c906_tpu_front(base);return;}
 #endif

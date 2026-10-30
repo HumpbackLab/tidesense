@@ -16,6 +16,8 @@ struct TpuFrontRequest {
   double snapshot_begin=0,snapshot_end=0,snapshot_cpu=0;
   unsigned tail_jobs=0;
   double tail_ms=0,tail_cpu_ms=0,tail_sync_ms=0,tail_remote_wait_ms=0;
+  unsigned ive_histogram_calls=0,ive_st_calls=0;
+  double ive_histogram_ms=0,ive_st_ms=0;
 };
 class TpuFront {
 public:
@@ -25,6 +27,8 @@ public:
     double snapshot_cpu_ms=0,snapshot_wait_ms=0;
     uint64_t tail_jobs=0;
     double tail_ms=0,tail_cpu_ms=0,tail_sync_ms=0,tail_remote_wait_ms=0;
+    uint64_t ive_histogram_calls=0,ive_st_calls=0;
+    double ive_histogram_ms=0,ive_st_ms=0;
   };
   static bool enabled();
   static bool early();

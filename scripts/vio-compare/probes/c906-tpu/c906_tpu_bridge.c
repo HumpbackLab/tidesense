@@ -8,6 +8,7 @@
 #include <linux/uaccess.h>
 #include <linux/capability.h>
 #include <linux/mutex.h>
+#include <linux/ioport.h>
 #include "rtos_cmdqu.h"
 #include "shared.h"
 #include "lk_shared.h"
@@ -16,6 +17,13 @@
 #define PROBE_IOCTL _IOW('T', 1, __u32)
 #define FRONT_IOCTL _IOW('T', 4, __u32)
 #define LK_IOCTL _IOW('T', 2, __u32)
+#define IVE_IOCTL _IOW('T', 5, __u32)
+#define FRONT_IVE_IOCTL _IOW('T', 6, __u32)
+static bool ive;
+module_param(ive, bool, 0444);
+MODULE_PARM_DESC(ive, "Also reserve the existing IVE device for C906 (no DT changes)");
+static struct device *ive_device;
+static struct resource *ive_region;
 static struct device *tpu_device;
 static struct clk *axi_clock, *fab_clock;
 static struct reset_control *resets[3];
@@ -27,10 +35,11 @@ static long probe_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
     int ret;
     cmdqu_t msg = {0};
     if (!capable(CAP_SYS_RAWIO)) return -EPERM;
-    if (cmd != PROBE_IOCTL && cmd != LK_IOCTL && cmd != FRONT_IOCTL) return -EINVAL;
+    if (cmd != PROBE_IOCTL && cmd != LK_IOCTL && cmd != FRONT_IOCTL && cmd != IVE_IOCTL && cmd != FRONT_IVE_IOCTL) return -EINVAL;
+    if ((cmd == IVE_IOCTL || cmd == FRONT_IVE_IOCTL) && !ive_region) return -ENODEV;
     if (copy_from_user(&phys, (void __user *)arg, sizeof(phys))) return -EFAULT;
     if ((phys & 63u) || phys < 0x80000000u ||
-        phys > 0x8ff40000u - (cmd == FRONT_IOCTL ? FRONT_BYTES : cmd == LK_IOCTL ? LK_TPU_BYTES : TPU_PROBE_BYTES)) return -EINVAL;
+        phys > 0x8ff40000u - ((cmd == FRONT_IOCTL || cmd == FRONT_IVE_IOCTL || cmd == IVE_IOCTL) ? FRONT_BYTES : cmd == LK_IOCTL ? LK_TPU_BYTES : TPU_PROBE_BYTES)) return -EINVAL;
     if (mutex_lock_interruptible(&probe_lock)) return -ERESTARTSYS;
     msg.ip_id = IP_SYSTEM;
     msg.cmd_id = TPU_PROBE_CMD;
@@ -76,12 +85,30 @@ static int __init probe_init(void)
         ret = reset_control_deassert(resets[i]);
         if (ret) goto disable_both;
     }
+    if (ive) {
+        struct resource *res;
+        ive_device = bus_find_device_by_name(&platform_bus_type, NULL, "a0a0000.ive");
+        if (!ive_device) { ret = -ENODEV; goto disable_both; }
+        if (ive_device->driver) { ret = -EBUSY; goto put_ive; }
+        res = platform_get_resource(to_platform_device(ive_device), IORESOURCE_MEM, 0);
+        if (!res || res->start != 0x0a0a0000 || resource_size(res) != 0x3100) {
+            ret = -ENODEV; goto put_ive;
+        }
+        ive_region = request_mem_region(res->start, resource_size(res), "c906-ive");
+        if (!ive_region) { ret = -EBUSY; goto put_ive; }
+        /* SG2002's clk_ive_vip is CLK_IS_CRITICAL in the existing clock
+         * provider. Preserve that and all shared VIP clocks/resets. */
+    }
     ret = misc_register(&probe_dev);
     if (!ret) {
         pr_info("c906_tpu_probe: exclusive C906 execution; clocks axi=%lu fab=%lu\n",
                 clk_get_rate(axi_clock), clk_get_rate(fab_clock));
+        if (ive_region) pr_info("c906_tpu_probe: exclusive IVE at existing 0xa0a0000; existing critical clock retained\n");
         return 0;
     }
+    if (ive_region) { release_mem_region(ive_region->start, resource_size(ive_region)); ive_region = NULL; }
+put_ive:
+    if (ive_device) { put_device(ive_device); ive_device = NULL; }
 disable_both:
     clk_disable_unprepare(fab_clock);
 disable_axi:
@@ -101,6 +128,8 @@ static void __exit probe_exit(void)
 {
     unsigned i;
     misc_deregister(&probe_dev);
+    if (ive_region) { release_mem_region(ive_region->start, resource_size(ive_region)); ive_region = NULL; }
+    if (ive_device) put_device(ive_device);
     for (i = 0; i < 3; ++i) {
         reset_control_assert(resets[i]);
         reset_control_put(resets[i]);
@@ -114,4 +143,4 @@ static void __exit probe_exit(void)
 module_init(probe_init);
 module_exit(probe_exit);
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("TideSense C906 TPU access experiment: power and mailbox only");
+MODULE_DESCRIPTION("TideSense C906 TPU/optional IVE experiment: power, ownership and mailbox");
