@@ -109,7 +109,7 @@ static void c906_tpu_lk_impl(uintptr_t base, uint64_t received, unsigned availab
     for(unsigned l=0;l<m->levels;++l) {
         struct lk_tpu_level *v=&m->level[l];
         if(v->width<16 || v->width>640 || v->height<15 || v->height>480 ||
-           v->row_bytes!=v->width+2*LK_TPU_BORDER)goto done;
+           !lk_tpu_valid_stride(v->width,v->row_bytes))goto done;
         for(unsigned p=0;p<2;++p)
             if(v->planes[p]<LK_TPU_PLANES_OFF ||
                v->planes[p]>available_bytes-(v->height+2*LK_TPU_BORDER)*v->row_bytes)goto done;

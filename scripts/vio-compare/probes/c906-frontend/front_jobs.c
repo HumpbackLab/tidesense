@@ -18,13 +18,15 @@ static void copy(cvk_context_t *c,cvk_tl_t *local,probe_u64 address,unsigned str
     c->ops->set_layer_id(c,0);
 }
 int front_make_jobs(unsigned char *base,probe_u64 phys,unsigned width,unsigned height) {
+    if(width!=640 || (height!=400 && height!=480))return -1;
     struct front_control *f=(void*)(base+FRONT_META_OFF);
     unsigned char *storage=calloc(1,131072);cvk_reg_info_t reg={.chip_ver_str="cv181x",.cmdbuf_size=131072,.cmdbuf=storage};
     cvk_context_t *c=storage?cvikernel_register(&reg):NULL;int result=-1;
     if(!c || c->info.npu_num!=8)goto done;
-    unsigned offsets[5],widths[5],heights[5],strides[5],offset=FRONT_PYR_OFF;
-    for(unsigned k=0;k<5;++k){offsets[k]=offset;widths[k]=width;heights[k]=height;strides[k]=width+2*LK_TPU_BORDER;
-        offset+=(height+2*LK_TPU_BORDER)*strides[k];offset=(offset+63)&~63u;width=(width+1)/2;height=(height+1)/2;}
+    struct lk_tpu_level layout[LK_TPU_LEVELS];
+    if(front_image_layout(layout,FRONT_PYR_OFF,width,height)>FRONT_PYR_OFF+FRONT_CAM_BYTES)goto done;
+    unsigned offsets[5],widths[5],heights[5],strides[5];
+    for(unsigned k=0;k<5;++k){offsets[k]=layout[k].planes[0];widths[k]=layout[k].width;heights[k]=layout[k].height;strides[k]=layout[k].row_bytes;}
     const signed char kernel[5]={1,4,6,4,1};
     for(unsigned ch=0;ch<8;++ch)for(unsigned y=0;y<5;++y)for(unsigned x=0;x<5;++x)
         base[FRONT_WEIGHTS_OFF+ch*25+y*5+x]=kernel[x]*kernel[y];
@@ -87,7 +89,7 @@ int front_make_jobs(unsigned char *base,probe_u64 phys,unsigned width,unsigned h
             copy(c,&one,phys+FRONT_RAW_OFF+row*image_width+ch*strip,image_width,0x5000+ch,0);}
         cvk_tiu_lookup_table_param_t lut={.ofmap=out,.ifmap=in,.table=table};c->ops->tiu_lookup_table(c,&lut);
         for(unsigned ch=0;ch<8;++ch){cvk_tl_t one=*out;one.shape.c=1;one.start_address+=ch*c->info.lmem_size;
-            copy(c,&one,phys+FRONT_PYR_OFF+(LK_TPU_BORDER+row)*strides[0]+LK_TPU_BORDER+ch*strip,strides[0],0x6000+ch,1);}
+            copy(c,&one,phys+offsets[0]+(LK_TPU_BORDER+row)*strides[0]+LK_TPU_BORDER+ch*strip,strides[0],0x6000+ch,1);}
         c->ops->lmem_free_tensor(c,out);c->ops->lmem_free_tensor(c,in);
     }
     c->ops->lmem_free_tensor(c,table);

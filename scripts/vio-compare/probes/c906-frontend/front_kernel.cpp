@@ -268,10 +268,10 @@ extern "C" int front_run(void *memory,const front_ops *ops) {
     detail->flags|=32u;
 #endif
     probe_u64 begin=ops->clock();f.equalize_ticks=f.pyramid_ticks=f.detect_ticks=f.lk_ticks=0;
-    if(state.magic!=FRONT_MAGIC || state.width!=f.width || state.height!=f.height || state.histogram!=f.histogram){
-        fill(&state,0,sizeof(state));state.magic=FRONT_MAGIC;state.width=f.width;state.height=f.height;state.histogram=f.histogram;state.levels=LK_TPU_LEVELS;
-        for(unsigned slot=0;slot<2;++slot)for(unsigned cam=0;cam<2;++cam){unsigned offset=FRONT_PYR_OFF+(slot*2+cam)*FRONT_CAM_BYTES,w=f.width,h=f.height;
-            for(unsigned level=0;level<state.levels;++level){auto &l=state.pyramid[slot][cam][level];l.width=w;l.height=h;l.row_bytes=w+2*LK_TPU_BORDER;l.planes[0]=offset;offset+=(h+2*LK_TPU_BORDER)*l.row_bytes;offset=(offset+63)&~63u;w=(w+1)/2;h=(h+1)/2;}
+    if(state.magic!=FRONT_STATE_MAGIC || state.width!=f.width || state.height!=f.height || state.histogram!=f.histogram){
+        fill(&state,0,sizeof(state));state.magic=FRONT_STATE_MAGIC;state.width=f.width;state.height=f.height;state.histogram=f.histogram;state.levels=LK_TPU_LEVELS;
+        for(unsigned slot=0;slot<2;++slot)for(unsigned cam=0;cam<2;++cam){
+            unsigned offset=front_image_layout(state.pyramid[slot][cam],FRONT_PYR_OFF+(slot*2+cam)*FRONT_CAM_BYTES,f.width,f.height);
             if(offset>FRONT_PYR_OFF+(slot*2+cam+1)*FRONT_CAM_BYTES)return -41;
         }
     }

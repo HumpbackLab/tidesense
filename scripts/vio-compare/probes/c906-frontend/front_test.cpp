@@ -120,7 +120,15 @@ int main(int argc,char **argv){
     if(ret){std::cerr<<"front_run "<<ret<<'\n';return 1;}
     auto &state=*(front_state*)(base+FRONT_STATE_OFF);unsigned slot=state.timestamp[0]==f.timestamp?0:1;
     for(unsigned cam=0;cam<2;++cam){auto actual=pyr(base,state.pyramid[slot][cam],state.levels);
-      for(unsigned l=0;l<state.levels;++l)if(cv::norm(actual[l],pyramids[cam][l],cv::NORM_INF)!=0){std::cerr<<"Pyramid differs "<<frame<<' '<<cam<<' '<<l<<'\n';++failures;}}
+      for(unsigned l=0;l<state.levels;++l){
+        const auto &level=state.pyramid[slot][cam][l];
+        if(FRONT_ALIGNED_IMAGES && (((level.planes[0]+LK_TPU_BORDER*level.row_bytes+LK_TPU_BORDER)|level.row_bytes)&15u))throw std::runtime_error("Pyramid layout alignment");
+        if(cv::norm(actual[l],pyramids[cam][l],cv::NORM_INF)!=0){std::cerr<<"Pyramid differs "<<frame<<' '<<cam<<' '<<l<<'\n';++failures;}
+        cv::Mat border;cv::copyMakeBorder(pyramids[cam][l],border,LK_TPU_BORDER,LK_TPU_BORDER,LK_TPU_BORDER,LK_TPU_BORDER,cv::BORDER_REFLECT_101|cv::BORDER_ISOLATED);
+        cv::Mat padded(level.height+2*LK_TPU_BORDER,level.width+2*LK_TPU_BORDER,CV_8UC1,base+level.planes[0],level.row_bytes);
+        if(cv::norm(padded,border,cv::NORM_INF)!=0){std::cerr<<"Halo differs "<<frame<<' '<<cam<<' '<<l<<'\n';++failures;}
+      }
+    }
     Reference reference(height,threshold);std::vector<cv::KeyPoint> points[2];std::vector<size_t> ids[2];auto mask=cv::Mat::zeros(height,640,CV_8UC1);
     reference.perform_detection_stereo(pyramids[0],pyramids[1],mask,mask,0,1,points[0],points[1],ids[0],ids[1]);
     double max_cam[2]={0,0};

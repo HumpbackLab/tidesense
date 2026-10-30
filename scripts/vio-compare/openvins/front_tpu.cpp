@@ -195,7 +195,7 @@ void TpuFront::assist_tail(const std::shared_ptr<TpuFrontRequest>& r,double time
      throw std::runtime_error("Invalid CPU tail descriptor");
    for(unsigned l=0;l<task.levels;++l)for(const auto *v:{&task.previous[l],&task.current[l]}){
      unsigned bytes=(v->height+36)*v->row_bytes;
-     if(v->row_bytes!=v->width+36 || v->width>640 || v->height>480 || v->planes[0]<FRONT_PYR_OFF || v->planes[0]>FRONT_BYTES-bytes)
+     if(!lk_tpu_valid_stride(v->width,v->row_bytes) || v->width>640 || v->height>480 || v->planes[0]<FRONT_PYR_OFF || v->planes[0]>FRONT_BYTES-bytes)
        throw std::runtime_error("Invalid CPU tail pyramid");
      invalidate(v->planes[0],bytes);
    }

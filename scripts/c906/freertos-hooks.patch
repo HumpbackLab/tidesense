@@ -1,7 +1,7 @@
 diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
 --- a/cvitek/task/comm/CMakeLists.txt
 +++ b/cvitek/task/comm/CMakeLists.txt
-@@ -17,3 +17,79 @@
+@@ -17,3 +17,80 @@
  add_library(comm STATIC ${_SOURCES})
  install(TARGETS comm DESTINATION lib)
  
@@ -55,6 +55,7 @@ diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
 +option(TIDESENSE_C906_FRONTEND "Enable experimental pixel-only C906 TPU frontend" OFF)
 +option(TIDESENSE_C906_FRONT_FASTMEM "Use aligned scalar stores in frontend fills" OFF)
 +option(TIDESENSE_C906_FRONT_PROFILE "Profile pixel frontend sub-stages" OFF)
++option(TIDESENSE_C906_FRONT_ALIGNED_IMAGES "Align frontend gray pixels and pitches for direct IVE input" OFF)
 +option(TIDESENSE_C906_FRONT_CPU_TAIL "Allow one idle A53 16-point LK tail batch" OFF)
 +option(TIDESENSE_C906_FRONT_SPARSE_NMS "Visit only FAST candidates during NMS" OFF)
 +option(TIDESENSE_C906_FRONT_LAZY_MASK "Build top-up masks only when detection is needed" OFF)
@@ -74,7 +75,7 @@ diff --git a/cvitek/task/comm/CMakeLists.txt b/cvitek/task/comm/CMakeLists.txt
 +    if(TIDESENSE_C906_FRONT_PROFILE)
 +        target_compile_definitions(comm PRIVATE FRONT_PROFILE=1)
 +    endif()
-+    foreach(_opt SPARSE_NMS LAZY_MASK TPU_BASE_CACHE LATEST_INTRINSICS CPU_TAIL)
++    foreach(_opt SPARSE_NMS LAZY_MASK TPU_BASE_CACHE LATEST_INTRINSICS CPU_TAIL ALIGNED_IMAGES)
 +        if(TIDESENSE_C906_FRONT_${_opt})
 +            target_compile_definitions(comm PRIVATE FRONT_${_opt}=1)
 +        endif()

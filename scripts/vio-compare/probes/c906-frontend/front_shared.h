@@ -3,7 +3,12 @@
 #include "../c906-tpu/lk_shared.h"
 #define TPU_PROBE_FRONT 4u
 #define FRONT_MAGIC 0x46524e54u
-#define FRONT_VERSION 3u
+#ifndef FRONT_ALIGNED_IMAGES
+#define FRONT_ALIGNED_IMAGES 0
+#endif
+/* A mismatched host/firmware pair must fail before using persistent DMA jobs. */
+#define FRONT_VERSION (FRONT_ALIGNED_IMAGES ? 4u : 3u)
+#define FRONT_STATE_MAGIC (FRONT_MAGIC ^ (FRONT_ALIGNED_IMAGES ? 1u : 0u))
 #define FRONT_BYTES (12u*1024u*1024u)
 #define FRONT_META_OFF 196608u
 #define FRONT_PYR_DMA_OFF 262144u
@@ -59,6 +64,26 @@ struct front_state {
     probe_u64 timestamp[2];
     struct lk_tpu_level pyramid[2][2][LK_TPU_LEVELS];
 };
+/* One layout implementation for the host's persistent DMA jobs and C906.
+ * Keep the 18-pixel halo. Move the padded plane slightly inside its allocation
+ * so that the first real pixel, rather than the halo, is 16-byte aligned. */
+#ifndef __KERNEL__
+static inline unsigned front_image_stride(unsigned width){
+    unsigned stride=width+2*LK_TPU_BORDER;
+    return FRONT_ALIGNED_IMAGES ? (stride+15u)&~15u : stride;
+}
+static inline unsigned front_image_layout(struct lk_tpu_level *levels,unsigned offset,unsigned width,unsigned height){
+    for(unsigned k=0;k<LK_TPU_LEVELS;++k){
+        struct lk_tpu_level *l=&levels[k];
+        l->width=width;l->height=height;l->row_bytes=front_image_stride(width);
+        if(FRONT_ALIGNED_IMAGES)offset+=(0u-(offset+LK_TPU_BORDER*l->row_bytes+LK_TPU_BORDER))&15u;
+        l->planes[0]=offset;l->planes[1]=0;
+        offset+=(height+2*LK_TPU_BORDER)*l->row_bytes;
+        offset=(offset+63u)&~63u;width=(width+1)/2;height=(height+1)/2;
+    }
+    return offset;
+}
+#endif
 struct front_ops {
     probe_u64 (*clock)(void);
     int (*pyramid)(void*,struct front_control*,struct front_state*,unsigned,unsigned);

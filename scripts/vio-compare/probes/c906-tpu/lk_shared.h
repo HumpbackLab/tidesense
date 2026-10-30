@@ -20,6 +20,12 @@ static const unsigned char lk_dual_cache_masks[8]={0,1,2,3,0,1,0,2};
 #define LK_TPU_POINTS 160u
 #define LK_TPU_LEVELS 5u
 #define LK_TPU_BORDER 18u
+/* Standalone LK retains the compact halo layout. The whole frontend may use
+ * a 16-byte padded pitch; ROI DMA descriptors already carry the actual pitch. */
+static inline int lk_tpu_valid_stride(unsigned width,unsigned stride){
+    unsigned compact=width+2*LK_TPU_BORDER;
+    return stride==compact || stride==((compact+15u)&~15u);
+}
 #define LK_TPU_W 16u
 #define LK_TPU_H 15u
 #define LK_TPU_PIXELS (LK_TPU_W * LK_TPU_H)

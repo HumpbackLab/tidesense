@@ -21,13 +21,14 @@ p.add_argument('--lk-dual',action='store_true',help='Pair independent 16-lane LK
 p.add_argument('--qr7',action='store_true',help='Compile guarded double QR seven-point solver; requires --frontend')
 p.add_argument('--cpu-tail',action='store_true',help='Compile optional A53 16-point LK tail helper; requires --frontend')
 p.add_argument('--lock-exec',action='store_true',help='Compile optional executable page locking; requires --frontend')
+p.add_argument('--aligned-images',action='store_true',help='Align gray pixels and row pitches for direct IVE access; requires matching firmware')
 p.add_argument('--fp64-pack',action='store_true',help='Compile optional packed FP64 covariance-Jacobian product')
 p.add_argument('--backend-detail',action='store_true',help='Compile opt-in backend stage/size diagnostics')
 a=p.parse_args()
 if a.qr7 and not a.frontend:p.error('--qr7 requires --frontend')
 if a.lk_dual and (not a.lk_roi_cache or a.lk_batch!=16):p.error('--lk-dual requires --lk-roi-cache and --lk-batch 16')
 if a.early_pipeline and not a.frontend:p.error('--early-pipeline requires --frontend')
-if (a.sparse_nms or a.lazy_mask or a.latest_intrinsics or a.lk_roi_cache or a.cpu_tail or a.lock_exec) and not a.frontend:p.error('Frontend optimizations require --frontend')
+if (a.sparse_nms or a.lazy_mask or a.latest_intrinsics or a.lk_roi_cache or a.cpu_tail or a.lock_exec or a.aligned_images) and not a.frontend:p.error('Frontend optimizations require --frontend')
 work=sdk/'install/openvins-c906-tpu'
 source=work/'source'
 if not source.exists():
@@ -69,6 +70,7 @@ flags=['-DCMAKE_BUILD_TYPE=Release','-DENABLE_ROS=OFF','-DENABLE_ARUCO_TAGS=OFF'
        '-DOPENVINS_FRONT_QR7POINT='+('ON'if a.qr7 else'OFF'),
        '-DOPENVINS_FRONT_CPU_TAIL='+('ON'if a.cpu_tail else'OFF'),
        '-DOPENVINS_FRONT_LOCK_EXEC='+('ON'if a.lock_exec else'OFF'),
+       '-DOPENVINS_FRONT_ALIGNED_IMAGES='+('ON'if a.aligned_images else'OFF'),
        '-DOPENVINS_EKF_PACKED_F64='+('ON'if a.fp64_pack else'OFF'),
        '-DOPENVINS_BACKEND_DETAIL='+('ON'if a.backend_detail else'OFF')]
 if a.arch=='a53':
