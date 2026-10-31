@@ -934,7 +934,8 @@ U8 响应图，C906 做局部最大值筛选、网格选点、掩码、间距检
 ST 改变候选定义和点集，与 FAST 路径不等价。`OPENVINS_TPU_IVE_QUALITY` 为
 1..255 的硬件质量阈值；程序和对照脚本缺省均为 **16**。初轮使用 3，后续按
 实际点数调到 16，结果见下文。原 FAST threshold 不是这个参数。
-按本轮要求未做 ST 的完整精度回归，ST 功能本身暂不默认开启。
+首轮只测吞吐；后续已补充该 FPV 序列的完整精度对照，结果见下文。
+ST 功能本身仍默认关闭。
 
 A53 在启动时生成两个 Hist 和四个 ST 固定缓冲寄存器表，每帧仍只提交一次完整
 前端。IVE 回调不额外往返 A53；完整 IVE 请求使用桥接 ioctl 6，要求桥接模块
@@ -1000,7 +1001,7 @@ ST 更容易补满网格，实际点数约增加 34%。检测本身由 14.045 �
 后续将 ST 阈值调至实际点数接近 FAST，再作速度对照，见下面的补充实测。
 
 完整测量输出位于 `install/openvins-c906-frontend/aligned-images/results/`，
-汇总为 `ive-comparison.json`。本次按要求未做完整轨迹精度回归；实验退出后已
+汇总为 `ive-comparison.json`。首轮按要求只测吞吐；实验退出后已
 恢复原小核固件和 Linux TPU／IVE 驱动，正式应用未替换，三个新功能均默认关闭。
 
 ### ST 质量阈值调参：接近 FAST 的实际点数
@@ -1033,6 +1034,47 @@ OPENVINS_TPU_IVE_QUALITY=16 OPENVINS_IVE_MODES=both \
 后续几何工作量仍不同，未据此推断轨迹精度。两种分辨率的布局支持保持不变。
 原始输出分别在 `aligned-images/quality-12`、`quality-16`、`quality-20`，
 汇总在 `install/openvins-c906-frontend/aligned-images/quality-tuning.json`。
+
+### ST=16 完整序列精度对照
+
+在同一台 TideSense A53=1 GHz 上回放完整 `indoor_forward_6`，共 1970 对
+640×480 图像、约 69.60 秒数据。两组均使用 IVE Hist、相同 FP64 后端、
+标定、噪声、网格和点数目标，仅将 FAST 换为 ST=16。没有使用回环或重定位。
+
+```sh
+# 设备实验目录，与上面的程序、固件和配置相同；0 表示完整回放。
+OPENVINS_TPU_IVE_QUALITY=16 OPENVINS_IVE_MODES="hist both" \
+  ./benchmark_ive.sh \
+  /mnt/data/openvins-c906-front/tail-latency/config/speed/estimator_config.yaml \
+  /mnt/data/openvins-c906-tpu/dataset accuracy-st16 0
+
+# 取回 accuracy-st16/ 后，沿用此前 FPV 的位置 ATE 评估协议。
+python3 scripts/vio-compare/probes/qr7point/evaluate.py \
+  install/openvins-c906-frontend/aligned-images/accuracy-st16 --modes hist both
+```
+
+两组均完成 1970 帧，均在第 189 帧（从 0 计，约 6.369 秒）初始化，
+初始化后各输出 1781 帧有限位姿。该数据集真值只覆盖约 30.20 秒，评估使用
+两组共同覆盖的 816 帧、30.154 秒，采用 SE(3) 刚体对齐，**不拟合尺度**。
+沿用已有评估的固定时间戳修正 −16.684572 ms，没有分别搜索最优时间偏移。
+
+| 共同真值区间的位置误差 | FAST＋IVE Hist | ST=16＋IVE Hist |
+| --- | ---: | ---: |
+| ATE RMSE | 0.286722 m | 0.305188 m |
+| ATE P95 | 0.422960 m | 0.428235 m |
+| ATE 最大值 | 0.438557 m | 0.457905 m |
+| 最后一个有真值帧的误差 | 0.197884 m | 0.216259 m |
+
+本序列上 ST 的位置 RMSE 增加约 **6.44%**，绝对增加约 **1.85 cm**，属于
+小幅精度损失；共同真值区间未见明显位置发散。完整回放未出现非有限位姿或
+初始化后返回未初始化状态，也没有出现双目 LK 有效点合计少于 10 的帧。
+这些检查不能替代真值未覆盖片段的精度结论，也不是其他序列的精度保证。
+
+原始轨迹、日志、共同真值对齐后的误差 CSV、轨迹／误差曲线及补充统计位于
+`install/openvins-c906-frontend/aligned-images/accuracy-st16/`，分别为
+`hist.csv`／`both.csv`、`accuracy.json`、`full-accuracy.json`、
+`aligned-errors.csv` 和 `trajectory-st16.png`。实验退出后已恢复原小核固件和
+Linux TPU／IVE 驱动。
 
 ### 拟采用的 C906 调度
 
