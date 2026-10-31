@@ -44,13 +44,4 @@ cd /mnt/data/sc7u22-test
 会丢弃部分采样；`captured_rate` 是软件取得的样本率，不能当成实际传感器 ODR。
 输出轴为芯片坐标，未应用板级安装旋转。
 
-## 本板速率测试
-
-2026-09-17：1 MHz 和 5 MHz 的测试通过；10 MHz 两次均出现异常 FIFO 数据，含
-`-32768` 饱和值，程序正确报告 FAIL。因此默认使用 1 MHz，不能将 PX4 的 10 MHz
-设置直接视为本板可用。尚未定位高速异常来自 SPI 时序、信号完整性或 FIFO 访问约束。
-实际统计和日志保存在本目录的 `results/`。
-
-此次已更新目标板内核及设备树，没有重新制作完整 SD 卡镜像。旧启动镜像备份在
-`/mnt/data/sc7u22-test/boot.sd.before-imu`。回退时将其复制到 SD 第一分区的
-`boot.sd` 后同步并重启即可；无需改动 FIP 或根文件系统。
+实验记录与复测细节见 [VALIDATION.md](VALIDATION.md)。

@@ -64,7 +64,7 @@ cd /mnt/data/schurvins-gcc11-static-micro-ros
 LiveImu 只把芯片数据换算为 rad/s 和 m/s²，不读取任何外部校准文件。
 标定采集和录制保存这些标称 SI 值；运行 VIO 时由完整 `schurvins.yaml` 中的
 `imu_params` 一次性补偿加速度计和陀螺仪。配置格式和公式见
-[运行说明](README.md#实时-vio--micro-ros-位姿发布)。
+[运行说明](README.md#实时运行)。
 
 配置以 `input_domain: raw_si` 标明输入域，支持 `accel_inverse_matrix`、
 `gyro_inverse_matrix`、`gyro_accel_matrix` 和两个三维输出偏移。

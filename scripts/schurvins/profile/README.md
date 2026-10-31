@@ -32,5 +32,4 @@
 ./scripts/schurvins/profile/decode.sh align
 ```
 
-本次实际使用已经测过的 `align2d-binaries/align` 中 stereo/symbols 复制到
-`profile/align`，没有重链接，以确保采样可执行文件与正式包完全一致。
+历史二进制来源见 [VALIDATION.md](VALIDATION.md)。

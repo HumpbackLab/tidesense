@@ -81,7 +81,7 @@ warp 的初稿使用四个 float 临时数组 gather，虽一致但局部约慢 
 
 ## 复现与产物
 
-方法见 [README](../README.md#align2d-hessian-与-warpaffine各自默认-off)。
+构建入口见 [README](../README.md#构建与部署)，实验使用下述冻结变体。
 `next-binaries/base` 是之前四项 ON、新两项 OFF；hessian / warp / both 为只开新 Hessian、只开新 warp、两项都开。使用 `run-board.sh` 串行回放，所有计时/日志/位姿写 tmpfs。
 
 原始结果保存在 `install/schurvins-gcc11-static/next-results/`，冻结二进制与同次链接符号在 `next-binaries/`。首次基线直接使用之前已经验证的四项全开 ELF；其余变体以本次源码构建。

@@ -57,7 +57,7 @@
 
 ## 产物与复现
 
-运行方法见 [README](../README.md#align2d-浮点-neon独立默认-off)。
+构建入口见 [README](../README.md#构建与部署)，实验使用下述独立脚本。
 `build-align2d.sh` 生成 `align2d-binaries/base`（之前三项 ON，align2D OFF）和
 `align2d-binaries/align`（四项 ON）。`run-align2d-check.sh` 执行上述局部检查。
 `run-board.sh` 的输出写入 tmpfs，结束后再拉回主机。保持板端无其他计算负载，不在计时期间上传文件。

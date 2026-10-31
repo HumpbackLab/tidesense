@@ -174,3 +174,33 @@ tidesense_record:
 schurvins_stereo:
 6f2a284b9867ed7dd656125b2a80ce4a046a14d3fdbb37fe712c08f61b353839
 ```
+
+## README 清理时移出的测试命令与接入说明
+
+### 验证
+
+主机测试使用独立 mock 后端，不依赖 SDK 或真实硬件：
+
+```sh
+cmake -S tide_cam -B install/tide_cam-host-tests \
+  -DTIDE_CAM_BACKEND=TEST -DTIDE_CAM_BUILD_TESTS=ON \
+  -DTIDE_CAM_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+cmake --build install/tide_cam-host-tests -j4
+ctest --test-dir install/tide_cam-host-tests --output-on-failure
+```
+
+覆盖同步模式拒绝频率设置、自由运行范围/有理数/非法值、
+三种尺寸的像素缓冲边界/长度、逐像素租借有效性、左右独立时间戳、最新帧替换、FIFO 顺序和溢出、
+重复 release、未释放时拒绝 close、stop 唤醒及后台故障清理。
+`TEST` 后端仅用于上述测试，不是可部署的采集实现。
+
+`TIDE_CAM_BUILD_BOARD_TESTS=ON` 另构建 `tide_cam_board_test`，需复制到 SG2002 执行，
+遍历所有已声明尺寸，测试真实双目、LATEST/FIFO、实际尺寸/步长/长度、持有图像不被覆盖、
+忙设备拒绝、停止后帧有效、同进程关闭后换尺寸重开和信号处理器保持。
+验证记录见 [VALIDATION.md](VALIDATION.md)。
+
+`tidesense_record` 与 SchurVINS 实时入口已接入此库，分别使用 FIFO 和最新待处理帧策略。
+两者通过应用适配层复制到独立 OpenCV Mat 后释放库帧，支持算法关键帧和后台写盘持有图像，
+避免过早复用采集缓冲。depth 等其他现有应用仍使用原入口。
+标定复用 `tidesense_record`，流程见 [标定说明](../scripts/calibration/README.md)。

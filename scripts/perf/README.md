@@ -18,19 +18,6 @@ build_osdrv
 ./scripts/perf/build.sh
 ```
 
-构建脚本使用 SDK ARM64 工具链及 `linux_5.10/tools/perf`，下载并校验
-elfutils 0.184（校验值来自 SDK Buildroot），使用 SDK 的 ARM64 zlib。
-主机需要 make、gcc、flex、bison、curl、tar、bzip2、gettext 等构建工具。
-产物放在 `install/soc_sg2002_tidesense_arm64_sd/perf/`，同时将 perf
-安装到该板 rootfs 的 `/usr/bin/perf`，后续打包根文件系统时会包含它。
-
-内核启用 `PERF_EVENTS`、`HW_PERF_EVENTS`、`ARM_PMU`（默认选中）、
-`KALLSYMS_ALL`、`STACKTRACE`，保留原有 `FRAME_POINTER`。
-板级设备树将 PMU 中断列表修正为单个 A53 对应的 GIC SPI 119。
-SDK 默认节点有两个中断、仅一个 affinity 条目，会造成 ARM PMU 注册失败。
-内核配置变化后必须同时部署重新编译的内核模块与厂商模块；仅替换 `boot.sd`
-会让旧模块与内核不兼容，可能在加载模块时触发 Oops，并阻塞 perf 的符号读取。
-
 ## 板上使用（root）
 
 ```sh
@@ -62,70 +49,10 @@ perf stat -e task-clock,context-switches,page-faults -- your_program
 
 当前工具静态链接，支持 libelf 符号解析、zlib、stat/record/report/top。
 不包含 DWARF 展栈、Python/Perl、BPF、图形/TUI 界面；使用 `--stdio` 和
-`--call-graph fp`。本次没有开启 scheduler/ftrace 事件，`perf sched` 等需要另配内核。
+`--call-graph fp`。没有开启 scheduler/ftrace 事件，`perf sched` 等需要另配内核。
 保持系统 perf 权限设置不变，测试以 root 执行。
 
 `perf version` 显示的 `4.1.6.g...` 来自此 SDK 内核仓库的 Git 标签；
 构建源码实际为当前 `linux_5.10/tools/perf`，不是另外下载的 Linux 4.1 工具。
 
-## 上板验证
-
-2026-09-17，Cortex-A53 PMU 注册成功，报告 7 个计数器。三秒测试负载取得约
-23.96 亿 cycles、19.93 亿 instructions；cache-misses、branch-misses 以及
-task-clock/context-switches/page-faults 均能计数。按 99 Hz 进行 cycles 采样，
-取得 289 个样本、丢失 0 个；report 能解析 `mix → workload → main` 的调用栈。
-原始输出见 `board-test.log`；日志结尾缺少可选 tips 文件的提示已在最终安装中补齐。
-
-## 部署与回退
-
-下面记录的是早期手工部署；当前默认 SD 镜像已包含 perf，无须另行复制。
-
-板上工具位于 `/usr/bin/perf`；测试负载和结果放在 `/mnt/data/perf-test/`。
-内核/设备树通过 SD 启动分区的 `boot.sd` 更新，旧版本备份为
-`/mnt/data/perf-test/boot.sd.before-perf`。原模块目录备份为
-`/mnt/data/perf-test/ko.before-perf.tar`，33 个模块已按新配置重新编译并部署。
-本次没有更新 FIP 或重新制作完整 SD 镜像。
-回退时把启动镜像备份复制回 SD 第一分区的 `boot.sd`，并用
-`tar xf /mnt/data/perf-test/ko.before-perf.tar -C /mnt/system` 恢复匹配的模块，
-同步后重启。如果模块异常导致正常重启无法完成，先 `sync` 再 `busybox reboot -f`。
-
-## TideSense A53 1 GHz
-
-TideSense ARM64 SD 构建在 FSBL 中单独将 MPLL/A53 从 800 MHz 设置为 1 GHz，
-通过 `TIDESENSE_A53_1GHZ` 隔离，仅匹配 `PROJECT_FULLNAME=sg2002_tidesense_arm64_sd`。
-保留 ND 模式的外围时钟，不启用整套 `OD_CLK_SEL`，不修改供电。
-板级 DT 同步设置温控频率表为 CPU 1000/500/500 MHz、TPU 700/375/300 MHz，
-高温仍可降频，并非锁死在 1 GHz。
-
-本地 SG2002 Preliminary Datasheet V1.0-alpha 同时列出 A53 1 GHz 和 CORE 标称 0.9 V；
-不以本项变更要求手动升到 1.0 V。运行稳定性仍应以具体板子的负载测试为准。
-
-```sh
-source build/envsetup_soc.sh
-defconfig sg2002_tidesense_arm64_sd
-build_fsbl
-build_kernel
-```
-
-更新 SD BOOT 分区根目录的两个文件：
-
-- `install/soc_sg2002_tidesense_arm64_sd/fip.bin`
-- `install/soc_sg2002_tidesense_arm64_sd/rawimages/boot.sd`（FIT 格式，勿用上一层 CIMG 同名文件）
-
-重启后检查（设备已挂载 debugfs 时）：
-
-```sh
-cat /sys/kernel/debug/clk/clk_summary | grep -E 'clk_mpll|clk_a53'
-cat /sys/class/thermal/thermal_zone0/temp
-```
-
-`clk_mpll` 和 `clk_a53` 正常最高档应为 `1000000000`；温度单位为毫摄氏度。
-设备更新前的启动文件保存在 `/mnt/data/backup-before-1ghz-20260924/`。
-
-2026-09-24 上板短时验证：原电压，时钟树确认 1 GHz；874 帧离线回放完成，
-位姿数值与 800 MHz 的同一诊断程序回放一致。VIO 总耗时 32.835→27.548 秒（减少 16.1%），
-单帧中位数 35.132→29.401 ms。400 帧双目+IMU smoke 通过：相机 19.954 fps、
-IMU 199.537 Hz，配对丢弃/消费替换/IMU 丢弃均为 0；驱动无 SPI 错误或采样间隔异常。
-采样温度约 40–41°C；手动检查 cooling state 1→0，A53 正常 500 MHz→1 GHz。
-这是短时稳定性测试，不等同于温度/电压全范围长期验证。
-日志位于 `install/tidesense-1ghz-validation/`。本次更新了启动文件，未重打整卡镜像。
+上板、调频及早期部署记录见 [VALIDATION.md](VALIDATION.md)。

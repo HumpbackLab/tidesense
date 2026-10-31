@@ -29,7 +29,7 @@ export SCHUR_MICRO_ROS_PORT=8888
 export SCHUR_MICRO_ROS_DOMAIN=0
 ```
 
-随后使用上面的同一录制命令。Agent 与订阅步骤见 [README](README.md#实时-vio--micro-ros-位姿发布)。
+随后使用上面的同一录制命令。Agent 与订阅步骤见 [README](README.md#实时运行)。
 
 建议开头静止 3–5 秒建立初始状态，再做触发问题的转动/平移，末尾再静止几秒。
 将完整终端日志也保留下来，便于对应失败时刻。不要在发散后立即断电或使用 `kill -9`。

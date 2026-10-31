@@ -99,3 +99,76 @@ Kalibr 的初始化/选帧可能使重复运行结果略有变化。没有采集
 陀螺仪 X 和三个加速度轴未找到符合规则的偏置随机游走区间，
 因此两项 random_walk 均为 null，本次不是完整 IMU 噪声参数标定。
 加速度模长均值约 9.10472 m/s²，分析未擅自修正原始值。
+
+## 构建、回归测试与 IMU 模型说明
+
+镜像：`localhost/tidesense-kalibr:noetic`，基础环境 Ubuntu 20.04 / ROS Noetic，使用 AWS ECR 的 Docker 官方 ROS 镜像副本。
+Kalibr 固定为上游 `1f60227442d25e36365ef5f72cd80b9666d73467`，
+依赖依据 [上游 Containerfile](https://github.com/ethz-asl/kalibr/blob/1f60227442d25e36365ef5f72cd80b9666d73467/Dockerfile_ros1_20_04)。
+转换使用 `rosbags==0.9.23`，构建缓存位于 `install/kalibr-podman/`。
+Ubuntu 软件包默认使用中科大镜像，Python 包使用清华镜像，ROS 使用 Noetic 官方最终快照。
+默认同时编译 2 个作业；可设置 `KALIBR_BUILD_JOBS`。本机 16 GB 内存使用 6 个作业编译通过，
+纯编译约 19 分钟，首次下载和安装依赖另计。构建使用 host 网络，
+以便访问本机已有的 HTTP 代理；运行标定时禁用容器网络。
+
+入口使用当前仓库的转换脚本。旧镜像的 Focal SciPy 1.3 与 NumPy 1.24 不兼容，
+相机–IMU 模块会报 `numpy.typeDict` 不存在。已将 SciPy 固定为 1.10.1。
+本机已升级；其他机器可只更新运行依赖，无需重编译 Kalibr C++：
+
+```bash
+scripts/calibration/kalibr/build.sh --runtime-only
+```
+
+### 回归测试
+
+测试使用合成数据和仅供测试的噪声参数，不产生实际标定结果：
+
+```bash
+podman run --rm --init --network=none \
+  --volume "$PWD/scripts/calibration/kalibr:/tests:ro" \
+  localhost/tidesense-kalibr:noetic python3 /tests/test_convert.py
+```
+
+覆盖 IMU/图像数值与时间戳保留、旧双目转换、缺失 IMU、时间不重叠、重复时间戳、
+未填写噪声参数及分辨率不匹配。
+
+同一命令将 `test_convert.py` 换为 `test_allan.py` 可验证 Allan 算法：直接窗口均值
+计算对照、恒定偏置不变性、已知白噪声/随机游走系数恢复、错误斜率拒绝和时间缺口分段。
+
+联合模式固定使用 `scale-misalignment`，默认把陀螺加速度敏感矩阵 A 固定为零。
+这是工程脚本对原版 Kalibr Python 模块的可审查覆盖；原始/覆盖源码及哈希保存在结果目录。
+需要对照估计 A 时显式加 `--estimate-g-sensitivity`。
+不再提供 IMU 模型选择；命令入口和结果转换均不支持 `calibrated`。
+`scale-misalignment-size-effect` 尚未接入运行入口，脚本明确拒绝，避免静默丢弃参数。
+
+输出保留相机外参、时间偏移和完整内参，并自动导出 `schurvins.yaml`：
+
+```text
+Da = inverse(M_accel)
+Dw = transpose(C_gyro_i) * inverse(M_gyro)
+H  = -Dw * A * C_gyro_i
+a  = Da * am + accel_offset
+w  = Dw * wm + H * a + gyro_offset
+```
+
+新联合标定的两个固定偏移为零，残余零偏继续由 VIO 估计。
+逆矩阵和外参共用 Kalibr 的参考 IMU 坐标系，必须配套使用，不可只复制比例系数。
+配置带 `imu_params.input_domain: raw_si`，支持 radtan 和 equidistant 双目模型。
+
+已有转换目录可单独重拟合：
+
+```bash
+python3 scripts/calibration/kalibr/calibrate_intrinsics.py \
+  --source cali/tidesense-imucam-converted \
+  --output cali/tidesense-imucam-intrinsics \
+  --disable-g-sensitivity
+scripts/calibration/kalibr.sh --export-schurvins cali/tidesense-imucam-intrinsics
+```
+
+输入目录须包含 `imucam.bag`、`camchain-input.yaml`、`imu-input.yaml` 和 `target.yaml`，
+且 bag 必须是标称 SI 输入。该工具保持输入值和时间戳，不会自动恢复历史预处理数据。
+旧录像需先恢复原始 SI 并合并其配套输入变换，不能仅添加 `input_domain` 字段。
+
+2026-10-17 的历史实验数据仍保存在
+[`intrinsics-results-20261017.json`](intrinsics-results-20261017.json) 和
+`install/kalibr-intrinsics-20261017/`。它们使用旧输入处理方式，不应当作新原始 SI 标定使用。

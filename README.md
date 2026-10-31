@@ -1,118 +1,76 @@
 # TideSense
 
-**TideSense 是一款基于 SG2002 的双目视觉惯性里程计（VIO）设备。** 通过同步采集双目图像和 IMU 数据，在板载 Arm Cortex-A53 上估计设备的位置与姿态，面向机器人、无人机和嵌入式视觉导航的开发与研究。
+基于 SG2002 的双目视觉惯性里程计，在 Arm Cortex-A53 上运行 Linux 与 VIO。
+本仓库提供板级 SDK、传感器驱动、标定、录制及 VIO 工具。
 
-我们将开放 TideSense 的硬件设计与软件实现，希望让开发者能够从硬件搭建、传感器驱动、标定和数据采集，一直实践到板端 VIO 与性能优化。本仓库主要提供基于 SG2002 SDK 的板级适配、构建配置、应用程序和实验工具。
-
-## 硬件配置
+## 硬件
 
 | 项目 | 配置 |
 | --- | --- |
-| 主控 | SG2002，使用 Arm Cortex-A53 运行 Linux 和 VIO |
-| 双目相机 | 两颗 OV9281 全局快门图像传感器，设计基线 50 mm |
-| 左相机 | I²C 7 位地址 `0x10`，MIPI CSI-2，2 lane |
-| 右相机 | I²C 7 位地址 `0x60`，MIPI CSI-2，1 lane |
-| IMU | SC7U22 六轴加速度计与陀螺仪，SPI 接口、INT1 数据就绪中断 |
-| 启动与存储 | SD 卡启动，系统配置不依赖 SPI NOR / SPI NAND |
-| 主机连接 | USB RNDIS 网络，设备端默认地址 `192.168.123.99` |
+| 主控 | SG2002，Arm Cortex-A53 |
+| 双目 | OV9281 全局快门，设计基线 50 mm |
+| 左 / 右 | I²C 7 位地址 0x10 / 0x60，MIPI 2 / 1 lane，右相机倒装 180° |
+| IMU | SC7U22，SPI，INT1 中断时间戳，200 Hz |
+| 同步 | 每 10 次 IMU 中断触发双目 FSIN，名义 20 Hz |
+| 存储 | 纯 SD 启动，无需 SPI NOR/NAND |
+| 连接 | USB RNDIS，设备地址 192.168.123.99 |
 
-引脚分配见 [pin.md](pin.md)，芯片与传感器参考资料见 [docs/](docs/)。
-
-## 硬件设计
-硬件设计根据协议CC BY-NC-SA 4.0开源：
+引脚见 [pin.md](pin.md)，手册见 [docs/](docs/)。
+硬件设计按 CC BY-NC-SA 4.0 开源：
 https://oshwhub.com/brics-hospital-drone-team/project_hpetjiuj
 
+## 功能与文档
 
-## 软件功能
-
-- **同步采集**：当前采集配置为双目 `640×400` 灰度图像、20 Hz，以及 200 Hz IMU。内核在 IMU INT1 中断入口记录时间戳，每 10 次中断触发一次双目 FSIN。
-- **板端 VIO**：适配 SchurVINS 和 OpenVINS，提供实时传感器输入、离线回放、位姿记录及 A53 交叉编译工具。
-- **可选 ROS 2 接口**：通过 micro-ROS 与电脑端 Agent 发布位姿；可以关闭通信，独立运行 VIO。SchurVINS 支持 20 Hz 视觉校正与 200 Hz IMU 预测位姿输出。
-- **独立双目深度模式**：板端 StereoBM 计算，micro-ROS 发布 `16UC1` 毫米深度及校正后的 CameraInfo；默认 320×200 / 请求 20 Hz，可选 640×400。启用 A53 匹配优化和缓存取图，与 VIO、UVC 分别运行。
-- **标定工具**：通过 TideConfigurator 显示 AprilGrid，录制双目与 IMU 数据并生成相机、IMU 标定结果。
-- **独立数据集录制**：不运行 VIO 即可录制双目和 IMU，保存原始时间戳并无损压缩图像；可导出 EuRoC 风格目录、ROS 1 bag 和 SchurVINS 回放数据，用于多种 VIO 算法对比。
-- **性能分析与优化**：提供板端 perf 工具、前后端分项计时，以及 LK、SIMD、数值精度和硬件编码运动向量等实验代码与测量报告。实验功能的开关和适用范围见各自文档。
-
-## 文档导航
-
-SDK 文档中的电脑端命令从本仓库根目录执行；TideConfigurator 的命令从其独立项目目录执行。板端命令使用设备上的部署路径。
-
-| 内容 | 入口 |
+| 功能 | 入口 |
 | --- | --- |
-| SchurVINS | [scripts/schurvins/README.md](scripts/schurvins/README.md) |
-| OpenVINS | [scripts/vio-compare/openvins/README.md](scripts/vio-compare/openvins/README.md) |
-| 数据集录制 | [scripts/dataset/README.md](scripts/dataset/README.md) |
-| UVC | [scripts/uvc/README.md](scripts/uvc/README.md) |
-| 双目深度 | [scripts/depth/README.md](scripts/depth/README.md) |
-| TideConfigurator | [tide_configurator/README.md](tide_configurator/README.md) |
+| SchurVINS，20 Hz 视觉校正 / 200 Hz 预测 | [SchurVINS](scripts/schurvins/README.md) |
+| OpenVINS，实时及离线对比 | [OpenVINS](scripts/vio-compare/openvins/README.md) |
+| 独立双目/IMU 录制、导出 EuRoC / ROS bag | [数据集](scripts/dataset/README.md) |
+| 双目与相机–IMU 标定 | [标定](scripts/calibration/README.md) |
+| USB 双目 MJPEG + IMU | [UVC](scripts/uvc/README.md) |
+| 毫米深度与 CameraInfo | [深度](scripts/depth/README.md) |
+| 共享帧 VIO 与 TPU 深度 | [联合模式](scripts/vio-depth/README.md) |
+| 网页预览与设置 | [TideConfigurator](tide_configurator/README.md) |
+| 性能采样与硬件卸载实验 | [perf](scripts/perf/README.md)、[对比工具](scripts/vio-compare/README.md) |
 
-欢迎围绕硬件、驱动、标定、算法适配和性能优化提交 Issue 或 Pull Request。复现问题时，请附上板卡版本、构建配置、标定参数和运行日志；运动估计问题也欢迎提供可回放的数据集。
+ROS 2 通信按需启用，VIO 可独立运行。随包标定来自测试板，更换硬件后需重新标定。
 
----
+## 编译
 
-## 快速开始
+先准备 [开发环境](docs/development-environment.md)，电脑端命令均从工程根目录执行：
 
-### 依赖环境安装
-
-可使用 Docker/Podman 镜像，或直接在 Ubuntu 24.04 安装依赖。步骤见 [开发环境安装说明](docs/development-environment.md)；两种方式使用同一套[编译命令](#编译)。
-
-### 编译
-
-- 获取源码：
-``` bash
+```sh
 git clone https://github.com/HumpbackLab/tidesense.git
 cd tidesense
 ./scripts/repo_clone.sh --gitclone ./scripts/subtree.xml
-```
-
-`tide_configurator/` 是独立的 GPLv3 submodule。`repo_clone.sh` 会在克隆清单中的子库后，
-递归初始化主仓库及各子库的 submodule，并检出各自父仓库记录的提交。
-
-- 更新所有子库（在已有工程的根目录执行）：
-
-从 `scripts/subtree.xml` 读取子库路径，依次在各子库当前分支执行 `git pull`；某个子库更新失败时停止循环。此命令不更新根仓库。
-
-```bash
-while IFS= read -r repo; do
-  printf '\n更新 %s\n' "$repo"
-  git -C "$repo" pull || break
-done < <(python3 - <<'PY'
-import xml.etree.ElementTree as ET
-
-for project in ET.parse("scripts/subtree.xml").getroot().findall("project"):
-    print(project.get("path") or project.attrib["name"])
-PY
-)
-git submodule sync --recursive
-git submodule update --init --recursive --checkout
-```
-
-- 编译
-
-``` bash
 source build/envsetup_soc.sh
 defconfig sg2002_tidesense_arm64_sd
 clean_all
 build_all
 ```
 
-`build_all` 在编译及升级包打包成功后，会自动生成可直接烧录到 SD 卡的整卡镜像；镜像生成失败时，构建也会返回失败。镜像路径为：
+克隆脚本会初始化主库及子库的 submodule，包括独立 GPLv3 项目 `tide_configurator/`。
+构建使用已加载的 ROS 2，或通过 `TIDESENSE_ROS_SETUP` 指定 `setup.bash`；首次下载锁定依赖。
+默认预装 SchurVINS、dataset、UVC、depth、vio-depth 和 perf，micro-ROS 运行时默认关闭。
 
-```text
-install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img
+整卡镜像：`install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img`。
+包含 BOOT/ROOTFS/DATA，首次启动自动扩容 DATA；[烧录及重新打包](build/boards/cv181x/sg2002_tidesense_arm64_sd/README.md#制作并烧录-sd-卡)。
+构建或整卡镜像生成失败时返回失败。
+
+## 更新子库
+
+以下只更新清单内子库当前分支，不更新主库；任一失败即停止循环：
+
+```bash
+while IFS= read -r repo; do
+  printf '\n更新 %s\n' "$repo"
+  git -C "$repo" pull || break
+done < <(python3 - <<'PYCODE'
+import xml.etree.ElementTree as ET
+for project in ET.parse("scripts/subtree.xml").getroot().findall("project"):
+    print(project.get("path") or project.attrib["name"])
+PYCODE
+)
+git submodule sync --recursive
+git submodule update --init --recursive --checkout
 ```
-
-镜像包含 BOOT、ROOTFS 和 DATA 三个分区，首次启动会自动将 DATA 分区扩展至 SD 卡末尾。烧录步骤和单独重新打包命令见 [SD 卡镜像与烧录说明](build/boards/cv181x/sg2002_tidesense_arm64_sd/README.md#制作并烧录-sd-卡)。
-
-`build_all` 默认构建并预装以下程序：
-
-- `/mnt/data/schurvins-gcc11-static-micro-ros/`：SchurVINS，编译启用 `SCHUR_WITH_MICRO_ROS=ON`，附带 `schurvins.yaml`。
-- `/mnt/data/tidesense-dataset/`：独立双目/IMU 录制工具。
-- `/mnt/data/tidesense-uvc/`：USB 双目 MJPEG + IMU 模式。
-- `/mnt/data/tidesense-depth/`：micro-ROS 双目深度模式，附带标定和电脑端接收工具。
-- `/mnt/data/tidesense-vio-depth/`：[共享帧 VIO + TPU 深度模式](scripts/vio-depth/README.md)，640×400 SchurVINS 与 TPU 320×200 深度并行，经 micro-ROS 输出。
-- `/usr/bin/perf` 及 `/mnt/data/perf/`：性能分析工具、测试负载和许可文件。
-
-构建脚本使用已加载的 ROS 2 发行版，或通过 `TIDESENSE_ROS_SETUP` 指定 `setup.bash`。首次构建会下载锁定版本的依赖。
-micro-ROS 通信在运行时仍由 `SCHUR_MICRO_ROS=1` 和 Agent 地址启用。
-随包标定来自当前测试板；更换硬件后应使用对应板卡的标定。

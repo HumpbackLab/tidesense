@@ -108,5 +108,5 @@
 `install/schurvins-gcc11-static/opt-results/`；五种二进制及其开关和 SHA-256
 在 `install/schurvins-gcc11-static/opt-binaries/`。
 
-运行方式见 [README](../README.md#a53-neon-optimizations-independent-default-off)。
+构建入口见 [README](../README.md#构建与部署)。
 板端只使用 `/mnt/data/schur-opt-test/` 测试目录，现有生产程序未被替换。

@@ -26,12 +26,6 @@ cd /mnt/data/c906-reload
 ./c906-tpu-host copy 100 5
 ./c906-tpu-host affine 100 5
 ```
-
-`affine` 在 2048 个 BF16 元素上计算 `y=2x+1`，每次都与 A53 参考结果比较。
-2026-10-28 在线重载后的 5 组、每组 100 次运行全部正确。C906 内一次提交及等待
-平均 6.46 µs；100 次的完整 A53 往返平均 859 µs，包括共享缓冲区缓存维护，
-不能将这两个数字视作 LK 的预计耗时。
-
 结束后恢复 Linux TPU 驱动及普通小核固件：
 
 ```sh
@@ -42,3 +36,5 @@ cd /mnt/data/c906-reload
 
 TPU 在实验期间归 C906 独占；桥接模块拒绝在 Linux TPU 驱动绑定时加载。
 固件中的 TPU 中断输出关闭，不给 Linux 发送完成中断。
+
+访问与提交开销实测见 [VALIDATION.md](VALIDATION.md)。

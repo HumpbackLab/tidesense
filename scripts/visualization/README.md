@@ -8,7 +8,7 @@
 ## TideSense 位姿
 
 先启动电脑端 micro-ROS Agent 和板端 VIO 位姿发布，命令见
-[SchurVINS](../schurvins/README.md#实时-vio--micro-ros-位姿发布) 或
+[SchurVINS](../schurvins/README.md#实时运行) 或
 [OpenVINS](../vio-compare/openvins/README-live.md)。已有 Agent 时直接复用。
 然后在电脑终端运行：
 
