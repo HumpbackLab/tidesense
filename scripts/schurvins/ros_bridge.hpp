@@ -6,7 +6,7 @@
 // Build-selected ROS transport. No ROS types or network work escape this boundary.
 class RosBridge {
  public:
-  // Runtime opt-in SCHUR_ROS=1. micro-ROS also accepts SCHUR_MICRO_ROS=1.
+  // Native DDS defaults on; SCHUR_ROS=0 disables it. micro-ROS remains opt-in.
   RosBridge();
   ~RosBridge();
   RosBridge(const RosBridge&)=delete;

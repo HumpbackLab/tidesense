@@ -27,7 +27,7 @@ cp "$sdk/scripts/schurvins/prepare-imu.sh" "$out/bin/"
 cp "$sdk/scripts/schurvins/tidesense.yaml" "$out/calibration.yaml"
 cp "$sdk/build/boards/cv181x/sg2002_tidesense_arm64_sd/sensor_cfg.ini" "$out/"
 cp "$here/run.sh" "$here/README.md" "$here/VALIDATION.md" "$here/receive.py" "$out/"
-case "${SCHUR_ROS_BACKEND:-micro-ros}" in
+case "${SCHUR_ROS_BACKEND:-native-dds}" in
   native-dds) vio_package=schurvins-gcc11-native-dds ;;
   none) vio_package=schurvins-gcc11-static ;;
   *) vio_package=schurvins-gcc11-static-micro-ros ;;

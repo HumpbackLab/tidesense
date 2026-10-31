@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
       "STEREO: timestamp_ns,left_image,right_image (paths relative to CSV)\n"
       "IMU: timestamp_ns,gx,gy,gz,ax,ay,az (rad/s, m/s^2)\n"
       "Rows must be strictly time-ordered; comments start with #.\n"
-      "ROS runtime default OFF. Set SCHUR_ROS=1 to enable the compiled backend.\n"
+      "Native DDS ROS runtime defaults ON; SCHUR_ROS=0 disables it. micro-ROS needs SCHUR_ROS=1.\n"
       "micro-ROS: SCHUR_MICRO_ROS=1 is also accepted; SCHUR_MICRO_ROS_AGENT=<computer IPv4>.\n"
       "Optional SCHUR_MICRO_ROS_PORT=8888, SCHUR_MICRO_ROS_DOMAIN=0. SCHUR_MICRO_ROS=0 disables it.\n"
       "Live ROS stamps use system realtime mapped from acquisition monotonic time; CSV stamps are unchanged.\n"

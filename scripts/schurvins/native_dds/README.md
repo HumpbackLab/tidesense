@@ -6,8 +6,8 @@ VIO 的后端在编译时选择；本目录也保留独立的通信开销实验�
 ## 编译 VIO
 
 ```bash
-SCHUR_ROS_BACKEND=native-dds scripts/schurvins/build.sh
-# 对照或恢复默认：
+scripts/schurvins/build.sh  # 默认 native-dds
+# 对照旧版 micro-ROS：
 SCHUR_ROS_BACKEND=micro-ros scripts/schurvins/build.sh
 # 不包含 ROS 通信：
 SCHUR_ROS_BACKEND=none scripts/schurvins/build.sh
@@ -25,12 +25,11 @@ SCHUR_ROS_BACKEND=none scripts/schurvins/build.sh
 
 ```bash
 cd /mnt/data/schurvins-gcc11-native-dds
-export SCHUR_ROS=1
 export ROS_DOMAIN_ID=0
-./run.sh --vio schurvins.yaml auto /mnt/data/vio-poses.csv 0
+SCHUR_PREDICTION=0 ./run.sh --vio schurvins.yaml auto /mnt/data/vio-poses.csv 0
 ```
 
-编译只决定后端，运行时默认仍关闭通信；`SCHUR_ROS=0` 不创建通信线程或 ROS 上下文。
+原生后端运行时默认开启通信；`SCHUR_ROS=0` 不创建通信线程或 ROS 上下文。
 原生后端只使用 `SCHUR_ROS`，不读取 micro-ROS 的 Agent / 端口配置。
 `./run.sh --help` 显示 `ROS backend: native-dds`。
 
@@ -53,7 +52,7 @@ ros2 topic echo /tidesense/tracking std_msgs/msg/Bool --qos-reliability best_eff
 原生通信出错会在通信线程清理并重试，VIO 持续运行；队列总容量 64，过载丢弃最旧位姿。
 标定继续通过原始数据录制和离线求解，不使用 ROS 图像录制通道。
 
-SDK 整体构建可先 `export SCHUR_ROS_BACKEND=native-dds` 再执行 `build_tidesense_apps` / `build_all`。
+SDK 整体构建执行 `build_tidesense_apps` / `build_all` 时也默认选择原生 DDS。
 镜像安装器按该后端选择 VIO 包并校验全部私有运行库；深度及联合深度应用仍使用自身的 micro-ROS 通信。
 
 实验记录与复测细节见 [VALIDATION.md](VALIDATION.md)。

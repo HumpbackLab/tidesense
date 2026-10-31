@@ -1,6 +1,6 @@
 # TideSense SchurVINS
 
-在 SG2002 的 Cortex-A53 上运行双目惯性 VIO。实时图像由 `tide_cam` 在进程内采集：两路 OV9281 默认 640×400、硬件同步约 20 Hz；SC7U22 IMU 以 200 Hz 提供中断时间戳。相机时间戳取 VI 到达时间，图像保持原始方向。程序支持独立运行、micro-ROS 位姿发布、现场录制和离线回放。
+在 SG2002 的 Cortex-A53 上运行双目惯性 VIO。实时图像由 `tide_cam` 在进程内采集：两路 OV9281 默认 640×400、硬件同步约 20 Hz；SC7U22 IMU 以 200 Hz 提供中断时间戳。相机时间戳取 VI 到达时间，图像保持原始方向。程序默认通过原生 ROS 2 DDS 发布位姿，也支持现场录制和离线回放。
 
 ## 构建与部署
 
@@ -10,11 +10,11 @@
 JOBS=4 scripts/schurvins/build.sh
 ```
 
-默认生成 `install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static-micro-ros-a53.tar`。将包复制到设备并解压到 `/mnt/data`。`build_all` 也会构建并预装此版本。
+默认生成 `install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-native-dds-a53.tar`。将包复制到设备并解压到 `/mnt/data`。`build_all` 也会构建并预装此版本。
 
 七项 `SCHUR_OPT_*` 优化开关默认开启；需要逐项关闭时在构建前显式设置环境变量，并检查产物的 `BUILD-INFO`。
 
-构建时可用 `SCHUR_ROS_BACKEND=micro-ros|native-dds|none` 选择通信后端；默认是 micro-ROS。三种后端使用独立构建目录。源码版本和依赖由 [sources.lock](sources.lock) 固定，构建入口会准备所需的 OpenCV、yaml-cpp、glog 等静态依赖。原生 DDS 的部署方式见 [native_dds/README.md](native_dds/README.md)。
+构建时可用 `SCHUR_ROS_BACKEND=native-dds|micro-ros|none` 选择通信后端；默认是原生 DDS。三种后端使用独立构建目录。源码版本和依赖由 [sources.lock](sources.lock) 固定，构建入口会准备所需的 OpenCV、yaml-cpp、glog 等静态依赖。原生 DDS 的部署方式见 [native_dds/README.md](native_dds/README.md)。
 
 随包的 `schurvins.yaml` 仅适用于对应设备。换板后需使用该板的相机内参、双目及相机与 IMU 外参、IMU 内参和时间偏移。TideConfigurator 可生成并应用标定结果；参数说明见 [CALIBRATION.md](CALIBRATION.md)。
 
@@ -23,13 +23,15 @@ JOBS=4 scripts/schurvins/build.sh
 先停止其他相机和 IMU 采集程序。在设备上运行：
 
 ```sh
-cd /mnt/data/schurvins-gcc11-static-micro-ros
-SCHUR_MICRO_ROS=0 ./run.sh --vio schurvins.yaml auto /mnt/data/poses.csv 0
+cd /mnt/data/schurvins-gcc11-native-dds
+SCHUR_PREDICTION=0 ./run.sh --vio schurvins.yaml auto /mnt/data/poses.csv 0
 ```
 
 `auto` 查找 SC7U22 IIO 设备，最后的 `0` 表示持续运行；按 Ctrl-C 正常停止并释放 FSIN、相机和 IIO。`poses.csv` 保存视觉校正位姿。启动时保持设备静止，并让双目看到有纹理的场景。曝光上限从设备 `camera.conf` 读取，详情见 [tide_cam](../../tide_cam/README.md)。
 
-要通过 micro-ROS 发布位姿，先在电脑上启动 Agent：
+原生 DDS 默认发布 `/tidesense/pose` 和 `/tidesense/tracking`，电脑端 ROS 2 可直接订阅，无需 Agent。若要关闭发布，设置 `SCHUR_ROS=0`。固定 peer 的可选配置见 [native_dds/README.md](native_dds/README.md)。
+
+如需使用旧版 micro-ROS 后端，可显式构建 `SCHUR_ROS_BACKEND=micro-ros`，先在电脑上启动 Agent：
 
 ```sh
 source scripts/calibration/ros2-env.sh
@@ -43,7 +45,7 @@ SCHUR_MICRO_ROS=1 SCHUR_MICRO_ROS_AGENT=192.168.123.2 \
   ./run.sh --vio schurvins.yaml auto /mnt/data/poses.csv 0
 ```
 
-`/tidesense/pose` 是 `geometry_msgs/msg/PoseStamped`，表示 IMU/body 到 odom 的位姿；`/tidesense/tracking` 是 `std_msgs/msg/Bool`。两个话题使用 best effort QoS。视觉校正约 20 Hz；初始化后可用 `SCHUR_PREDICTION=1` 按 IMU 采样率发布预测位姿。通信和时间戳语义见 [MICRO-ROS.md](MICRO-ROS.md)。
+`/tidesense/pose` 是 `geometry_msgs/msg/PoseStamped`，表示 IMU/body 到 odom 的位姿；`/tidesense/tracking` 是 `std_msgs/msg/Bool`。两个话题使用 best effort QoS。`SCHUR_PREDICTION=0` 时视觉校正约 20 Hz；设置为 `1` 可按 IMU 采样率发布预测位姿。通信和时间戳语义见 [MICRO-ROS.md](MICRO-ROS.md)。
 
 ## 录制与回放
 

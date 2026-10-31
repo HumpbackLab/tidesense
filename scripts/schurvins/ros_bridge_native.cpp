@@ -21,7 +21,8 @@
 namespace {
 bool requested() {
  const char* value=std::getenv("SCHUR_ROS");
- if(!value || std::string(value)=="0") return false;
+ if(!value) return true;
+ if(std::string(value)=="0") return false;
  if(std::string(value)=="1") return true;
  throw std::runtime_error("SCHUR_ROS must be 0 or 1");
 }

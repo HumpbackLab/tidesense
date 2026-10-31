@@ -13,9 +13,10 @@ stage="$work/stage"
 out="$sdk/install/soc_sg2002_tidesense_arm64_sd/schurvins-gcc11-static"
 backend=${SCHUR_ROS_BACKEND:-}
 if [[ -z "$backend" ]]; then
-  case "${SCHUR_WITH_MICRO_ROS:-ON}" in
+  case "${SCHUR_WITH_MICRO_ROS:-}" in
     ON) backend=micro-ros ;;
     OFF) backend=none ;;
+    '') backend=native-dds ;;
     *) echo 'SCHUR_WITH_MICRO_ROS must be ON or OFF' >&2; exit 2 ;;
   esac
 fi
@@ -200,7 +201,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'LIVE_CAMERA=tide_cam_in_process_dimensions_from_calibration\nLIVE_IMU=SC7U22_IIO_INT1_200Hz\nCAMERA_SYNC=hardware_trigger\n'
   printf 'IMU_INPUT_DOMAIN=raw_si\nIMU_INTRINSICS=single_stage\n'
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
-  printf 'SCHUR_ROS_BACKEND=%s\nROS_RUNTIME_DEFAULT=OFF\nSCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$backend" "$micro_ros"
+  printf 'SCHUR_ROS_BACKEND=%s\nROS_RUNTIME_DEFAULT=%s\nSCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$backend" "$([[ "$backend" == native-dds ]] && echo ON || echo OFF)" "$micro_ros"
 } > "$out/BUILD-INFO"
 tar -C "$(dirname "$out")" -cf "$out-a53.tar" "$(basename "$out")"
 printf '\nBuilt: %s\nPackage: %s-a53.tar\n' "$out" "$out"
