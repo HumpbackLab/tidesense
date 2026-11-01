@@ -50,7 +50,7 @@ PY
 export CMAKE_BUILD_PARALLEL_LEVEL=${JOBS:-6}
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 cd "$work/ws"
-colcon build --merge-install --executor sequential --packages-up-to rclc geometry_msgs std_msgs rmw_cyclonedds_cpp \
+colcon build --merge-install --executor sequential --packages-up-to rclc geometry_msgs std_msgs sensor_msgs rmw_cyclonedds_cpp \
  --cmake-args -Ulibyaml_vendor_DIR -Uyaml_DIR -DCMAKE_TOOLCHAIN_FILE="$here/toolchain.cmake" \
  -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
  -DPYTHON_EXECUTABLE="$work/venv/bin/python3" \

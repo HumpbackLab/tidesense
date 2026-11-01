@@ -8,6 +8,7 @@
 #include <time.h>
 
 enum slot_state { FREE, WRITING, READY, LEASED };
+enum jpeg_state { JPEG_EMPTY, JPEG_PENDING, JPEG_ENCODING, JPEG_LEASED };
 struct slot {
     tide_cam_frame_set frames;
     uint8_t *pixels;
@@ -23,6 +24,8 @@ struct tide_cam {
     uint32_t *queue, head, count;
     int stop_requested, terminal, joined, cleanup_status;
     tide_cam_stats stats;
+    enum jpeg_state jpeg_state;
+    tide_cam_jpeg_pair jpeg;
     char error[TIDE_CAM_ERROR_SIZE];
 };
 
@@ -66,7 +69,7 @@ static int validate(const tide_cam_config *c, const tide_cam_caps *caps)
 {
     if (!c || c->buffer_count < 3 ||
         c->buffer_count > 64 || !c->mode.width || !c->mode.height ||
-        !c->exposure_max_us ||
+        !c->exposure_max_us || c->jpeg_quality > 99 ||
         (c->queue != TIDE_CAM_LATEST && c->queue != TIDE_CAM_FIFO) ||
         (c->sync != TIDE_CAM_SYNC_NONE && c->sync != TIDE_CAM_SYNC_HARDWARE))
         return TIDE_CAM_INVALID;
@@ -100,6 +103,8 @@ static void *capture(void *arg)
         uint32_t index;
         char error[TIDE_CAM_ERROR_SIZE] = "";
         pthread_mutex_lock(&c->mutex);
+        while (c->jpeg_state != JPEG_EMPTY && !c->stop_requested)
+            pthread_cond_wait(&c->ready, &c->mutex);
         if (c->stop_requested) { pthread_mutex_unlock(&c->mutex); break; }
         for (index = 0; index < c->config.buffer_count; ++index)
             if (c->slots[index].state == FREE) break;
@@ -144,16 +149,24 @@ static void *capture(void *arg)
         c->queue[(c->head + c->count) % c->config.buffer_count] = index;
         ++c->count;
         ++c->stats.captured;
+        if (c->config.jpeg_quality) c->jpeg_state = JPEG_PENDING;
         pthread_cond_broadcast(&c->ready);
         pthread_mutex_unlock(&c->mutex);
     }
-    /* On faults too, promptly stop FSIN/ISP instead of waiting for the caller. */
-    char error[TIDE_CAM_ERROR_SIZE] = "";
-    int status = tide_backend_close(c->backend, error);
+    /* Stop input promptly on faults too, but never invalidate a borrowed JPEG. */
     pthread_mutex_lock(&c->mutex);
-    c->backend = NULL;
+    if (!c->terminal) c->terminal = TIDE_CAM_STOPPED;
+    if (c->jpeg_state == JPEG_PENDING) c->jpeg_state = JPEG_EMPTY;
+    pthread_cond_broadcast(&c->ready);
+    while (c->jpeg_state == JPEG_ENCODING) pthread_cond_wait(&c->ready, &c->mutex);
+    pthread_mutex_unlock(&c->mutex);
+    char error[TIDE_CAM_ERROR_SIZE] = "";
+    int status = c->config.jpeg_quality ? tide_backend_stop(c->backend, error) :
+                                        tide_backend_close(c->backend, error);
+    pthread_mutex_lock(&c->mutex);
+    if (!c->config.jpeg_quality) c->backend = NULL;
     c->cleanup_status = status;
-    if (status && !c->terminal) {
+    if (status && c->terminal == TIDE_CAM_STOPPED) {
         c->terminal = status;
         copy_error(c->error, sizeof(c->error), error);
     }
@@ -288,14 +301,87 @@ int tide_cam_stop(tide_cam *c)
     return c->cleanup_status;
 }
 
+int tide_cam_get_jpeg(tide_cam *c, const tide_cam_jpeg_pair **pair)
+{
+    if (!c || !pair) return TIDE_CAM_INVALID;
+    *pair = NULL;
+    if (!c->config.jpeg_quality) return TIDE_CAM_UNSUPPORTED;
+    pthread_mutex_lock(&c->mutex);
+    if (c->jpeg_state == JPEG_ENCODING || c->jpeg_state == JPEG_LEASED) {
+        pthread_mutex_unlock(&c->mutex);
+        return TIDE_CAM_BUSY;
+    }
+    while (c->jpeg_state == JPEG_EMPTY && !c->terminal && !c->stop_requested)
+        pthread_cond_wait(&c->ready, &c->mutex);
+    if (c->terminal || c->stop_requested) {
+        int status = c->terminal ? c->terminal : TIDE_CAM_STOPPED;
+        pthread_mutex_unlock(&c->mutex);
+        return status;
+    }
+    /* Another waiter may have consumed the pending pair while we woke. */
+    if (c->jpeg_state != JPEG_PENDING) {
+        pthread_mutex_unlock(&c->mutex);
+        return TIDE_CAM_BUSY;
+    }
+    c->jpeg_state = JPEG_ENCODING;
+    pthread_mutex_unlock(&c->mutex);
+    char error[TIDE_CAM_ERROR_SIZE] = "";
+    int status = tide_backend_encode_jpeg(c->backend, &c->jpeg, error);
+    pthread_mutex_lock(&c->mutex);
+    if (!status && (c->terminal || c->stop_requested)) {
+        status = tide_backend_release_jpeg(c->backend, error);
+        if (!status) status = c->terminal ? c->terminal : TIDE_CAM_STOPPED;
+    } else if (!status) {
+        c->jpeg_state = JPEG_LEASED;
+        *pair = &c->jpeg;
+    }
+    if (status) {
+        c->jpeg_state = JPEG_EMPTY;
+        if (status != TIDE_CAM_STOPPED) {
+            c->terminal = status;
+            copy_error(c->error, sizeof(c->error), error);
+            c->stop_requested = 1;
+        }
+    }
+    pthread_cond_broadcast(&c->ready);
+    pthread_mutex_unlock(&c->mutex);
+    return status;
+}
+
+int tide_cam_release_jpeg(tide_cam *c, const tide_cam_jpeg_pair *pair)
+{
+    if (!c || !pair) return TIDE_CAM_INVALID;
+    pthread_mutex_lock(&c->mutex);
+    if (c->jpeg_state != JPEG_LEASED || pair != &c->jpeg) {
+        pthread_mutex_unlock(&c->mutex);
+        return TIDE_CAM_INVALID;
+    }
+    char error[TIDE_CAM_ERROR_SIZE] = "";
+    int status = tide_backend_release_jpeg(c->backend, error);
+    c->jpeg_state = JPEG_EMPTY;
+    if (status) {
+        c->terminal = status;
+        c->stop_requested = 1;
+        copy_error(c->error, sizeof(c->error), error);
+    }
+    pthread_cond_broadcast(&c->ready);
+    pthread_mutex_unlock(&c->mutex);
+    return status;
+}
+
 int tide_cam_close(tide_cam *c)
 {
     if (!c) return TIDE_CAM_OK;
     pthread_mutex_lock(&c->mutex);
-    int busy = c->stats.leased != 0;
+    int busy = c->stats.leased != 0 || c->jpeg_state == JPEG_LEASED || c->jpeg_state == JPEG_ENCODING;
     pthread_mutex_unlock(&c->mutex);
     if (busy) return TIDE_CAM_BUSY;
     int status = tide_cam_stop(c);
+    if (c->backend) {
+        char error[TIDE_CAM_ERROR_SIZE] = "";
+        int cleanup = tide_backend_close(c->backend, error);
+        if (!status) status = cleanup;
+    }
     destroy(c);
     return status;
 }

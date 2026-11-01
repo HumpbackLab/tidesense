@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Native stereo + IMU entry point for the upstream SchurVINS pipeline.
 #include "tide_camera.hpp"
+#include "jpeg_publisher.hpp"
 #include "live_imu.hpp"
 #include "imu_prediction.hpp"
 #include <svo/schur_vins.h>
@@ -112,6 +113,8 @@ int main(int argc, char** argv) {
       "  schurvins_stereo --vio-smoke IMU_DEVICE [FRAMES]\n"
       "Capture uses tide_cam in-process, with dimensions from calibration and hardware-triggered cadence.\n"
       "Camera settings: TIDE_CAM_CONFIG_PATH (default /mnt/data/tide-configurator/camera.conf).\n"
+      "SCHUR_JPEG_QUALITY=1..99 enables direct VI JPEG + native DDS stereo images (default 0=off).\n"
+      "JPEG runs in an application thread with no rate limiter; slow encoding/publishing backpressures capture.\n"
       "For calibration, record raw data with tidesense_record and export to Kalibr; no separate capture mode.\n"
       "VIO modes acquire SC7U22 accel/gyro at 200Hz. Use run.sh with IMU_DEVICE=auto.\n"
       "IMU prediction defaults ON: IMU-rate ROS poses; POSES.csv stays visual-rate.\n"
@@ -174,6 +177,14 @@ int main(int argc, char** argv) {
         (yaml["label"] && yaml["label"].as<std::string>().find("SYNTHETIC") != std::string::npos)))
       throw std::runtime_error("Use real calibration for --camera/--vio; test geometry is only allowed in smoke modes");
     tide_cam_config camera_config; tide_cam_config_init(&camera_config);
+    if (const char* quality=std::getenv("SCHUR_JPEG_QUALITY")) {
+      const std::string value(quality);
+      if (value.empty() || value.find_first_not_of("0123456789")!=std::string::npos || std::stoul(value)>99)
+        throw std::runtime_error("SCHUR_JPEG_QUALITY must be 0..99");
+      camera_config.jpeg_quality=static_cast<uint32_t>(std::stoul(value));
+      if (camera_config.jpeg_quality && (!camera || !ros.enabled() || std::string(RosBridge::backend())!="native-dds"))
+        throw std::runtime_error("JPEG publishing requires live camera mode and enabled native DDS");
+    }
     if (camera) {
       loadCameraSettings(camera_config);
       camera_config.mode.width=cams->getCamera(0).imageWidth();
@@ -274,11 +285,13 @@ int main(int argc, char** argv) {
     }
     std::unique_ptr<LiveImu> live_imu;
     std::unique_ptr<TideCamera> live;
+    std::unique_ptr<JpegPublisher> jpeg_publisher;
     uint64_t live_ready_ns = 0, startup_pairs_skipped = 0;
     if (camera) {
       struct sigaction sa{}; sa.sa_handler = interrupt;
       sigaction(SIGINT, &sa, nullptr); sigaction(SIGTERM, &sa, nullptr);
       live.reset(new TideCamera(camera_config));
+      if (camera_config.jpeg_quality) jpeg_publisher.reset(new JpegPublisher(*live,ros_clock_offset));
       if (live_vio) {
         // VI initialization can hold the single CPU in kernel work for >15ms.
         // Begin inertial history only after the camera has completed startup.
@@ -475,6 +488,7 @@ int main(int argc, char** argv) {
       // Stop IMU before the VI teardown (which can also delay kernel scheduling).
       if (live_imu) { live_imu->stop(); live_imu->check(); }
       if (live->stop()) throw std::runtime_error("tide_cam failed during cleanup");
+      if (jpeg_publisher) jpeg_publisher->finish();
       live->report();
       if (recording) recording->finish();
       if (live_imu) {

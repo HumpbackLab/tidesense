@@ -2,6 +2,7 @@
 #include "backend.h"
 #include "sample_comm.h"
 #include "ov9281_isp.h"
+#include "jpeg.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <glob.h>
@@ -24,6 +25,7 @@ struct tide_cam_backend {
     uint64_t period_ns;
     int read_timeout_ms, rate_pending;
     char iio[PATH_MAX];
+    tide_jpeg *jpeg;
 };
 
 /* SAMPLE_COMM_VI_StartViChn sets depth before enabling the SDK channel.
@@ -157,21 +159,37 @@ static SAMPLE_SNS_TYPE_E sensor_type(const tide_cam_mode *mode, tide_cam_rate ra
     return OV_OV9281_MIPI_800P_60FPS_10BIT; /* Validated 1280x800 mode. */
 }
 
-int tide_backend_close(tide_cam_backend *b, char *error)
+int tide_backend_stop(tide_cam_backend *b, char *error)
 {
     if (!b) return TIDE_CAM_OK;
     int result = TIDE_CAM_OK;
     if (b->fsin_owned) result = fsin(b, -1, error);
+    b->fsin_owned = 0;
+    if (b->jpeg && (b->held[0] || b->held[1])) {
+        int ret = tide_jpeg_abort(b->jpeg, error);
+        if (ret) return ret; /* Do not recycle possibly active encoder input. */
+    }
     for (int p = 0; p < 2; ++p) if (b->held[p]) {
         int ret = CVI_VI_ReleaseChnFrame(0, p, &b->frames[p]);
         if (ret && !result) result = sdk_error(error, "CVI_VI_ReleaseChnFrame", ret);
+        b->held[p] = 0;
     }
     if (b->vi_ready) {
         int ret = SAMPLE_COMM_VI_DestroyIsp(&b->vi);
         if (ret && !result) result = sdk_error(error, "SAMPLE_COMM_VI_DestroyIsp", ret);
         ret = SAMPLE_COMM_VI_DestroyVi(&b->vi);
         if (ret && !result) result = sdk_error(error, "SAMPLE_COMM_VI_DestroyVi", ret);
+        b->vi_ready = 0;
     }
+    return result;
+}
+
+int tide_backend_close(tide_cam_backend *b, char *error)
+{
+    if (!b) return TIDE_CAM_OK;
+    int result = tide_backend_stop(b, error);
+    if (result && (b->held[0] || b->held[1])) return result;
+    tide_jpeg_close(b->jpeg);
     if (b->sys_ready) SAMPLE_COMM_SYS_Exit();
     if (b->lock_fd >= 0) close(b->lock_fd);
     free(b);
@@ -265,6 +283,10 @@ int tide_backend_open(const tide_cam_config *config, tide_cam_backend **out, cha
         if (ae.stAuto.stExpTimeRange.u32Min > config->exposure_max_us)
             ae.stAuto.stExpTimeRange.u32Min = config->exposure_max_us;
         TRY(CVI_ISP_SetExposureAttr(p, &ae));
+    }
+    if (config->jpeg_quality) {
+        status = tide_jpeg_open(config, &b->jpeg, error);
+        if (status) goto fail;
     }
     if (b->fsin_owned) {
         status = fsin(b, 1, error);
@@ -370,9 +392,11 @@ int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pix
             (uint64_t)width * height, f->u64PTS * 1000, f->u32TimeRef};
         b->delivered[p] = f->u64PTS;
         b->references[p] = f->u32TimeRef;
-        ret = CVI_VI_ReleaseChnFrame(0, p, &b->frames[p]);
-        if (ret) return sdk_error(error, "CVI_VI_ReleaseChnFrame", ret);
-        b->held[p] = 0;
+        if (!b->jpeg || b->warmup) {
+            ret = CVI_VI_ReleaseChnFrame(0, p, &b->frames[p]);
+            if (ret) return sdk_error(error, "CVI_VI_ReleaseChnFrame", ret);
+            b->held[p] = 0;
+        }
     }
     b->progress_ns = monotonic_ns();
     if (b->warmup) { --b->warmup; return TIDE_CAM_TIMEOUT; }
@@ -382,4 +406,31 @@ int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pix
     }
     out->sequence = ++b->sequence;
     return TIDE_CAM_OK;
+}
+
+int tide_backend_encode_jpeg(tide_cam_backend *b, tide_cam_jpeg_pair *pair, char *error)
+{
+    if (!b->jpeg || !b->held[0] || !b->held[1]) return TIDE_CAM_INVALID;
+    int status = tide_jpeg_encode(b->jpeg, b->frames, pair, error);
+    pair->sequence = b->sequence;
+    if (status) {
+        char cleanup[TIDE_CAM_ERROR_SIZE] = "";
+        if (tide_jpeg_abort(b->jpeg, cleanup)) return status;
+    }
+    /* GetStream completed, or the encoder context was destroyed after failure. */
+    for (int p = 0; p < 2; ++p) {
+        int ret = CVI_VI_ReleaseChnFrame(0, p, &b->frames[p]);
+        if (ret && !status) status = sdk_error(error, "CVI_VI_ReleaseChnFrame", ret);
+        b->held[p] = 0;
+    }
+    if (status) {
+        char cleanup[TIDE_CAM_ERROR_SIZE];
+        tide_jpeg_release(b->jpeg, cleanup);
+    }
+    return status;
+}
+
+int tide_backend_release_jpeg(tide_cam_backend *b, char *error)
+{
+    return tide_jpeg_release(b->jpeg, error);
 }

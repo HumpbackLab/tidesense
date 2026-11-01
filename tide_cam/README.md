@@ -63,6 +63,46 @@ if (status == TIDE_CAM_OK) {
 tide_cam_close(camera);
 ```
 
+## 可选的双目硬件 JPEG
+
+`config.jpeg_quality` 默认 `0`（关闭）；设置为 `1..99` 启用左右独立、原尺寸的 JPEG 编码。
+采集帧率仍由原来的硬件触发或自由运行配置决定，没有 JPEG 限速器。
+
+```c
+config.jpeg_quality = 80; /* 在 tide_cam_open 前设置 */
+
+/* 在应用自己的 JPEG 工作线程中调用，与 mono8 消费线程并行。 */
+const tide_cam_jpeg_pair *pair = NULL;
+int status = tide_cam_get_jpeg(camera, &pair);
+if (status == TIDE_CAM_OK) {
+    /* pair->frames[0/1].data 和 size 是左右各一张完整 JPEG 的只读视图。
+     * 在这里发送、序列化或使用；库不提供 ROS、DDS、HTTP 或文件输出。
+     * 异步发送必须等外部发送者不再引用这些字节，才能 release。 */
+    tide_cam_release_jpeg(camera, pair);
+}
+```
+
+编码由 `get_jpeg()` 的调用线程执行；库不额外创建编码线程。
+SG2002 后端直接将仍被持有的 VI YUV420 物理帧描述符提交 VENC，不拼图、缩放，
+不从 mono8/OpenCV 图像复制回来。返回地址直接引用 VENC 的连续码流，库不再复制 JPEG。
+当前驱动每张 JPEG 返回一个 packet；左右使用两个独立编码通道及各自的 ES 缓冲。
+若系统配置了共享 ES 缓冲（`bSingleEsBuf=1`），开启 JPEG 会明确拒绝，不修改全局编码配置。
+
+一组结果包含 `sequence` 和 `frames[2]`；每张图保留 `camera_id`、尺寸及各自原始 VI 时间戳。
+组编号与 mono8 的同源帧组一致。JPEG 时间仍是 monotonic VI arrival，不做标定补偿或 ROS 时间换算。
+
+只允许一个逻辑 JPEG 消费者、一次借出一组。重复取用返回 `TIDE_CAM_BUSY`；
+未归还前阻塞下一次采集，不主动替换或丢 JPEG。调用者负责让“编码、发送、归还”整条支路足够快；
+慢消费者会拖慢 mono8/VIO，VI 的有限缓冲也可能积压或丢失输入，不能依靠此接口保存无限历史。
+编码失败作为相机会话错误上报，不静默降级。
+
+停止时由应用的控制线程调用 `tide_cam_stop()`，阻塞等待新 JPEG 的线程会被唤醒，
+返回 `TIDE_CAM_STOPPED`（若已有采集错误则返回该错误）。已经借出的 JPEG 在 stop 后仍有效。
+stop 会取消尚未开始编码的输入，停止阶段不保证交付最后一组 JPEG。
+归还并结束 JPEG 线程后再 close。存在借用或编码调用时，close 返回 BUSY。
+JPEG 开启时，stop 只停止采集，VENC/SYS 资源保留到 close，防止释放应用正在读取的码流。
+各 stop/close 调用仍必须由调用方串行化。
+
 自由运行的初始化与频率设置：
 
 ```c

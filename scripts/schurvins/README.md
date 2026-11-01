@@ -2,6 +2,10 @@
 
 在 SG2002 的 Cortex-A53 上运行双目惯性 VIO。实时图像由 `tide_cam` 在进程内采集：两路 OV9281 默认 640×400、硬件同步约 20 Hz；SC7U22 IMU 以 200 Hz 提供中断时间戳。相机时间戳取 VI 到达时间，图像保持原始方向。程序默认通过原生 ROS 2 DDS 发布位姿，也支持现场录制和离线回放。
 
+原生 DDS 构建支持可选的左右 JPEG 图像发布：`SCHUR_JPEG_QUALITY=80` 开启，默认关闭。
+由应用工作线程调用 `tide_cam` 直接编码 VI 原始缓冲，再发布两个 CompressedImage topic；
+第一版不限制发送频率，慢消费者会拖慢采集。接口、topic 和时间戳约定见 [CAMERA.md](CAMERA.md#左右-jpeg-经原生-dds-发布)。
+
 ## 构建与部署
 
 在 SDK 根目录运行：

@@ -7,6 +7,11 @@ void mock_reset(void);
 void mock_push(unsigned count);
 void mock_fail(int status);
 int mock_active(void);
+void mock_jpeg_fail(int status);
+int mock_jpeg_on_this_thread(void);
+unsigned mock_jpeg_released(void);
+void mock_jpeg_hold(int hold);
+void mock_wait_jpeg_started(void);
 #ifdef __cplusplus
 }
 #endif

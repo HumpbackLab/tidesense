@@ -7,17 +7,48 @@
 #include <string.h>
 #include <time.h>
 
-struct tide_cam_backend { uint64_t sequence; tide_cam_config config; };
+struct tide_cam_backend {
+    uint64_t sequence;
+    tide_cam_config config;
+    tide_cam_frame_set metadata;
+    int native_held, jpeg_held;
+    uint8_t jpeg[2][8];
+};
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t ready = PTHREAD_COND_INITIALIZER;
 static unsigned tokens;
 static int active, failure;
+static int jpeg_failure, encoded;
+static unsigned jpeg_releases;
+static int jpeg_hold;
+static pthread_t encoder_thread;
 
 void mock_reset(void)
 {
     pthread_mutex_lock(&lock);
     tokens = 0;
     failure = 0;
+    jpeg_failure = encoded = 0;
+    jpeg_releases = 0;
+    jpeg_hold = 0;
+    pthread_mutex_unlock(&lock);
+}
+void mock_jpeg_fail(int status) { pthread_mutex_lock(&lock); jpeg_failure = status; pthread_mutex_unlock(&lock); }
+int mock_jpeg_on_this_thread(void) {
+    pthread_mutex_lock(&lock);
+    int result = encoded && pthread_equal(pthread_self(), encoder_thread);
+    pthread_mutex_unlock(&lock);
+    return result;
+}
+unsigned mock_jpeg_released(void) {
+    pthread_mutex_lock(&lock); unsigned result = jpeg_releases; pthread_mutex_unlock(&lock); return result;
+}
+void mock_jpeg_hold(int hold) {
+    pthread_mutex_lock(&lock); jpeg_hold = hold; pthread_cond_broadcast(&ready); pthread_mutex_unlock(&lock);
+}
+void mock_wait_jpeg_started(void) {
+    pthread_mutex_lock(&lock);
+    while (!encoded) pthread_cond_wait(&ready, &lock);
     pthread_mutex_unlock(&lock);
 }
 void mock_push(unsigned count)
@@ -107,7 +138,44 @@ int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pix
             data, size, out->timestamp_ns + p * 2600000,
             (uint32_t)b->sequence};
     }
+    if (b->config.jpeg_quality) { b->metadata = *out; b->native_held = 1; }
     return 0;
+}
+int tide_backend_encode_jpeg(tide_cam_backend *b, tide_cam_jpeg_pair *pair, char *error)
+{
+    if (!b->native_held || b->jpeg_held) return TIDE_CAM_INVALID;
+    pthread_mutex_lock(&lock);
+    encoder_thread = pthread_self(); encoded = 1;
+    pthread_cond_broadcast(&ready);
+    while (jpeg_hold) pthread_cond_wait(&ready, &lock);
+    int status = jpeg_failure;
+    pthread_mutex_unlock(&lock);
+    b->native_held = 0;
+    if (status) { snprintf(error, TIDE_CAM_ERROR_SIZE, "Injected JPEG failure"); return status; }
+    pair->sequence = b->sequence;
+    for (unsigned p = 0; p < 2; ++p) {
+        const tide_cam_frame *m = &b->metadata.frames[p];
+        const uint8_t data[] = {0xff, 0xd8, (uint8_t)b->sequence, (uint8_t)p, 0, 0, 0xff, 0xd9};
+        memcpy(b->jpeg[p], data, sizeof(data));
+        pair->frames[p] = (tide_cam_jpeg_frame){b->jpeg[p], sizeof(data), p, m->width, m->height, m->timestamp_ns};
+    }
+    b->jpeg_held = 1;
+    return TIDE_CAM_OK;
+}
+int tide_backend_release_jpeg(tide_cam_backend *b, char *error)
+{
+    (void)error;
+    if (!b->jpeg_held) return TIDE_CAM_INVALID;
+    b->jpeg_held = 0;
+    memset(b->jpeg, 0, sizeof(b->jpeg));
+    pthread_mutex_lock(&lock); ++jpeg_releases; pthread_mutex_unlock(&lock);
+    return TIDE_CAM_OK;
+}
+int tide_backend_stop(tide_cam_backend *b, char *error)
+{
+    (void)error;
+    b->native_held = 0;
+    return TIDE_CAM_OK;
 }
 int tide_backend_close(tide_cam_backend *b, char *error)
 {

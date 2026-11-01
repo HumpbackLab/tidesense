@@ -60,7 +60,21 @@ typedef struct {
     uint32_t exposure_max_us;
     /* Only valid for SYNC_NONE. Must be {0,0} in hardware-sync mode. */
     tide_cam_rate free_run_fps;
+    uint32_t jpeg_quality; /* 0=disabled (default), 1..99=direct VI JPEG encoding. */
 } tide_cam_config;
+
+typedef struct {
+    const uint8_t *data; /* One complete, contiguous JPEG. Read-only until release. */
+    uint32_t size;
+    uint32_t camera_id;
+    uint32_t width, height;
+    uint64_t timestamp_ns; /* Original monotonic VI arrival time, as for mono8. */
+} tide_cam_jpeg_frame;
+
+typedef struct {
+    uint64_t sequence; /* Same source pair number as the mono8 stream. */
+    tide_cam_jpeg_frame frames[2]; /* 0=left, 1=right; original image orientation. */
+} tide_cam_jpeg_pair;
 
 typedef struct {
     uint32_t camera_id; /* Stable board order: TideSense 0=left, 1=right. */
@@ -105,10 +119,19 @@ int tide_cam_open(const tide_cam_config *config, tide_cam **camera,
  * Pending frames drain before a terminal error/STOPPED is returned. */
 int tide_cam_acquire(tide_cam *camera, const tide_cam_frame_set **frames, int timeout_ms);
 int tide_cam_release(tide_cam *camera, const tide_cam_frame_set *frames);
-/* Stops/joins capture and releases hardware; wakes blocked acquire calls.
+/* Waits for the next pair and encodes it in the CALLING thread. No rate limit,
+ * encoding worker, JPEG copy or dropping queue. jpeg_quality must be nonzero.
+ * One logical JPEG consumer; one outstanding pair, released exactly once.
+ * Until release, capture applies backpressure (including to the mono8 stream).
+ * Calls waiting for a pair wake on stop/failure. A concurrent get while encoding
+ * or while a pair is borrowed returns BUSY. Stop preserves borrowed JPEG bytes. */
+int tide_cam_get_jpeg(tide_cam *camera, const tide_cam_jpeg_pair **pair);
+int tide_cam_release_jpeg(tide_cam *camera, const tide_cam_jpeg_pair *pair);
+/* Stops/joins capture; wakes blocked acquire/get_jpeg calls. With JPEG enabled,
+ * encoder/SYS resources remain alive until close, so borrowed bytes stay valid.
  * stop/close must be externally serialized; neither is signal-handler safe. */
 int tide_cam_stop(tide_cam *camera);
-/* Returns BUSY without stopping/freeing while any frame set is leased.
+/* Returns BUSY without stopping/freeing while mono8/JPEG is leased or encoding.
  * No other API call may run concurrently with close. NULL is accepted. */
 int tide_cam_close(tide_cam *camera);
 int tide_cam_get_stats(tide_cam *camera, tide_cam_stats *stats);

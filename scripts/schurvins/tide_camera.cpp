@@ -61,7 +61,21 @@ bool TideCamera::next(LivePair& pair,const volatile sig_atomic_t& interrupted) {
  }
  return false;
 }
-int TideCamera::stop() { return tide_cam_stop(camera_); }
+int TideCamera::stop() {
+ std::lock_guard<std::mutex> lock(stop_mutex_);
+ return tide_cam_stop(camera_);
+}
+const tide_cam_jpeg_pair* TideCamera::getJpeg() {
+ const tide_cam_jpeg_pair* pair=nullptr;
+ int status=tide_cam_get_jpeg(camera_,&pair);
+ if(status==TIDE_CAM_STOPPED) return nullptr;
+ if(status) throw std::runtime_error("tide_cam JPEG: "+error(status));
+ return pair;
+}
+void TideCamera::releaseJpeg(const tide_cam_jpeg_pair* pair) {
+ int status=tide_cam_release_jpeg(camera_,pair);
+ if(status) throw std::runtime_error("tide_cam JPEG release: "+error(status));
+}
 void TideCamera::report() const {
  tide_cam_stats stats{};
  tide_cam_get_stats(camera_,&stats);
@@ -78,6 +92,7 @@ YAML::Node cameraConfiguration(const tide_cam_config& config) {
  const auto rate=config.sync==TIDE_CAM_SYNC_HARDWARE?caps.hardware_sync_fps:config.free_run_fps;
  n["nominal_fps_num"]=rate.num; n["nominal_fps_den"]=rate.den;
  n["exposure_max_us"]=config.exposure_max_us;
+ n["jpeg_quality"]=config.jpeg_quality;
  n["timestamp"]="VI arrival PTS, no calibration offset"; n["clock"]="CLOCK_MONOTONIC";
  n["orientation"]="original";
  return n;

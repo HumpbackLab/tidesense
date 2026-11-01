@@ -26,6 +26,35 @@ OV9281 ×2 → SG2002 VI → tide_cam 缓冲池 → TideCamera → SchurVINS
 VIO 使用左相机 VI 时间并按标定应用一次相机–IMU 时间补偿。
 库使用最新待处理帧策略；过载时 `replaced_pending` 增加，避免积累图像延迟。
 
+## 左右 JPEG 经原生 DDS 发布
+
+在原生 DDS 构建中，设置 `SCHUR_JPEG_QUALITY=1..99` 启用；默认 `0` 关闭：
+
+```sh
+cd /mnt/data/schurvins-gcc11-native-dds
+SCHUR_JPEG_QUALITY=80 ./run.sh --vio schurvins.yaml auto /tmp/vio-poses.csv 0
+```
+
+发布 `sensor_msgs/msg/CompressedImage`：
+
+- `/tidesense/cam0/image_raw/compressed`，`frame_id=cam0_optical_frame`。
+- `/tidesense/cam1/image_raw/compressed`，`frame_id=cam1_optical_frame`。
+
+`format=jpeg`，两路保持原尺寸和原始安装方向，不旋转、不拼接、不去畸变。
+每条消息使用对应相机的 VI 到达时间映射到 ROS 系统时间，不加 VIO 的相机–IMU 标定偏移。
+两路 VI 时间戳可能略有不同，接收端需要时采用近似时间配对。
+QoS 为 best effort、volatile、keep-last 1；订阅端使用兼容的传感器数据 QoS。
+
+由 SchurVINS 创建一个 JPEG 工作线程，调用 `tide_cam_get_jpeg()` 在库内完成硬件编码，
+直接借用返回的码流地址填消息并同步发布，随后归还码流。应用没有额外的 JPEG 图像缓冲复制；
+当前 Cyclone RMW 仍会复制到自身的 CDR 序列化缓冲，不是网络端到端零拷贝。
+`tide_cam` 不依赖 ROS/DDS，也不创建额外编码线程。
+
+第一版没有限速、订阅者检测或 JPEG 丢帧队列；JPEG 工作线程慢会对采集和 VIO 产生背压。
+调用者应检查启用前后的 VIO 帧耗时、图像年龄和 IMU 间隔。停机时先停止相机，再等待 JPEG 线程结束并关闭硬件。
+micro-ROS/none 构建或 `SCHUR_ROS=0` 时明确拒绝开启该选项。
+接口检查、DDS 联调和板端结果见 [JPEG-VALIDATION.md](tests/JPEG-VALIDATION.md)。
+
 上游 SchurVINS 会长期保存关键帧的原始图像，因此应用适配层在释放库缓冲前复制到
 独立 OpenCV Mat。算法和后台写盘队列持有这些 Mat，不会被下一次采集覆盖。
 目前去掉了 socket 的两次跨进程拷贝，适配层保留一次图像所有权拷贝；尚未测量 CPU 收益。
