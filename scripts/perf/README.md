@@ -56,3 +56,4 @@ perf stat -e task-clock,context-switches,page-faults -- your_program
 构建源码实际为当前 `linux_5.10/tools/perf`，不是另外下载的 Linux 4.1 工具。
 
 上板、调频及早期部署记录见 [VALIDATION.md](VALIDATION.md)。
+临时 A53 调频模块及已知失联边界见 [clock-trial/README.md](clock-trial/README.md)。
