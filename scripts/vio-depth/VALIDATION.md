@@ -31,3 +31,30 @@ CPU 图像处理改为顺序调度，只让 VIO 与 TPU 匹配重叠；补充精
 默认预算相对原 VIO 减少特征、seeds、关键帧及窗口，并跳过第 0 层特征提取；尚无轨迹精度和长时间稳定性结论。深度通过数值及合成几何验证，尚无真实测距误差评估。
 
 本机原始证据位于忽略的 `install/joint-validation-20261024/`，包括板端 CSV/日志、两组 ROS 接收 JSON/PNG、perf 数据及中间可符号化程序。运行方式见 README，可通过 `--profile` 和 `receive.py --require-hz 19.5` 重复验证；后者检查的是有效配对频率，不会把仅有深度的帧计为成功。
+
+## 2026-11-02 SD 发布构建修复
+
+[v0.0.3 发布 CI](https://github.com/HumpbackLab/tidesense/actions/runs/41375133377)
+在联合模式 CMake 配置时失败：引入 `scripts/schurvins` 后，新的独立 VIO 默认后端
+`native-dds` 触发了 `find_package(ament_cmake REQUIRED)`。
+联合程序实际只链接 `schurvins` 估计器库，并通过 `combined_ros.cpp` 使用自己的
+micro-ROS 通信；独立 VIO 的 ROS 桥并不参与联合程序链接。本地原有 CMake 缓存为
+`SCHUR_ROS_BACKEND=none`，因此旧构建目录没有暴露这一问题。
+
+联合模式现在在引入子目录前将独立 VIO 后端缓存固定为 `none`，覆盖新默认值和旧缓存。
+独立 SchurVINS 的默认原生 DDS 配置以及联合模式的 micro-ROS 发布行为不变。
+
+本地验证使用已有交叉编译依赖，未从头重建完整 SDK，也未重新触发 GitHub 发布：
+
+- 移除 ROS 环境变量后，在隔离目录成功复现原始 ament 查找错误；同一目录应用修复后配置通过。
+- 新目录显式指定 `-DSCHUR_ROS_BACKEND=native-dds`，并禁止查找 ament/rcl，配置仍通过；
+  最终后端为 `none`，联合目标链接估计器与 `libmicroros.a`，没有原生 DDS 动态库。
+- 在 `SCHUR_ROS_BACKEND=native-dds` 环境下运行完整 `scripts/vio-depth/build.sh`，
+  联合程序、`joint_depth_test` 及发布 tar 均构建成功；QEMU 执行联合程序 `--help` 通过。
+  这是构建和程序加载检查，未执行需要真实 TPU 的运行测试。
+- perf 构建、SD 应用安装的 13 个单元测试、原生 DDS 应用包安装检查均通过。
+- 使用实际应用产物生成 BOOT/ROOTFS/DATA 三分区 SD 镜像，大小为 818937856 字节。
+- 按发布 CI 使用 `xz -T2 -6` 压缩镜像，`xz --test` 和原始/压缩镜像的 SHA256 校验均通过。
+
+日志与复现目录保存在工程根目录 `install/ci-sd-fix/`，包括原始 CI 日志、修复前后的
+CMake 输出、交叉编译日志、应用安装检查及镜像生成日志。

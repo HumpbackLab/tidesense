@@ -10,6 +10,11 @@ set(DEPTH_BUILD_APP OFF CACHE BOOL "" FORCE)
 set(DEPTH_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(DEPTH_STEREOBM_ALL64 OFF CACHE BOOL "" FORCE)
 # Build the existing estimator unchanged, with the shipping optimization profile.
+# This application owns its micro-ROS transport in combined_ros.cpp and only
+# links the estimator library. Do not configure the standalone native DDS
+# bridge (or require host ament) through the SchurVINS subdirectory. Override
+# old build caches as well as the standalone application's default backend.
+set(SCHUR_ROS_BACKEND none CACHE STRING "Standalone VIO transport (unused in joint mode)" FORCE)
 add_subdirectory("${SENSOR}" schur EXCLUDE_FROM_ALL)
 add_subdirectory("${SDK}/scripts/depth" depth EXCLUDE_FROM_ALL)
 add_library(joint_depth STATIC pipeline.cpp "${SDK}/scripts/depth/tpu-match/tpu_sad.cpp")

@@ -19,6 +19,10 @@ ros2 run micro_ros_agent micro_ros_agent udp4 -p 8888
 
 micro-ROS Agent 使用现有 SchurVINS 的配置；`SCHUR_MICRO_ROS_PORT` 默认 8888，`SCHUR_MICRO_ROS_DOMAIN` 默认 0。此模式独占双目和 IMU，请先停止 VIO、depth、UVC、dataset 模式。
 
+联合模式通过 `combined_ros.cpp` 使用自己的 micro-ROS 通信，只复用 SchurVINS 估计器库。
+因此其 CMake 构建固定关闭被引入的独立 VIO 通信后端，不需要加载原生 DDS 的主机端 ament；
+SDK 中独立 SchurVINS 的 `SCHUR_ROS_BACKEND` 选择不受影响。
+
 三个话题：`/tidesense/pose`（PoseStamped，odom 下的 IMU/body 位姿 T_W_B）、`/tidesense/depth/image_raw`（320×200，16UC1，毫米，0 无效）、`/tidesense/depth/camera_info`（矫正后虚拟相机内参）。同一对采集图像的三个消息使用完全相同的时间戳。位姿初始化前、IMU 未就绪、跟踪丢失或质量为 Insufficient 时只发布深度，不发布旧位姿。没有 200 Hz IMU 预测位姿输出。
 
 深度参考相机由标定决定，当前为物理右相机经 180° 旋转和矫正后的虚拟光学相机。其 frame_id 为 depth_optical_frame；pose 的 body 原点与它不同，不能直接把 pose 当作深度相机的外参。降采样后的映射使用原图坐标 `(u-0.5)/2`，保留标定射线和基线的米制单位。
