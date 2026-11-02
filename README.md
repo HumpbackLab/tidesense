@@ -1,5 +1,7 @@
 # TideSense
 
+简体中文 | [English](README.en.md)
+
 基于 SG2002 的双目视觉惯性里程计，在 Arm Cortex-A53 上运行 Linux 与 VIO。
 本仓库提供板级 SDK、传感器驱动、标定、录制及 VIO 工具。
 
