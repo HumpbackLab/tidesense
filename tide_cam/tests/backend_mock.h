@@ -6,6 +6,7 @@ extern "C" {
 void mock_reset(void);
 void mock_push(unsigned count);
 void mock_fail(int status);
+void mock_cameras(unsigned mask);
 int mock_active(void);
 void mock_jpeg_fail(int status);
 int mock_jpeg_on_this_thread(void);

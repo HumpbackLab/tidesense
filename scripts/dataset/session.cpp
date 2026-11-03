@@ -74,6 +74,7 @@ std::string status(const Shared& s,bool ok,const std::string& error) {
  if (s.latest.width) {
   const auto& h=s.latest;
   o << ",\"width\":" << h.width << ",\"height\":" << h.height
+    << ",\"camera_mask\":" << ((h.left_ns?1:0)|(h.right_ns?2:0))
     << ",\"sequence\":" << h.sequence << ",\"left_ns\":" << h.left_ns << ",\"right_ns\":" << h.right_ns;
  }
  if (s.preview) {
@@ -103,6 +104,8 @@ class Control {
      std::string command=request["command"].as<std::string>();
      if (command=="start") {
       if (shared_.state!="preview") throw std::runtime_error("Recorder is busy");
+      if (!shared_.latest.left_ns || !shared_.latest.right_ns)
+       throw std::runtime_error("Recording requires frames from both cameras; single-camera preview is available");
       std::string path=request["output"].as<std::string>();
       if (path.empty() || path[0]!='/' || path.find('\0')!=std::string::npos) throw std::runtime_error("Expected an absolute new output directory");
       uint64_t seconds=request["seconds"]?request["seconds"].as<uint64_t>():0;
@@ -185,6 +188,7 @@ int datasetSession(int argc,char** argv) {
  try {
   std::string socketPath="/run/tidesense-record.sock",device="auto",httpToken;
   tide_cam_config config; tide_cam_config_init(&config); config.queue=TIDE_CAM_FIFO; config.buffer_count=8;
+  config.allow_partial=1;
   loadCameraSettings(config);
   for (int i=1;i<argc;i+=2) {
    if (i+1>=argc) throw std::runtime_error("Missing session option value");
@@ -220,13 +224,13 @@ int datasetSession(int argc,char** argv) {
    Writer* active=writer.release();
    finishing=std::async(std::launch::async,[active,reason]() {
     std::unique_ptr<Writer> owner(active);
-    try { owner->finish(reason.empty(),reason); return std::string(); } catch (const std::exception& e) { return std::string(e.what()); }
+    try { owner->finish(reason.empty(),reason); return reason; } catch (const std::exception& e) { return std::string(e.what()); }
    });
   };
   std::string fatal;
   try {
    while (camera.next(pair,interrupted)) {
-    auto samples=imu.through(pair.header.left_ns,interrupted); if (interrupted) break;
+    auto samples=imu.through(pair.header.left_ns?pair.header.left_ns:pair.header.right_ns,interrupted); if (interrupted) break;
     bool stop=false,exit=false; std::string pending;
     {
      std::lock_guard<std::mutex> lock(shared.mutex);
@@ -242,6 +246,14 @@ int datasetSession(int argc,char** argv) {
      std::lock_guard<std::mutex> lock(shared.mutex); shared.state="preview"; shared.complete=error.empty(); shared.error=error;
     }
     if (exit) break;
+    if (pair.left.empty() || pair.right.empty()) {
+     const std::string reason="Recording requires frames from both cameras";
+     if (!pending.empty()) {
+      std::lock_guard<std::mutex> lock(shared.mutex);shared.state="preview";shared.error=reason;
+     }
+     finalize(reason);
+     continue;
+    }
     if (!pending.empty()) {
      try {
       writer.reset(new Writer(pending,64,config));

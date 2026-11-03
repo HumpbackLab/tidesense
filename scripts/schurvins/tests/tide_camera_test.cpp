@@ -36,6 +36,23 @@ int main() {
    require(failed,"backend fault was hidden");
   }
   require(!mock_active(),"camera leak");
+  for (unsigned mask:{1u,2u,3u}) {
+   mock_reset();mock_cameras(mask);
+   config.allow_partial=1;
+   TideCamera camera(config);
+   mock_push(1);LivePair pair;require(camera.next(pair,interrupted),"partial preview frame");
+   require(pair.left.empty()==!(mask&1) && pair.right.empty()==!(mask&2),"camera availability/order");
+   require(bool(pair.header.left_ns)==bool(mask&1) && bool(pair.header.right_ns)==bool(mask&2),"missing camera timestamp");
+   // Recover the other camera without recreating the capture session.
+   mock_cameras(3);mock_push(1);require(camera.next(pair,interrupted),"stereo recovery");
+   require(!pair.left.empty() && !pair.right.empty(),"stereo did not recover");
+  }
+  mock_reset();mock_cameras(2);config.allow_partial=0;
+  {
+   TideCamera camera(config);mock_push(1);LivePair pair;bool rejected=false;
+   try {camera.next(pair,interrupted);}catch(const std::runtime_error&){rejected=true;}
+   require(rejected,"strict stereo accepted a partial frame");
+  }
   std::cout<<"TIDE CAMERA ADAPTER PASS: dimensions, timestamps, owned Mat lifetime, fault propagation\n";
  } catch (const std::exception& e) { std::cerr<<e.what()<<'\n'; return 1; }
 }

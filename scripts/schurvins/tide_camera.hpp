@@ -20,6 +20,7 @@ class TideCamera {
  private:
   std::string error(int status) const;
   tide_cam* camera_=nullptr;
+  bool allow_partial_=false;
   std::mutex stop_mutex_;
 };
 YAML::Node cameraConfiguration(const tide_cam_config& config);

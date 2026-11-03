@@ -17,6 +17,7 @@ struct tide_cam_backend {
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t ready = PTHREAD_COND_INITIALIZER;
 static unsigned tokens;
+static unsigned camera_mask = 3;
 static int active, failure;
 static int jpeg_failure, encoded;
 static unsigned jpeg_releases;
@@ -27,6 +28,7 @@ void mock_reset(void)
 {
     pthread_mutex_lock(&lock);
     tokens = 0;
+    camera_mask = 3;
     failure = 0;
     jpeg_failure = encoded = 0;
     jpeg_releases = 0;
@@ -56,6 +58,12 @@ void mock_push(unsigned count)
     pthread_mutex_lock(&lock);
     tokens += count;
     pthread_cond_broadcast(&ready);
+    pthread_mutex_unlock(&lock);
+}
+void mock_cameras(unsigned mask)
+{
+    pthread_mutex_lock(&lock);
+    camera_mask = mask;
     pthread_mutex_unlock(&lock);
 }
 void mock_fail(int status)
@@ -116,6 +124,7 @@ int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pix
         }
     }
     int status = failure;
+    unsigned available = camera_mask;
     if (status) snprintf(error, TIDE_CAM_ERROR_SIZE, "Injected backend failure");
     else --tokens;
     pthread_mutex_unlock(&lock);
@@ -125,16 +134,17 @@ int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pix
     tide_cam_rate rate = b->config.sync == TIDE_CAM_SYNC_HARDWARE ?
         (tide_cam_rate){20, 1} : b->config.free_run_fps;
     out->timestamp_ns = 1000000000ULL + b->sequence * (1000000000ULL * rate.den / rate.num);
-    out->camera_count = 2;
+    out->camera_count = 0;
     out->sync = b->config.sync;
     out->clock = TIDE_CAM_CLOCK_MONOTONIC;
     out->timestamp_kind = TIDE_CAM_TIMESTAMP_VI_ARRIVAL;
     for (uint32_t p = 0; p < 2; ++p) {
+        if (!(available & (1u << p))) continue;
         uint32_t width = b->config.mode.width, height = b->config.mode.height;
         size_t size = (size_t)width * height;
         uint8_t *data = pixels + p * size;
         memset(data, (uint8_t)(b->sequence + p), size);
-        out->frames[p] = (tide_cam_frame){p, width, height, width, TIDE_CAM_MONO8,
+        out->frames[out->camera_count++] = (tide_cam_frame){p, width, height, width, TIDE_CAM_MONO8,
             data, size, out->timestamp_ns + p * 2600000,
             (uint32_t)b->sequence};
     }

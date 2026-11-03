@@ -247,7 +247,8 @@ if(SCHUR_STATIC)
 endif()
 
 add_executable(schurvins_tide_camera_test EXCLUDE_FROM_ALL tests/tide_camera_test.cpp tide_camera.cpp
-  "${SDK_ROOT}/tide_cam/src/tide_cam.c" "${SDK_ROOT}/tide_cam/tests/backend_mock.c")
+  "${SDK_ROOT}/tide_cam/src/tide_cam.c" "${SDK_ROOT}/tide_cam/src/config.c"
+  "${SDK_ROOT}/tide_cam/tests/backend_mock.c")
 target_include_directories(schurvins_tide_camera_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
   "${SDK_ROOT}/tide_cam/include" "${SDK_ROOT}/tide_cam/src" "${SDK_ROOT}/tide_cam/tests")
 target_link_libraries(schurvins_tide_camera_test PRIVATE ${OpenCV_LIBS} yaml-cpp pthread dl)

@@ -61,6 +61,9 @@ typedef struct {
     /* Only valid for SYNC_NONE. Must be {0,0} in hardware-sync mode. */
     tide_cam_rate free_run_fps;
     uint32_t jpeg_quality; /* 0=disabled (default), 1..99=direct VI JPEG encoding. */
+    /* Preview only: deliver available cameras independently. Default 0 requires
+     * a complete stereo pair. Incompatible with direct VI JPEG encoding. */
+    uint32_t allow_partial;
 } tide_cam_config;
 
 typedef struct {
@@ -88,8 +91,8 @@ typedef struct {
 
 typedef struct {
     uint64_t sequence;
-    uint64_t timestamp_ns; /* Camera 0 VI arrival time, no calibration shift. */
-    uint32_t camera_count;
+    uint64_t timestamp_ns; /* First available camera's VI arrival time. */
+    uint32_t camera_count; /* Delivered frames; use camera_id to identify each. */
     tide_cam_sync sync; /* Configured synchronization, not an accuracy claim. */
     tide_cam_clock clock;
     tide_cam_timestamp_kind timestamp_kind;

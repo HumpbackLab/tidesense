@@ -67,7 +67,7 @@ int tide_cam_query_caps(tide_cam_caps *caps)
 
 static int validate(const tide_cam_config *c, const tide_cam_caps *caps)
 {
-    if (!c || c->buffer_count < 3 ||
+    if (!c || c->allow_partial > 1 || (c->allow_partial && c->jpeg_quality) || c->buffer_count < 3 ||
         c->buffer_count > 64 || !c->mode.width || !c->mode.height ||
         !c->exposure_max_us || c->jpeg_quality > 99 ||
         (c->queue != TIDE_CAM_LATEST && c->queue != TIDE_CAM_FIFO) ||

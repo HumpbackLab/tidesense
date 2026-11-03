@@ -76,6 +76,17 @@ if(TIDE_CAM_BUILD_TESTS)
     target_compile_options(tide_cam_jpeg_sdk_test PRIVATE -Wall -Wextra -Werror -UNDEBUG)
     add_test(NAME tide_cam_jpeg_sdk COMMAND tide_cam_jpeg_sdk_test)
     set_tests_properties(tide_cam_jpeg_sdk PROPERTIES TIMEOUT 20)
+    add_executable(tide_cam_partial_sdk_test tests/test_partial_sdk.c)
+    target_include_directories(tide_cam_partial_sdk_test PRIVATE include src)
+    target_include_directories(tide_cam_partial_sdk_test SYSTEM PRIVATE
+        "${TIDE_CAM_SDK_ROOT}/cvi_mpi/include"
+        "${TIDE_CAM_SDK_ROOT}/cvi_mpi/include/isp/cv181x"
+        "${TIDE_CAM_SDK_ROOT}/cvi_mpi/sample/common"
+        "${TIDE_CAM_SDK_ROOT}/cvi_mpi/component/isp/common")
+    target_compile_options(tide_cam_partial_sdk_test PRIVATE -Wall -Wextra -Werror -UNDEBUG -ffunction-sections -fdata-sections)
+    target_link_options(tide_cam_partial_sdk_test PRIVATE -Wl,--gc-sections)
+    add_test(NAME tide_cam_partial_sdk COMMAND tide_cam_partial_sdk_test)
+    set_tests_properties(tide_cam_partial_sdk PROPERTIES TIMEOUT 20)
 endif()
 if(TIDE_CAM_BUILD_BOARD_TESTS)
     if(NOT TIDE_CAM_BACKEND STREQUAL "SG2002")

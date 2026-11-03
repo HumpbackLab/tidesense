@@ -68,9 +68,9 @@ struct PreviewServer::Impl {
    {
     std::unique_lock<std::mutex> lock(mutex);
     changed.wait_for(lock,std::chrono::milliseconds(50),[&]{return done ||
-      (clients && !latest.left.empty() && latest.header.sequence!=previous && monotonicNs()>=next);});
+      (clients && (!latest.left.empty() || !latest.right.empty()) && latest.header.sequence!=previous && monotonicNs()>=next);});
     if(done)break;
-    if(!clients || latest.left.empty() || latest.header.sequence==previous || monotonicNs()<next)continue;
+    if(!clients || (latest.left.empty() && latest.right.empty()) || latest.header.sequence==previous || monotonicNs()<next)continue;
     pair=latest;busy=recording;
    }
    previous=pair.header.sequence;next=monotonicNs()+(busy?500000000ULL:200000000ULL);
@@ -78,7 +78,7 @@ struct PreviewServer::Impl {
     uint64_t cpu=monotonicNs(CLOCK_THREAD_CPUTIME_ID);
     if(!encoder)encoder.reset(new PreviewEncoder(inputWidth,inputHeight));
     auto frame=std::make_shared<Frame>();frame->jpeg=encoder->encode(pair);
-    frame->sequence=pair.header.sequence;frame->stamp=pair.header.left_ns;
+    frame->sequence=pair.header.sequence;frame->stamp=pair.header.left_ns?pair.header.left_ns:pair.header.right_ns;
     double elapsed=(monotonicNs(CLOCK_THREAD_CPUTIME_ID)-cpu)*1e-6;
     std::lock_guard<std::mutex> lock(mutex);encoded=std::move(frame);
     info.sequence=encoded->sequence;++info.frames;info.bytes+=encoded->jpeg.size();info.cpu_ms+=elapsed;info.error.clear();

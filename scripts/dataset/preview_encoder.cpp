@@ -96,14 +96,21 @@ struct PreviewEncoder::Impl {
  ~Impl(){cleanup();}
  std::vector<uint8_t> encode(const LivePair& pair) {
   auto& f=input.stVFrame;
-  if(pair.left.cols*2!=int(f.u32Width) || pair.left.rows!=int(f.u32Height))
+  if(pair.header.width*2!=f.u32Width || pair.header.height!=f.u32Height ||
+     (pair.left.empty() && pair.right.empty()))
    throw std::runtime_error("Preview capture size changed");
-  for(int y=0;y<pair.left.rows;++y) {
-   uint8_t* row=mapped+y*f.u32Stride[0];
-   std::memcpy(row,pair.left.ptr(y),pair.left.cols);
-   std::memcpy(row+pair.left.cols,pair.right.ptr(y),pair.right.cols);
+  const cv::Mat* images[]={&pair.left,&pair.right};
+  for(unsigned p=0;p<2;++p) {
+   const auto& image=*images[p];
+   if(!image.empty() && (image.cols!=int(pair.header.width) || image.rows!=int(pair.header.height) || image.type()!=CV_8UC1))
+    throw std::runtime_error("Preview capture size/type changed");
+   for(unsigned y=0;y<pair.header.height;++y) {
+    uint8_t* row=mapped+y*f.u32Stride[0]+p*pair.header.width;
+    if(image.empty())std::memset(row,0,pair.header.width);
+    else std::memcpy(row,image.ptr(y),pair.header.width);
+   }
   }
-  f.u64PTS=pair.header.left_ns/1000;f.u32TimeRef=uint32_t(pair.header.sequence);
+  f.u64PTS=(pair.header.left_ns?pair.header.left_ns:pair.header.right_ns)/1000;f.u32TimeRef=uint32_t(pair.header.sequence);
   check(CVI_SYS_IonFlushCache(f.u64PhyAddr[0],mapped,layout.u32VBSize),"CVI_SYS_IonFlushCache");
   VIDEO_FRAME_INFO_S scaled{};
   check(CVI_VPSS_SendFrame(group,&input,200),"CVI_VPSS_SendFrame");

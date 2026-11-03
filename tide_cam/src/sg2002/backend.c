@@ -304,8 +304,88 @@ fail: {
 #undef TRY
 }
 
+static int read_partial(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pixels, char *error)
+{
+    memset(out, 0, sizeof(*out));
+    out->sync = b->config.sync;
+    out->clock = TIDE_CAM_CLOCK_MONOTONIC;
+    out->timestamp_kind = TIDE_CAM_TIMESTAMP_VI_ARRIVAL;
+    /* Never let one unavailable channel prevent reading the other. Native
+     * frames are released on every iteration; no stale image is published. */
+    for (int attempt = 0; attempt < 2; ++attempt) for (int p = 0; p < 2; ++p) {
+        if (b->held[p]) continue;
+        /* Recheck a missing channel after waiting for its peer: a healthy
+         * frame can arrive just after the first channel's timeout. */
+        /* At 20 Hz a frame takes 50 ms. A 20 ms wait falsely classified
+         * normal arrival jitter as a missing camera. Allow two frame periods. */
+        int ret = CVI_VI_GetChnFrame(0, p, &b->frames[p], attempt ? 0 : b->read_timeout_ms);
+        if (ret) {
+            if ((unsigned)ret == (unsigned)CVI_ERR_VI_BUF_EMPTY ||
+                (unsigned)ret == (unsigned)CVI_ERR_VI_FAILED_NOT_ENABLED) continue;
+            return sdk_error(error, "CVI_VI_GetChnFrame", ret);
+        }
+        b->held[p] = 1;
+        VIDEO_FRAME_S *f = &b->frames[p].stVFrame;
+        if (f->u32Width != b->config.mode.width || f->u32Height != b->config.mode.height ||
+            f->u32Stride[0] < f->u32Width || f->u64PTS <= b->previous[p] ||
+            f->u64PTS > UINT64_MAX / 1000) {
+            snprintf(error, TIDE_CAM_ERROR_SIZE, "Invalid VI dimensions, stride or timestamp");
+            return TIDE_CAM_DISCONTINUITY;
+        }
+        b->previous[p] = f->u64PTS;
+    }
+    if (b->held[0] && b->held[1]) {
+        uint64_t left = b->frames[0].stVFrame.u64PTS, right = b->frames[1].stVFrame.u64PTS;
+        uint64_t skew = left > right ? left - right : right - left;
+        uint64_t limit = b->config.sync == TIDE_CAM_SYNC_HARDWARE ?
+            b->period_ns * 2 / 5000 : b->period_ns / 2000;
+        if (skew > limit) {
+            int p = left < right ? 0 : 1;
+            int ret = CVI_VI_ReleaseChnFrame(0, p, &b->frames[p]);
+            if (ret) return sdk_error(error, "CVI_VI_ReleaseChnFrame", ret);
+            b->held[p] = 0;
+            /* Keep the newer frame while catching up the older channel;
+             * an unmatched queued frame does not mean that camera is gone. */
+            if (monotonic_ns() - b->progress_ns < (uint64_t)b->read_timeout_ms * 1000000)
+                return TIDE_CAM_TIMEOUT;
+        }
+    }
+    for (int p = 0; p < 2; ++p) if (b->held[p]) {
+        VIDEO_FRAME_S *f = &b->frames[p].stVFrame;
+        uint32_t width = f->u32Width, height = f->u32Height;
+        uint32_t len = f->u32Stride[0] * height;
+        uint8_t *destination = pixels + (size_t)p * width * height;
+        const uint8_t *y = CVI_SYS_MmapCache(f->u64PhyAddr[0], len);
+        if (!y) return sdk_error(error, "CVI_SYS_MmapCache", -1);
+        int ret = CVI_SYS_IonInvalidateCache(f->u64PhyAddr[0], (void *)y, len);
+        if (!ret) for (uint32_t row = 0; row < height; ++row)
+            memcpy(destination + (size_t)row * width, y + (size_t)row * f->u32Stride[0], width);
+        int unmap = CVI_SYS_Munmap((void *)y, len);
+        if (ret) return sdk_error(error, "CVI_SYS_IonInvalidateCache", ret);
+        if (unmap) return sdk_error(error, "CVI_SYS_Munmap", unmap);
+        out->frames[out->camera_count++] = (tide_cam_frame){(uint32_t)p, width, height, width,
+            TIDE_CAM_MONO8, destination, (uint64_t)width * height, f->u64PTS * 1000, f->u32TimeRef};
+        if (!out->timestamp_ns) out->timestamp_ns = f->u64PTS * 1000;
+        ret = CVI_VI_ReleaseChnFrame(0, p, &b->frames[p]);
+        if (ret) return sdk_error(error, "CVI_VI_ReleaseChnFrame", ret);
+        b->held[p] = 0;
+        ret = ov9281_isp_update_black_level(p);
+        if (ret) return sdk_error(error, "ov9281_isp_update_black_level", ret);
+    }
+    if (!out->camera_count) {
+        if (monotonic_ns() - b->progress_ns <= 3000000000ULL) return TIDE_CAM_TIMEOUT;
+        snprintf(error, TIDE_CAM_ERROR_SIZE, "Neither camera has delivered a frame for 3 seconds");
+        return TIDE_CAM_IO;
+    }
+    b->progress_ns = monotonic_ns();
+    if (b->warmup) { --b->warmup; return TIDE_CAM_TIMEOUT; }
+    out->sequence = ++b->sequence;
+    return TIDE_CAM_OK;
+}
+
 int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pixels, char *error)
 {
+    if (b->config.allow_partial) return read_partial(b, out, pixels, error);
     for (int p = 0; p < 2; ++p) if (!b->held[p]) {
         int ret = CVI_VI_GetChnFrame(0, p, &b->frames[p], b->read_timeout_ms);
         if (ret) {
