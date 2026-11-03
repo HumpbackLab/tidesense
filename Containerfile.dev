@@ -1,19 +1,12 @@
-FROM docker.io/library/node:22-bookworm-slim AS frontend
-
-WORKDIR /frontend
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci --no-audit --no-fund
-COPY frontend/src ./src
-COPY frontend/public ./public
-COPY frontend/index.html frontend/tsconfig.json frontend/vite.config.ts ./
-RUN npm run build
+FROM docker.io/library/node:22-bookworm-slim AS node
 
 FROM docker.io/library/ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Etc/UTC \
     LANG=C.UTF-8 \
-    BOOST_HEADERS=/opt/boost-1.74/include/boost
+    BOOST_HEADERS=/opt/boost-1.74/include/boost \
+    TIDESENSE_ROS_SETUP=/opt/ros/jazzy/setup.bash
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl gnupg && \
@@ -29,8 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libusb-1.0-0-dev libxml2-dev lz4 mtools ninja-build openssh-client \
     patch pkg-config python3 python3-dev python3-pip python3-setuptools \
     python3-venv python3-yaml rsync sshpass swig tar texinfo unzip wget \
-    xz-utils zip zlib1g-dev \
+    xxd xz-utils zip zlib1g-dev \
     ros-jazzy-ros-base ros-jazzy-rmw-cyclonedds-cpp \
+    ros-jazzy-rclpy ros-jazzy-geometry-msgs ros-jazzy-std-msgs \
     ros-dev-tools && \
     rm -rf /var/lib/apt/lists/*
 
@@ -44,33 +38,31 @@ RUN curl -fsSL --retry 5 --retry-all-errors \
     mv /opt/boost-1.74/usr/include /opt/boost-1.74/include && \
     rm -rf /opt/boost-1.74/usr /tmp/libboost1.74-dev.deb
 
-ENV TIDE_CONFIGURATOR_VENV=/opt/tide_configurator/.venv \
-    TIDE_FRONTEND_DIST=/opt/tide_configurator/frontend/dist
-
 # TideConfigurator uses Podman for the optional calibration environment.
-RUN apt-get update && apt-get install -y --no-install-recommends podman && \
+RUN apt-get update && apt-get install -y --no-install-recommends podman catatonit && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=frontend /usr/local/ /usr/local/
+COPY --from=node /usr/local/ /usr/local/
 
-COPY requirements.txt /opt/tide_configurator/requirements.txt
-COPY calibration/requirements.txt /opt/tide_configurator/calibration/requirements.txt
-RUN python3 -m venv /opt/tide_configurator/.venv && \
-    /opt/tide_configurator/.venv/bin/pip install --no-cache-dir \
-      -r /opt/tide_configurator/requirements.txt
-
-COPY --from=frontend /frontend/dist /opt/tide_configurator/frontend/dist
+# Install dependencies into the image's default Python; application source and
+# frontend output are always taken from the user's checkout at runtime.
+COPY requirements.txt /tmp/tidesense-requirements/requirements.txt
+COPY calibration/requirements.txt /tmp/tidesense-requirements/calibration/requirements.txt
+RUN /usr/bin/python3 -m pip install --break-system-packages --no-cache-dir \
+      pycryptodome -r /tmp/tidesense-requirements/requirements.txt && \
+    rm -rf /tmp/tidesense-requirements
 
 WORKDIR /workspace
+ENTRYPOINT ["/bin/bash", "-ec", "source \"${TIDESENSE_ROS_SETUP}\"; exec \"$@\"", "tidesense-dev"]
 CMD ["bash"]
 
 # Rootless Podman-in-Podman needs VFS storage and no nested cgroup management.
 RUN printf '[storage]\ndriver="vfs"\nrunroot="/run/containers/storage"\ngraphroot="/var/lib/containers/storage"\n' > /etc/containers/storage.conf && \
-    printf '[containers]\ncgroups="disabled"\n' > /etc/containers/containers.conf && \
+    printf '[containers]\ncgroups="disabled"\ninit_path="/usr/bin/catatonit"\n' > /etc/containers/containers.conf && \
     ln -s /usr/bin/python3 /usr/local/bin/python
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    kmod libpcre3 python3-jinja2 python3-colorama python3-pycryptodome \
+    kmod libpcre3 python3-jinja2 python3-colorama \
     squashfs-tools && \
     rm -rf /var/lib/apt/lists/*
 

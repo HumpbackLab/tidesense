@@ -23,6 +23,19 @@ TIDESENSE_DEV_IMAGE=ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04 ./scripts/dev-
 
 仓库挂载进容器。Docker 默认以 root 运行，生成文件可能归 root 所有。
 
+开发镜像预装配置器所需的 Python 依赖、Node.js 和 ROS 2 Jazzy，启动时自动加载 ROS 环境。
+源码和前端构建产物使用挂载的代码仓。在容器内的仓库根目录执行：
+
+```bash
+npm --prefix tide_configurator/frontend ci
+npm --prefix tide_configurator/frontend run build
+./tide_configurator/run.sh
+```
+
+Kalibr 标定镜像需要在容器内另行构建：`./tide_configurator/calibration/environment/build.sh`。
+如需在退出后保留该镜像，启动开发容器时增加 `-v tidesense-calibration:/var/lib/containers/storage`。
+CI 在推送开发镜像前检查默认 Python 的依赖导入和依赖一致性，不挂载或运行配置器源码。
+
 ## 方式二：直接安装依赖（Ubuntu 24.04 x86_64）
 
 安装与 [Containerfile.dev](../Containerfile.dev) 相同的系统工具：
@@ -35,9 +48,9 @@ sudo apt install -y --no-install-recommends \
   git git-lfs libelf-dev libncurses-dev libssl-dev libtool libudev-dev \
   libusb-1.0-0-dev libxml2-dev lz4 mtools ninja-build openssh-client \
   patch pkg-config python3 python3-dev python3-pip python3-setuptools \
-  python3-venv python3-yaml python3-jinja2 python3-colorama python3-pycryptodome \
+  python3-venv python3-yaml python3-jinja2 python3-colorama \
   python-is-python3 rsync sshpass swig tar texinfo unzip wget xz-utils zip \
-  zlib1g-dev kmod libpcre3 squashfs-tools podman ca-certificates curl gnupg
+  zlib1g-dev kmod libpcre3 squashfs-tools podman catatonit xxd ca-certificates curl gnupg
 ```
 
 添加 ROS 2 软件源，再安装所选发行版的开发包；SDK 不限定 ROS 2 发行版：
@@ -76,8 +89,9 @@ mkdir -p "$NODE_DIR"
 curl -fsSL "https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-x64.tar.xz" | \
   tar -xJ --strip-components=1 -C "$NODE_DIR"
 export PATH="$NODE_DIR/bin:$PATH"
-python3 -m venv tide_configurator/.venv
-tide_configurator/.venv/bin/pip install -r tide_configurator/requirements.txt
+python3 -m venv --system-site-packages tide_configurator/.venv
+source tide_configurator/.venv/bin/activate
+python3 -m pip install pycryptodome -r tide_configurator/requirements.txt
 npm --prefix tide_configurator/frontend ci
 npm --prefix tide_configurator/frontend run build
 ```

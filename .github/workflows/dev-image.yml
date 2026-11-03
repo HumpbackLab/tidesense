@@ -18,5 +18,17 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build image
         run: docker build -f Containerfile.dev -t ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04 tide_configurator
+      - name: Check configurator, ROS and calibration dependencies
+        run: |
+          docker run --rm --network=none \
+            ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04 \
+            bash -ec '
+              python3 -c "import uvicorn, fastapi, paramiko, numpy, yaml, zstandard, rosbags.rosbag1, rclpy, jinja2, colorama, Crypto; from geometry_msgs.msg import PoseStamped; from std_msgs.msg import Bool"
+              python3 -m pip check
+              node --version
+              podman --version
+              test -x /usr/bin/catatonit
+              command -v xxd
+            '
       - name: Push image
         run: docker push ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04
