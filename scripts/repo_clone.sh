@@ -118,18 +118,22 @@ function git_clone {
 
         # 判断是否已经下载了repo
         if [[ -d $PWD/$path ]]; then
+            if [[ ! -e "$PWD/$path/.git" ]]; then
+                echo -e "${RED}ERROR: $PWD/$path exists but is not a repository checkout. Preserve its contents and restore $repo before retrying.${NC}" >&2
+                return 1
+            fi
             echo -e "${YELLOW}Warning: target porject already exist!! $PWD/$path${NC}"
             continue
         fi
 
         # 判断参数是否带有normal，或者是否是commit-id（7~40位十六进制）
         if [[ $NORMAL != 0 ]] || [[ "$revision" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
-            GIT_LFS_SKIP_SMUDGE=1 git clone $remote_url$repo.git $PWD/$path
-            pushd $PWD/$path
-                GIT_LFS_SKIP_SMUDGE=1 git checkout $revision
+            GIT_LFS_SKIP_SMUDGE=1 git clone $remote_url$repo.git $PWD/$path || return 1
+            pushd $PWD/$path || return 1
+                GIT_LFS_SKIP_SMUDGE=1 git checkout $revision || { popd; return 1; }
             popd
         else
-            GIT_LFS_SKIP_SMUDGE=1 git clone $remote_url$repo.git $PWD/$path -b $revision $PARAMETERS
+            GIT_LFS_SKIP_SMUDGE=1 git clone $remote_url$repo.git $PWD/$path -b $revision $PARAMETERS || return 1
         fi
 
         # repo name 应该是 $repo 按 / 分割的最后一个元素
@@ -321,7 +325,7 @@ function checkout_all_submodules {
 
 function main {
     if [ $DOWNLOAD -eq 1 ]; then
-        git_clone
+        git_clone || exit 1
     else
         git_pull
     fi
