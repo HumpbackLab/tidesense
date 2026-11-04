@@ -63,6 +63,7 @@ micro-ROS communication is disabled at runtime by default.
 SD card image: `install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img`.
 It contains BOOT, ROOTFS, and DATA partitions; DATA expands automatically on the first boot.
 See [flashing and repacking](build/boards/cv181x/sg2002_tidesense_arm64_sd/README.md#制作并烧录-sd-卡).
+Newly flashed devices use username `root` and password `tidesense`.
 The build returns a failure status if compilation or SD card image generation fails.
 
 ## Update component repositories

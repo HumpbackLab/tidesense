@@ -60,7 +60,7 @@ Linux TPU 驱动与实验不能同时持有 TPU。输入、描述符和输出缓
 本机可复现 16 对图像的上传、运行和汇总。设备需已经加载上述固件及桥接模块：
 
 ```sh
-SSHPASS=cvitek python3 scripts/vio-compare/probes/c906-tpu/benchmark_lk.py \
+SSHPASS=tidesense python3 scripts/vio-compare/probes/c906-tpu/benchmark_lk.py \
   --dataset install/schurvins-gcc11-static/public-datasets/uzh-fpv/indoor_forward_6_replay \
   --output install/c906-reload/lk-final-results
 ```

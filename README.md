@@ -57,6 +57,7 @@ build_all
 
 整卡镜像：`install/soc_sg2002_tidesense_arm64_sd/tidesense-sdcard.img`。
 包含 BOOT/ROOTFS/DATA，首次启动自动扩容 DATA；[烧录及重新打包](build/boards/cv181x/sg2002_tidesense_arm64_sd/README.md#制作并烧录-sd-卡)。
+新烧录设备的登录用户名为 `root`，密码为 `tidesense`。
 构建或整卡镜像生成失败时返回失败。
 
 ## 更新子库
