@@ -1,0 +1,16 @@
+ARG DEV_BASE_IMAGE=localhost/tidesense-dev-tools:ubuntu24.04
+FROM ${DEV_BASE_IMAGE}
+
+# Prepared by build.sh; the archive contains a verified, single-layer ROS Noetic
+# environment. Users need neither downloads nor compilation at startup.
+COPY kalibr.oci.tar kalibr-image-id /opt/tidesense/kalibr/
+COPY dev-image-entrypoint.sh /usr/local/bin/tidesense-dev
+RUN chmod 755 /usr/local/bin/tidesense-dev
+
+WORKDIR /workspace
+ENTRYPOINT ["/usr/local/bin/tidesense-dev"]
+CMD ["bash"]
+
+LABEL org.opencontainers.image.source="https://github.com/HumpbackLab/tidesense" \
+      org.opencontainers.image.title="TideSense SDK development environment" \
+      org.opencontainers.image.description="Ubuntu 24.04 SDK, ROS 2, TideConfigurator dependencies, and prebuilt Kalibr"
