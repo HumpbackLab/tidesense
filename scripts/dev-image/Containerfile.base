@@ -1,3 +1,4 @@
+# SDK base tools. Build the complete image through scripts/dev-container.sh build.
 FROM docker.io/library/node:22-bookworm-slim AS node
 
 FROM docker.io/library/ubuntu:24.04
@@ -38,7 +39,7 @@ RUN curl -fsSL --retry 5 --retry-all-errors \
     mv /opt/boost-1.74/usr/include /opt/boost-1.74/include && \
     rm -rf /opt/boost-1.74/usr /tmp/libboost1.74-dev.deb
 
-# TideConfigurator uses Podman for the optional calibration environment.
+# TideConfigurator runs the bundled Kalibr environment through Podman.
 RUN apt-get update && apt-get install -y --no-install-recommends podman catatonit && \
     rm -rf /var/lib/apt/lists/*
 

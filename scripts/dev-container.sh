@@ -6,12 +6,12 @@ if [[ ! -d ${XDG_RUNTIME_DIR:-} ]]; then
   export XDG_RUNTIME_DIR="${TMPDIR:-/tmp}/tidesense-podman-$(id -u)"
   mkdir -p -m 700 "$XDG_RUNTIME_DIR"
 fi
-workspace_args=(--volume "$sdk:$sdk")
+workspace_args=(--volume "$sdk:$sdk"
+  --volume "${TIDESENSE_CALIBRATION_VOLUME:-tidesense-calibration}:/var/lib/containers/storage")
 case "${1:-}" in
   build)
     shift
-    podman --cgroup-manager=cgroupfs build --isolation=oci \
-      -f "$sdk/Containerfile.dev" -t "$image" "$@" "$sdk/tide_configurator"
+    exec "$sdk/scripts/dev-image/build.sh" -t "$image" "$@"
     ;;
   shell|"")
     [[ $# -eq 0 ]] || shift
