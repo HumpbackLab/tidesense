@@ -2,6 +2,11 @@ name: Publish development image
 
 on:
   workflow_dispatch:
+    inputs:
+      verify_only:
+        description: Check the published image without rebuilding or publishing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -23,10 +28,12 @@ jobs:
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build Kalibr and development image
+        if: github.event.inputs.verify_only != 'true'
         env:
           TIDESENSE_DEV_IMAGE: ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04
         run: ./scripts/dev-container.sh build
       - name: Check configurator, ROS and both Kalibr solvers offline
         run: ./scripts/dev-image/check.sh ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04
       - name: Push image
+        if: github.event.inputs.verify_only != 'true'
         run: podman push ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04
