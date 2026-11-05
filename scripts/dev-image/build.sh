@@ -29,9 +29,9 @@ echo 'Bundling the compiled Kalibr image for offline use…'
 podman save --format oci-archive --output "$context/kalibr.oci.tar" "$bundled_image"
 
 if [[ -z ${TIDESENSE_DEV_BASE_IMAGE:-} ]]; then
-  podman --cgroup-manager=cgroupfs build --isolation=oci \
+  podman --cgroup-manager=cgroupfs build --isolation=oci --network=host \
     -f "$sdk/Containerfile.dev" -t "$dev_base" "$context"
 fi
 
-podman --cgroup-manager=cgroupfs build --isolation=oci \
+podman --cgroup-manager=cgroupfs build --isolation=oci --network=host \
   -f "$sdk/scripts/dev-image/Containerfile" --build-arg "DEV_BASE_IMAGE=$dev_base" "$@" "$context"
