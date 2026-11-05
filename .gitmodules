@@ -2,3 +2,7 @@
 	path = tide_configurator
 	url = https://github.com/HumpbackLab/tide_configurator.git
 	branch = master
+[submodule "docs"]
+	path = docs
+	url = https://github.com/HumpbackLab/tidesense_docs.git
+	branch = master
