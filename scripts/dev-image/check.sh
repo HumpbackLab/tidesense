@@ -18,7 +18,17 @@ kalibr=localhost/tidesense-calibration:noetic
 podman run --rm -i --init --network=none "$kalibr" bash -es <<'KALIBR'
 python3 /usr/local/lib/tidesense-calibration-env.py --check
 for solver in kalibr_calibrate_cameras kalibr_calibrate_imu_camera; do
-  xvfb-run -a rosrun kalibr "$solver" --help
+  # These pinned Kalibr entrypoints intentionally exit 2 after printing help.
+  # Validate its contents as well, so an argparse/import failure cannot pass.
+  if help_text=$(xvfb-run -a rosrun kalibr "$solver" --help 2>&1); then
+    help_status=0
+  else
+    help_status=$?
+  fi
+  printf '%s\n' "$help_text"
+  [[ $help_status == 0 || $help_status == 2 ]]
+  [[ $help_text == *usage:* && $help_text == *--bag* && $help_text == *--target* ]]
+  [[ $help_text != *'Traceback (most recent call last)'* && $help_text != *': error:'* ]]
 done
 KALIBR
 CHECK
