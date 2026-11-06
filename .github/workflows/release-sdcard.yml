@@ -27,6 +27,7 @@ jobs:
       VERSION: ${{ inputs.version }}
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      TIDESENSE_DEV_IMAGE: ghcr.io/humpbacklab/tidesense-dev:ubuntu24.04
 
     steps:
       - name: Check out the triggering commit
@@ -64,18 +65,22 @@ jobs:
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache
           df -h "$GITHUB_WORKSPACE"
 
-      - name: Prepare the SDK build environment
-        run: docker build --tag tidesense-sdk:ci --file .github/docker/sdk.Dockerfile .github/docker
+      - name: Pull the TideSense development image
+        run: docker pull "$TIDESENSE_DEV_IMAGE"
 
       - name: Fetch SDK sources and build the SD card image
         run: |
           # The release token stays on the host and is not passed to SDK builds.
           # Keep this directory writable by the host after the root container exits.
           mkdir -p release
+          # Firmware builds need ROS, but do not need the Kalibr image import.
           docker run --rm \
             --volume "$GITHUB_WORKSPACE:/sdk" \
+            --workdir /sdk \
+            --entrypoint /bin/bash \
             --env JOBS=4 --env PERF_JOBS=4 \
-            tidesense-sdk:ci bash -eo pipefail -c '
+            "$TIDESENSE_DEV_IMAGE" -eo pipefail -c '
+              source "$TIDESENSE_ROS_SETUP"
               git config --global --add safe.directory /sdk
               python3 .github/scripts/prepare-sdk.py
               source build/envsetup_soc.sh
