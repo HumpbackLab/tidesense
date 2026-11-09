@@ -50,6 +50,30 @@ sed s/400P_20FPS/480P_60FPS/g /mnt/data/sensor_cfg.ini > /tmp/sensor-480.ini
 
 将替换值改为 `800P_60FPS` 可测试 1280×800。`--free-run` 只影响本次运行，不改原 INI。
 
+## FPN 校正：黑平衡、暗场列纹与平场列增益
+
+`tide_cam` 从默认目录 `/mnt/data/ov9281-fpn/camN.fpn` 加载三项校正：全局黑平衡、
+暗场逐列偏移和平场逐列增益。暗场偏移按帧亮度自动衰减；平场增益只修正相对局部基线
+的细密列纹，保留镜头大尺度明暗分布。
+
+标定分两次采样，再打包进同一个文件：
+
+```sh
+# 盖住镜头采暗场；每个实际使用的模拟增益一组
+/mnt/data/ov9281-update/fpn_calib --mode dark --gain 15872 --out dark/g15872
+# 换成均匀离焦光源，调整曝光避免过曝，采同增益平场
+/mnt/data/ov9281-update/fpn_calib --mode flat --gain 15872 --out flat/g15872
+
+# 主机端先分析暗场，再分析同增益平场，最后配对打包
+python3 fpn_analyze.py dark/g15872
+python3 fpn_analyze.py flat/g15872 --dark dark/g15872
+python3 fpn_pack.py --dark dark/g* --flat flat/g* --out ov9281-fpn
+```
+
+暗场和平场的增益集合、尺寸必须一致。当前仍使用 TFPN 版本 2，但记录中加入平场增益；
+旧的暗场-only v2 和 v1 LUT 均不再兼容。完整命令、增益覆盖和部署位置见
+[tide_cam/README.md](../../tide_cam/README.md)。
+
 ## 自定义应用的 FSIN 顺序
 
 ```sh

@@ -38,6 +38,8 @@ void *CVI_SYS_MmapCache(CVI_U64 address, CVI_U32 size)
 }
 CVI_S32 CVI_SYS_IonInvalidateCache(CVI_U64 address, CVI_VOID *memory, CVI_U32 size)
 { (void)address; (void)memory; (void)size; return 0; }
+CVI_S32 CVI_SYS_IonFlushCache(CVI_U64 address, CVI_VOID *memory, CVI_U32 size)
+{ (void)address; (void)memory; (void)size; return 0; }
 CVI_S32 CVI_SYS_Munmap(CVI_VOID *memory, CVI_U32 size)
 { (void)memory; (void)size; return 0; }
 CVI_S32 CVI_ISP_QueryExposureInfo(VI_PIPE pipe, ISP_EXP_INFO_S *info)

@@ -14,7 +14,7 @@ int main(int argc,char** argv) {
    if (option=="--help") {
     std::cout << "tidesense_record --output NEW_DIR [--seconds N] [--width W] [--height H]\n"
      "  [--imu auto|/dev/iio:deviceN] [--calibration SCHUR.yaml] [--queue-pairs 1..128]\n"
-     "Hardware-synced stereo / 200Hz IMU via tide_cam. Camera settings: TIDE_CAM_CONFIG_PATH.\n"
+     "Hardware-synced stereo / 200Hz IMU via tide_cam. Camera settings: TIDE_CAM_CONFIG_PATH (fpn=0|1: black balance + dark-column FPN + flat-field gain).\n"
      "Session: --session --http-token HEX32 [--socket PATH] [--imu DEVICE] [--width W] [--height H]\n"
      "SSH transport: --relay SOCKET (for Unix socket connections, not capture)\n"
      "Use the same raw recording for datasets, calibration and VIO replay. Ctrl-C stops and flushes.\n"; return 0;

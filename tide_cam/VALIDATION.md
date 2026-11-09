@@ -193,6 +193,9 @@ ctest --test-dir install/tide_cam-host-tests --output-on-failure
 覆盖同步模式拒绝频率设置、自由运行范围/有理数/非法值、
 三种尺寸的像素缓冲边界/长度、逐像素租借有效性、左右独立时间戳、最新帧替换、FIFO 顺序和溢出、
 重复 release、未释放时拒绝 close、stop 唤醒及后台故障清理。
+`tide_cam_fpn` 另覆盖 FPN LUT 的黑平衡、暗场逐列偏移亮场衰减、平场逐列增益、
+增益插值和尺寸校验。平场算法用合成均匀场验证：33 列局部基线能降低细密列纹，
+同时保留大尺度亮度分布；暗场与平场输出可打包为同一个版本 2 LUT。
 `TEST` 后端仅用于上述测试，不是可部署的采集实现。
 
 `TIDE_CAM_BUILD_BOARD_TESTS=ON` 另构建 `tide_cam_board_test`，需复制到 SG2002 执行，

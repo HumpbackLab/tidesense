@@ -32,7 +32,7 @@ cd /mnt/data/tidesense-dataset
 | `--queue-pairs N` | 调整图像与压缩包的总待写容量，范围 1–128 |
 | `--calibration SCHUR.yaml` | 随录制保存标定；首次标定可省略 |
 
-相机曝光上限可通过设备 `/mnt/data/tide-configurator/camera.conf` 调整，修改后重启采集生效。原始图像不旋转、不缩放、不去畸变；IMU 保存标称 SI 单位，不预先应用 VIO 的 IMU 内参。
+相机曝光上限和 FPN 校正开关（黑平衡 + 暗场列纹 + 平场列增益）可通过设备 `/mnt/data/tide-configurator/camera.conf` 调整（`exposure_max_us=...`，可选 `fpn=0|1`），修改后重启采集生效。原始图像不旋转、不缩放、不去畸变；IMU 保存标称 SI 单位，不预先应用 VIO 的 IMU 内参。
 
 ## 文件与完整性
 

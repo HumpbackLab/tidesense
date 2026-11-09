@@ -48,6 +48,7 @@ void tide_cam_config_init(tide_cam_config *c)
     c->queue = TIDE_CAM_LATEST;
     c->buffer_count = 4;
     c->exposure_max_us = TIDE_CAM_DEFAULT_EXPOSURE_MAX_US;
+    c->fpn = 1;
 }
 
 void tide_cam_config_init_free_run(tide_cam_config *c)
@@ -68,7 +69,7 @@ int tide_cam_query_caps(tide_cam_caps *caps)
 static int validate(const tide_cam_config *c, const tide_cam_caps *caps)
 {
     if (!c || c->allow_partial > 1 || (c->allow_partial && c->jpeg_quality) || c->buffer_count < 3 ||
-        c->buffer_count > 64 || !c->mode.width || !c->mode.height ||
+        c->buffer_count > 64 || !c->mode.width || !c->mode.height || c->fpn > 1 ||
         !c->exposure_max_us || c->jpeg_quality > 99 ||
         (c->queue != TIDE_CAM_LATEST && c->queue != TIDE_CAM_FIFO) ||
         (c->sync != TIDE_CAM_SYNC_NONE && c->sync != TIDE_CAM_SYNC_HARDWARE))

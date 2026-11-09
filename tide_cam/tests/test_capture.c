@@ -17,28 +17,48 @@ static void test_config_file(void)
     close(fd);
     tide_cam_config config;
     tide_cam_config_init(&config);
+    assert(config.fpn == 1);
     char error[256];
     FILE *file = fopen(path, "w");
     assert(file);
     assert(fputs("# Camera setting\nexposure_max_us=2500\n", file) >= 0);
     assert(!fclose(file));
     assert(!tide_cam_config_load_file(path, &config, error, sizeof(error)));
-    assert(config.exposure_max_us == 2500);
+    assert(config.exposure_max_us == 2500 && config.fpn == 1);
+    file = fopen(path, "w");
+    assert(file);
+    assert(fputs("fpn = 0\nexposure_max_us = 1800\n", file) >= 0);
+    assert(!fclose(file));
+    assert(!tide_cam_config_load_file(path, &config, error, sizeof(error)));
+    assert(config.exposure_max_us == 1800 && config.fpn == 0);
     file = fopen(path, "w");
     assert(file);
     assert(fputs("exposure_max_us=0\n", file) >= 0);
     assert(!fclose(file));
     assert(tide_cam_config_load_file(path, &config, error, sizeof(error)) == TIDE_CAM_INVALID);
-    assert(config.exposure_max_us == 2500 && strstr(error, "exposure_max_us"));
+    assert(config.exposure_max_us == 1800 && config.fpn == 0 &&
+           strstr(error, "exposure_max_us"));
+    file = fopen(path, "w");
+    assert(file);
+    assert(fputs("exposure_max_us=1200\nfpn=2\n", file) >= 0);
+    assert(!fclose(file));
+    assert(tide_cam_config_load_file(path, &config, error, sizeof(error)) == TIDE_CAM_INVALID);
+    assert(config.exposure_max_us == 1800 && config.fpn == 0);
     file = fopen(path, "w");
     assert(file);
     assert(fputs("exposure_max_us=1200\nunknown=1\n", file) >= 0);
     assert(!fclose(file));
     assert(tide_cam_config_load_file(path, &config, error, sizeof(error)) == TIDE_CAM_INVALID);
-    assert(config.exposure_max_us == 2500);
+    assert(config.exposure_max_us == 1800 && config.fpn == 0);
+    file = fopen(path, "w");
+    assert(file);
+    assert(fputs("exposure_max_us=1200\nfpn=1\nfpn=0\n", file) >= 0);
+    assert(!fclose(file));
+    assert(tide_cam_config_load_file(path, &config, error, sizeof(error)) == TIDE_CAM_INVALID);
+    assert(config.exposure_max_us == 1800 && config.fpn == 0);
     assert(!unlink(path));
     assert(tide_cam_config_load_file(path, &config, error, sizeof(error)) == TIDE_CAM_NOT_FOUND);
-    assert(config.exposure_max_us == 2500);
+    assert(config.exposure_max_us == 1800 && config.fpn == 0);
 }
 
 static tide_cam *open_camera(tide_cam_queue queue, uint32_t buffers)

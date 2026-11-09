@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
       "    Replay uses aligned timestamps and applies configured IMU intrinsics once; no hardware/ROS required.\n"
       "  schurvins_stereo --vio-smoke IMU_DEVICE [FRAMES]\n"
       "Capture uses tide_cam in-process, with dimensions from calibration and hardware-triggered cadence.\n"
-      "Camera settings: TIDE_CAM_CONFIG_PATH (default /mnt/data/tide-configurator/camera.conf).\n"
+      "Camera settings: TIDE_CAM_CONFIG_PATH (default /mnt/data/tide-configurator/camera.conf; fpn=0|1: black balance + dark-column FPN + flat-field gain).\n"
       "SCHUR_JPEG_QUALITY=1..99 enables direct VI JPEG + native DDS stereo images (default 0=off).\n"
       "JPEG runs in an application thread with no rate limiter; slow encoding/publishing backpressures capture.\n"
       "For calibration, record raw data with tidesense_record and export to Kalibr; no separate capture mode.\n"

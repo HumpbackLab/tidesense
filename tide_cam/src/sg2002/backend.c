@@ -2,6 +2,7 @@
 #include "backend.h"
 #include "sample_comm.h"
 #include "ov9281_isp.h"
+#include "fpn.h"
 #include "jpeg.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -26,7 +27,26 @@ struct tide_cam_backend {
     int read_timeout_ms, rate_pending;
     char iio[PATH_MAX];
     tide_jpeg *jpeg;
+    tide_fpn *fpn[2];
 };
+
+static const char *fpn_directory(const tide_cam_config *config)
+{
+    return config->fpn ? "/mnt/data/ov9281-fpn" : "";
+}
+
+/* Apply the FPN LUT (black balance, dark-column FPN and flat-field gain) to
+ * the VI Y plane in place so both the mono8 copy and the direct-VI JPEG encoder
+ * see the corrected frame. The caller flushes the cache. */
+static int fpn_apply_frame(tide_cam_backend *b, int pipe, uint8_t *y,
+                           uint32_t width, uint32_t height, uint32_t stride)
+{
+    if (!b->fpn[pipe]) return 0;
+    ISP_EXP_INFO_S info;
+    if (CVI_ISP_QueryExposureInfo((VI_PIPE)pipe, &info) || !info.u32AGain)
+        return 0;
+    return tide_fpn_apply(b->fpn[pipe], info.u32AGain, y, width, height, stride);
+}
 
 /* SAMPLE_COMM_VI_StartViChn sets depth before enabling the SDK channel.
  * CMake propagates --wrap to static-library consumers. No runtime helper. */
@@ -190,6 +210,7 @@ int tide_backend_close(tide_cam_backend *b, char *error)
     int result = tide_backend_stop(b, error);
     if (result && (b->held[0] || b->held[1])) return result;
     tide_jpeg_close(b->jpeg);
+    for (int p = 0; p < 2; ++p) tide_fpn_free(b->fpn[p]);
     if (b->sys_ready) SAMPLE_COMM_SYS_Exit();
     if (b->lock_fd >= 0) close(b->lock_fd);
     free(b);
@@ -284,6 +305,9 @@ int tide_backend_open(const tide_cam_config *config, tide_cam_backend **out, cha
             ae.stAuto.stExpTimeRange.u32Min = config->exposure_max_us;
         TRY(CVI_ISP_SetExposureAttr(p, &ae));
     }
+    const char *fpn_dir = fpn_directory(config);
+    for (int p = 0; p < 2; ++p)
+        b->fpn[p] = tide_fpn_load(fpn_dir, p, config->mode.width, config->mode.height);
     if (config->jpeg_quality) {
         status = tide_jpeg_open(config, &b->jpeg, error);
         if (status) goto fail;
@@ -358,10 +382,15 @@ static int read_partial(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *p
         const uint8_t *y = CVI_SYS_MmapCache(f->u64PhyAddr[0], len);
         if (!y) return sdk_error(error, "CVI_SYS_MmapCache", -1);
         int ret = CVI_SYS_IonInvalidateCache(f->u64PhyAddr[0], (void *)y, len);
+        int corrected = 0;
+        if (!ret && (corrected = fpn_apply_frame(b, p, (uint8_t *)y, width, height,
+                                                 f->u32Stride[0])))
+            ret = CVI_SYS_IonFlushCache(f->u64PhyAddr[0], (void *)y, len);
         if (!ret) for (uint32_t row = 0; row < height; ++row)
             memcpy(destination + (size_t)row * width, y + (size_t)row * f->u32Stride[0], width);
         int unmap = CVI_SYS_Munmap((void *)y, len);
-        if (ret) return sdk_error(error, "CVI_SYS_IonInvalidateCache", ret);
+        if (ret) return sdk_error(error, corrected ? "CVI_SYS_IonFlushCache" :
+                                                     "CVI_SYS_IonInvalidateCache", ret);
         if (unmap) return sdk_error(error, "CVI_SYS_Munmap", unmap);
         out->frames[out->camera_count++] = (tide_cam_frame){(uint32_t)p, width, height, width,
             TIDE_CAM_MONO8, destination, (uint64_t)width * height, f->u64PTS * 1000, f->u32TimeRef};
@@ -461,11 +490,16 @@ int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pix
         const uint8_t *y = CVI_SYS_MmapCache(f->u64PhyAddr[0], len);
         if (!y) return sdk_error(error, "CVI_SYS_MmapCache", -1);
         int ret = CVI_SYS_IonInvalidateCache(f->u64PhyAddr[0], (void *)y, len);
+        int corrected = 0;
+        if (!ret && (corrected = fpn_apply_frame(b, p, (uint8_t *)y, width, height,
+                                                 f->u32Stride[0])))
+            ret = CVI_SYS_IonFlushCache(f->u64PhyAddr[0], (void *)y, len);
         if (!ret) for (uint32_t row = 0; row < height; ++row)
             memcpy(pixels + (size_t)p * width * height + (size_t)row * width,
                    y + (size_t)row * f->u32Stride[0], width);
         int unmap = CVI_SYS_Munmap((void *)y, len);
-        if (ret) return sdk_error(error, "CVI_SYS_IonInvalidateCache", ret);
+        if (ret) return sdk_error(error, corrected ? "CVI_SYS_IonFlushCache" :
+                                                     "CVI_SYS_IonInvalidateCache", ret);
         if (unmap) return sdk_error(error, "CVI_SYS_Munmap", unmap);
         out->frames[p] = (tide_cam_frame){(uint32_t)p, width, height, width,
             TIDE_CAM_MONO8, pixels + (size_t)p * width * height,

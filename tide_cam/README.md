@@ -107,6 +107,94 @@ stop 会取消尚未开始编码的输入，停止阶段不保证交付最后一
 JPEG 开启时，stop 只停止采集，VENC/SYS 资源保留到 close，防止释放应用正在读取的码流。
 各 stop/close 调用仍必须由调用方串行化。
 
+## FPN 校正（黑平衡 + 暗场列 FPN + 平场列增益）
+
+OV9281 既有随增益变化的残余黑电平，也有暗场列 FPN 和正常光照下可见的固定细密竖纹。
+SG2002 后端启动时按相机加载 `camN.fpn`，在 VI 的 Y 平面内原地执行：
+
+1. 扣除全局黑平衡；
+2. 扣除暗场逐列偏移；
+3. 乘以平场逐列增益。
+
+暗场偏移按当前帧高于黑电平的平均信号做 `K/(K+信号)` 衰减（`K=48` Y LSB）：
+暗场全量扣除，亮场自动减弱，避免暗场标定幅度在非暗室下过扣。平场增益只修正
+相对局部基线的细密列响应，不做全列均值归一化，因此保留镜头自然的大尺度明暗分布。
+三项都按 AE 上报的模拟增益在相邻标定点之间线性插值，无需关闭自动曝光。
+mono8 输出和直接 VI JPEG 都使用同一份已校正像素。
+
+默认目录为 `/mnt/data/ov9281-fpn`，文件名为 `cam0.fpn`（左）和 `cam1.fpn`（右）。
+目录中没有 LUT 时静默跳过；文件损坏或尺寸与当前采集模式不一致时打印一次警告并跳过。
+
+是否应用 LUT 由相机设置文件中的可选键控制（`TIDE_CAM_CONFIG_PATH`，默认
+`/mnt/data/tide-configurator/camera.conf`，与 `exposure_max_us` 同一文件）：
+
+- `fpn=1`（默认）：启动时加载并应用黑平衡、暗场列 FPN 和平场列增益。
+- `fpn=0`：不加载、不应用，即使 LUT 文件存在。
+
+配置文件缺少 `fpn` 时按 `1` 处理。没有单独的命令行开关。
+标定工具 `tide_cam_fpn_calib` 内部固定关闭校正，不会把已有 LUT 叠加进新数据。
+
+黑平衡量是 ISP BLC 之后、从 8-bit Y 暗帧测得的残余黑电平；板端 ISP BLC 粗表仍保留，
+FPN LUT 负责补偿其残余误差和左右相机差异。
+
+暗场和平场是两次独立采样，但最终只在打包时写入一次 `camN.fpn`。两次采样的曝光可以
+不同，但每个增益桶必须使用相同模拟增益。平场增益是乘性列响应，不需要在每个场景
+亮度下重标；只需保证标定时均匀光场不过曝。黑电平、暗场偏移和平场增益都会按实际
+模拟增益插值，因此应覆盖设备实际会用到的最低、最高增益。
+
+LUT 只针对生成时的采集尺寸（例如 640×400）；切换模式需要在该模式下重新标定。
+LUT 也与具体相机、曝光上限和当前增益曲线绑定；换板、换相机、修改
+`exposure_max_us` 或 ISP 标定变化后必须重新采集，不能沿用其他设备或其他时段的旧数据。
+当前 TFPN 仍为版本 2，但记录布局已改为每个增益桶包含
+`black_q8`、`width` 个暗场偏移和 `width` 个平场增益；旧版仅暗场的 v2 LUT
+以及 v1 LUT 都不再兼容，需要重新标定。
+
+标定流程（暗场盖住镜头；平场使用均匀、离焦光源，手动固定曝光/增益）：
+
+```sh
+# 1. 板端按增益各采一组暗帧；标定工具内部不应用已有 LUT。
+mkdir -p /mnt/data/fpn-cal/dark /mnt/data/fpn-cal/flat
+cd /mnt/data/fpn-cal
+for gain in 1024 2048 4096 7936 15872; do
+  /mnt/data/ov9281-update/fpn_calib \
+    --mode dark --frames 40 --exposure-us 500 --gain "$gain" \
+    --out "dark/g$gain"
+done
+
+# 2. 换成均匀离焦光源，保持每个增益的曝光不过曝，再采平场。
+for gain in 1024 2048 4096 7936 15872; do
+  /mnt/data/ov9281-update/fpn_calib \
+    --mode flat --frames 40 --exposure-us 500 --gain "$gain" \
+    --out "flat/g$gain"
+done
+# 上面的 500 us 只是示例；不同增益下应调整到均匀光场约 80..160 LSB 且不过曝。
+
+# 3. 取回主机，先分析暗场，再用同增益暗场分析平场。
+for g in 1024 2048 4096 7936 15872; do
+  scp -r "root@192.168.123.99:/mnt/data/fpn-cal/dark/g$g" \
+    "install/fpn-cal/dark-g$g"
+  scp -r "root@192.168.123.99:/mnt/data/fpn-cal/flat/g$g" \
+    "install/fpn-cal/flat-g$g"
+  python3 scripts/ov9281/fpn_analyze.py "install/fpn-cal/dark-g$g"
+  python3 scripts/ov9281/fpn_analyze.py "install/fpn-cal/flat-g$g" \
+    --dark "install/fpn-cal/dark-g$g"
+done
+
+# 4. 按增益配对打包为 TFPN，并部署到默认目录。
+python3 scripts/ov9281/fpn_pack.py \
+  --dark install/fpn-cal/dark-g* --flat install/fpn-cal/flat-g* \
+  --out install/ov9281-fpn
+ssh root@192.168.123.99 mkdir -p /mnt/data/ov9281-fpn
+scp install/ov9281-fpn/cam0.fpn install/ov9281-fpn/cam1.fpn \
+  root@192.168.123.99:/mnt/data/ov9281-fpn/
+```
+
+`fpn_analyze.py` 用前一半帧计算、后一半帧做留出验证。暗场输出
+`camN_lut.f32` / `camN_lut.txt`；平场先扣除同增益暗场，再用 33 列局部基线
+生成 `camN_flat.f32` / `camN_flat.txt`，并输出条纹降低量和对比 PNG。
+`fpn_pack.py` 要求暗场与平场的增益集合、尺寸完全一致。
+至少需要两个增益点；建议覆盖实际会用到的最低和最高模拟增益。
+
 自由运行的初始化与频率设置：
 
 ```c
@@ -131,6 +219,7 @@ install/tide_cam/
   lib/libtide_cam.a
   lib/cmake/tide_cam/
   bin/tide_cam_capture
+  bin/tide_cam_fpn_calib
 ```
 
 也可在已生成 SDK archives 后，用 GCC 11 构建全静态应用：
@@ -165,6 +254,7 @@ target_link_libraries(my_app PRIVATE tide_cam::tide_cam)
 ./tide_cam_capture --width 1280 --height 800 --frames 100 --free-run
 ./tide_cam_capture --free-run --fps 30 --frames 100
 ./tide_cam_capture --free-run --fps 30000/1001 --frames 100
+./tide_cam_capture --frames 5 --jpeg 90  # 保存首组 cam0.jpg / cam1.jpg
 ./tide_cam_capture --frames 0  # Ctrl-C 后在主线程正常关闭
 ```
 

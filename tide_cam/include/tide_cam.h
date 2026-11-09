@@ -58,6 +58,9 @@ typedef struct {
     tide_cam_queue queue;
     uint32_t buffer_count; /* 3..64 frame sets, including outstanding leases. */
     uint32_t exposure_max_us;
+    /* 1=apply the FPN LUT (black balance, dark-column FPN and flat-field
+     * column gain) when installed (default), 0=off. */
+    uint32_t fpn;
     /* Only valid for SYNC_NONE. Must be {0,0} in hardware-sync mode. */
     tide_cam_rate free_run_fps;
     uint32_t jpeg_quality; /* 0=disabled (default), 1..99=direct VI JPEG encoding. */

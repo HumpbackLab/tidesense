@@ -10,6 +10,30 @@
 static volatile sig_atomic_t interrupted;
 static void interrupt(int sig) { (void)sig; interrupted = 1; }
 
+static int save_jpeg(const tide_cam_jpeg_pair *pair)
+{
+    int ok = 1;
+    for (uint32_t p = 0; p < 2; ++p) {
+        const tide_cam_jpeg_frame *frame = &pair->frames[p];
+        if (!frame->size) continue;
+        char path[32];
+        snprintf(path, sizeof(path), "cam%u.jpg", frame->camera_id);
+        FILE *file = fopen(path, "wb");
+        if (!file) {
+            fprintf(stderr, "cannot write %s\n", path);
+            ok = 0;
+            continue;
+        }
+        size_t written = fwrite(frame->data, 1, frame->size, file);
+        int closed = fclose(file);
+        if (written != frame->size || closed) {
+            fprintf(stderr, "cannot write %s\n", path);
+            ok = 0;
+        }
+    }
+    return ok;
+}
+
 static int parse_rate(const char *value, tide_cam_rate *rate)
 {
     if (*value < '0' || *value > '9') return -1;
@@ -33,14 +57,15 @@ int main(int argc, char **argv)
 {
     tide_cam_config config;
     tide_cam_config_init(&config);
-    unsigned long limit = 100;
+    unsigned long limit = 100, jpeg_quality = 0;
     tide_cam_rate requested_rate = {0, 0};
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--help")) {
             puts("tide_cam_capture [--frames N] [--width W] [--height H] [--fifo]\n"
-                 "                 [--free-run [--fps N[/D]]]\n"
+                 "                 [--jpeg Q] [--free-run [--fps N[/D]]]\n"
                  "Hardware sync (default): frame rate is determined by the trigger.\n"
                  "--fps is only valid with --free-run (default 20 fps).\n"
+                 "--jpeg Q saves the first direct-VI JPEG pair as cam0.jpg/cam1.jpg.\n"
                  "N=0: continuous. No INI, helper process, ROS or VIO required.");
             return 0;
         } else if (!strcmp(argv[i], "--fifo")) config.queue = TIDE_CAM_FIFO;
@@ -48,6 +73,15 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--fps") && i + 1 < argc) {
             if (parse_rate(argv[++i], &requested_rate)) {
                 fputs("--fps requires a positive integer or fraction, e.g. 30 or 30000/1001\n", stderr);
+                return 2;
+            }
+        }
+        else if (!strcmp(argv[i], "--jpeg") && i + 1 < argc) {
+            char *end;
+            errno = 0;
+            jpeg_quality = strtoul(argv[++i], &end, 10);
+            if (errno || *end || !jpeg_quality || jpeg_quality > 99) {
+                fputs("--jpeg requires a quality between 1 and 99\n", stderr);
                 return 2;
             }
         }
@@ -76,6 +110,7 @@ int main(int argc, char **argv)
         if (tide_cam_query_caps(&caps)) return 1;
         config.free_run_fps = requested_rate.num ? requested_rate : caps.free_run_fps_default;
     }
+    config.jpeg_quality = (uint32_t)jpeg_quality;
     struct sigaction sa = {0};
     sa.sa_handler = interrupt;
     sigemptyset(&sa.sa_mask);
@@ -86,27 +121,46 @@ int main(int argc, char **argv)
     int status = tide_cam_open(&config, &camera, error, sizeof(error));
     if (status) { fprintf(stderr, "open: %s: %s\n", tide_cam_status_string(status), error); return 1; }
     uint64_t first = 0, last = 0, count = 0, checksum = 0;
-    while (!interrupted && (!limit || count < limit)) {
-        const tide_cam_frame_set *frames;
-        status = tide_cam_acquire(camera, &frames, 500);
-        if (status == TIDE_CAM_TIMEOUT) { status = TIDE_CAM_OK; continue; }
-        if (status) break;
-        if (!count) first = frames->timestamp_ns;
-        last = frames->timestamp_ns;
-        /* Touch every pixel to exercise both image buffers in the example. */
-        for (uint32_t p = 0; p < frames->camera_count; ++p)
-            for (uint64_t i = 0; i < frames->frames[p].data_size; ++i)
-                checksum += frames->frames[p].data[i];
-        ++count;
-        if (count == 1 || count % 20 == 0)
-            printf("set=%" PRIu64 " cameras=%u size=%ux%u stride=%u bytes=%" PRIu64
-                   " VI_ns=%" PRIu64 " right_VI_ns=%" PRIu64 "\n",
-                   frames->sequence, frames->camera_count, frames->frames[0].width,
-                   frames->frames[0].height, frames->frames[0].stride,
-                   frames->frames[0].data_size, frames->timestamp_ns,
-                   frames->camera_count > 1 ? frames->frames[1].timestamp_ns : 0);
-        status = tide_cam_release(camera, frames);
-        if (status) break;
+    if (config.jpeg_quality) {
+        while (!interrupted && (!limit || count < limit)) {
+            const tide_cam_jpeg_pair *pair;
+            status = tide_cam_get_jpeg(camera, &pair);
+            if (status) break;
+            uint64_t stamp = pair->frames[0].size ? pair->frames[0].timestamp_ns
+                                                  : pair->frames[1].timestamp_ns;
+            if (!count) {
+                first = stamp;
+                if (!save_jpeg(pair)) status = TIDE_CAM_IO;
+            }
+            last = stamp;
+            ++count;
+            int released = tide_cam_release_jpeg(camera, pair);
+            if (status) break;
+            if (released) { status = released; break; }
+        }
+    } else {
+        while (!interrupted && (!limit || count < limit)) {
+            const tide_cam_frame_set *frames;
+            status = tide_cam_acquire(camera, &frames, 500);
+            if (status == TIDE_CAM_TIMEOUT) { status = TIDE_CAM_OK; continue; }
+            if (status) break;
+            if (!count) first = frames->timestamp_ns;
+            last = frames->timestamp_ns;
+            /* Touch every pixel to exercise both image buffers in the example. */
+            for (uint32_t p = 0; p < frames->camera_count; ++p)
+                for (uint64_t i = 0; i < frames->frames[p].data_size; ++i)
+                    checksum += frames->frames[p].data[i];
+            ++count;
+            if (count == 1 || count % 20 == 0)
+                printf("set=%" PRIu64 " cameras=%u size=%ux%u stride=%u bytes=%" PRIu64
+                       " VI_ns=%" PRIu64 " right_VI_ns=%" PRIu64 "\n",
+                       frames->sequence, frames->camera_count, frames->frames[0].width,
+                       frames->frames[0].height, frames->frames[0].stride,
+                       frames->frames[0].data_size, frames->timestamp_ns,
+                       frames->camera_count > 1 ? frames->frames[1].timestamp_ns : 0);
+            status = tide_cam_release(camera, frames);
+            if (status) break;
+        }
     }
     if (status) {
         tide_cam_get_error(camera, error, sizeof(error));
