@@ -1,6 +1,6 @@
 # SchurVINS 回环检测卸载实验
 
-这是可选实验，默认仍使用原生 CPU FAST / ORB 和原生 CPU 匹配。
+这是可选回环实现。普通入口默认使用原 FAST 检测和 CPU 匹配；编入 TPU Gaussian 的构建默认使用 TPU Q9 预滤波。
 不运行位姿图优化，不修改 VIO 状态。实测见 [VALIDATION.md](VALIDATION.md)。
 不含读图的实时测试见 [LIVE-20261116.md](LIVE-20261116.md)。
 阈值从 16 校准为 3 的过程和实时对照见 [IVE-TUNING-20261116.md](IVE-TUNING-20261116.md)。
@@ -20,6 +20,9 @@ IVE 开关生成固定 OpenCV 3.4.20 `orb.cpp` 的带剖析副本，不改动依
 关闭 IVE 运行开关时，描述子已与原库逐字节比较。
 `SCHUR_LOOP_IVE_ORB` 默认 OFF，要求 `SCHUR_LOOP_OFFLOAD=ON`。
 输出使用独立 `*-loop-offload-ive` 目录。
+IVE 构建现在默认同时编入 TPU Gaussian，输出再追加 `-tpu-gaussian`；
+`SCHUR_LOOP_TPU_GAUSSIAN=OFF` 可构建不含该模块的 CPU 滤波版本。
+已编入时不设置 `SCHUR_ORB_BLUR` 即使用 `tpu-q9`，显式 `SCHUR_ORB_BLUR=cpu` 切回原浮点路径。
 
 单独配置已有构建目录时，先运行 `profile_orb.py`，再设置
 `SCHUR_LOOP_OFFLOAD=ON`、`SCHUR_LOOP_IVE_ORB=ON`。

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Experimental approximate Gaussian; ordinary/tuned runners retain CPU blur.
+# Explicit TPU entry; Gaussian-enabled builds also use TPU by default.
 set -eu
 app=${SCHUR_LOOP_APP:-$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)}
 export SCHUR_ORB_BLUR="${SCHUR_ORB_BLUR:-tpu-q9}"

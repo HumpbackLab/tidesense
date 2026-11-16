@@ -2,7 +2,8 @@
 
 分支 `feat/schurvins-loop-closing`，基线提交 `dd9c00d` 保存此前回环检测、IVE-ST=3、ORB 复用及调度实验。
 本轮在此之后实现可选的 **Linux TPU 高斯滤波**，C906 未参与计算；IVE 继续产生 ST 角点响应。
-普通入口和 `run-ive-tuned.sh` 保持 CPU Gaussian 默认，实验需显式选择 `tpu-q9`。
+按后续用户要求，已编入 TPU Gaussian 时，普通入口和 `run-ive-tuned.sh` 默认使用 `tpu-q9`；
+`SCHUR_ORB_BLUR=cpu` 保留原浮点回退路径。下面的测量数据来自切换默认值之前，使用显式模式作对照。
 
 ## 实现与精度
 
@@ -36,7 +37,7 @@ TPU 与 CPU 标量 Q9 模型逐像素一致，全部哨兵通过。
 
 两个自然图的像素差异比例约 9.0% / 9.6%，非零差异均为 1。
 小灰度误差仍会改变二进制比较结果，不能仅凭像素差小推断词袋或回环检出率相同。
-当前没有移动闭环精度验证，因此不修改默认 CPU 路径。
+当前仍没有移动闭环精度验证；切换默认值不改变上述近似误差结论。
 同图 CPU 回退的点数与描述子 checksum 已与原 OpenCV 库核对一致。
 
 ## 无文件读图的内存微基准
@@ -94,7 +95,8 @@ SCHUR_ROS_BACKEND=none SCHUR_WITH_LOOP_CLOSING=ON \
   scripts/schurvins/build.sh
 ```
 
-编译开关默认 OFF，要求 IVE 构建开关 ON 以使用固定版本 ORB 钩子；运行时检测器仍可选 FAST 或 IVE。
+IVE 构建默认将该编译开关设为 ON，要求 IVE 构建开关 ON 以使用固定版本 ORB 钩子；运行时检测器仍可选 FAST 或 IVE。
+显式 `SCHUR_LOOP_TPU_GAUSSIAN=OFF` 可构建 CPU 滤波版本。
 输出使用独立 `*-tpu-gaussian` 目录。需板上 Linux `cv181x_tpu` 驱动正常绑定；无需更换小核固件。
 设备实验目录为 `/mnt/data/schur-tpu-gaussian-20261116`：
 
@@ -105,9 +107,20 @@ cd /mnt/data/schur-tpu-gaussian-20261116
 SCHUR_ORB_BLUR=cpu ./run-tpu-gaussian.sh --vio schurvins.yaml auto /tmp/cpu-poses.csv 600
 ```
 
-`SCHUR_ORB_BLUR=cpu|tpu-q9`，默认 cpu。
+`SCHUR_ORB_BLUR=cpu|tpu-q9`，已编入该模块时默认 tpu-q9；不含该模块的构建使用 CPU。
 `SCHUR_ORB_BLUR_VERIFY=1` 额外运行 CPU Gaussian 并记录像素差，增加 CPU 开销，应与性能轮分开。
 ORB 探针的 `SCHUR_ORB_COMPARE_CPU=1` 另比较点集及描述子位差，仅用于诊断。
+
+## 默认路径切换验证
+
+删除 CMake 缓存中的 `SCHUR_LOOP_TPU_GAUSSIAN` 后重新配置，IVE 构建自动取 ON。
+更新设备实验目录的主程序与 ORB 探针后，未设置 `SCHUR_ORB_BLUR` 的固定图测试实际提交 TPU 3 次，
+描述子 checksum 与显式 `tpu-q9` 一致；显式 `cpu` 无 Gaussian TPU 提交，checksum 与此前 CPU 基线一致。
+
+通过普通 `run-ive-tuned.sh` 入口、不设置滤波环境变量实时运行 60 帧：
+`tracking=60`、`imu_fused=60`，Gaussian TPU 提交 2 次，正常退出。
+这次短程启动检查的整体处理帧率为 19.26 FPS，覆盖初始化开销；不是新的稳态性能对照。
+设备仅更新 `/mnt/data/schur-tpu-gaussian-20261116` 中的实验程序，原生产程序及标定未变。
 
 CMake 探针目标为 `schur_gaussian_probe` 和 `schur_orb_profile`：
 

@@ -31,7 +31,7 @@ deps="$sdk/install/schurvins-build/deps"
 loop_closing=${SCHUR_WITH_LOOP_CLOSING:-OFF}
 loop_offload=${SCHUR_LOOP_OFFLOAD:-OFF}
 loop_ive=${SCHUR_LOOP_IVE_ORB:-OFF}
-loop_gaussian=${SCHUR_LOOP_TPU_GAUSSIAN:-OFF}
+loop_gaussian=${SCHUR_LOOP_TPU_GAUSSIAN:-$loop_ive}
 case "$loop_gaussian" in
   OFF) ;;
   ON) [[ "$loop_ive" == ON ]] || { echo 'SCHUR_LOOP_TPU_GAUSSIAN requires SCHUR_LOOP_IVE_ORB=ON' >&2; exit 2; } ;;
@@ -52,6 +52,8 @@ case "$loop_closing" in
   ON) core="$core-loop"; out="$out-loop" ;;
   *) echo 'SCHUR_WITH_LOOP_CLOSING must be ON or OFF' >&2; exit 2 ;;
 esac
+orb_blur_default=cpu
+if [[ "$loop_gaussian" == ON ]]; then orb_blur_default=tpu-q9; fi
 if [[ "$loop_offload" == ON ]]; then core="$core-offload"; out="$out-offload"; fi
 if [[ "$loop_ive" == ON ]]; then core="$core-ive"; out="$out-ive"; fi
 if [[ "$loop_gaussian" == ON ]]; then core="$core-tpu-gaussian"; out="$out-tpu-gaussian"; fi
@@ -267,7 +269,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'SCHUR_LOOP_OFFLOAD=%s\nLOOP_MATCH_BACKEND_DEFAULT=cpu\n' "$loop_offload"
   printf 'SCHUR_LOOP_IVE_ORB=%s\nORB_DETECTOR_DEFAULT=fast\n' "$loop_ive"
   printf 'ORB_IVE_QUALITY_DEFAULT=3\n'
-  printf 'SCHUR_LOOP_TPU_GAUSSIAN=%s\nORB_BLUR_DEFAULT=cpu\n' "$loop_gaussian"
+  printf 'SCHUR_LOOP_TPU_GAUSSIAN=%s\nORB_BLUR_DEFAULT=%s\n' "$loop_gaussian" "$orb_blur_default"
   printf 'LOOP_REUSE_ORB_DEFAULT=OFF\nLOOP_PRECHECK_3D_DEFAULT=OFF\nTUNED_RUNNER_FASTPATHS=ON\nTUNED_RUNNER_LOOP_NICE=10\n'
   if [[ "$loop_closing" == ON ]]; then
     printf 'LOOP_PATCH_SHA256=%s\n' "$(sha256sum "$here/loop-closing/upstream.patch" | cut -d' ' -f1)"

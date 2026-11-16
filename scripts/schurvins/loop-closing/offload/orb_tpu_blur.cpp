@@ -140,8 +140,8 @@ thread_local std::unique_ptr<Gaussian> context;
 }
 bool tidesense_orb_blur(cv::Mat& pyramid,const std::vector<cv::Rect>& layers) {
   const char* mode=std::getenv("SCHUR_ORB_BLUR");
-  if(!mode || std::string(mode)=="cpu")return false;
-  if(std::string(mode)!="tpu-q9")throw std::runtime_error("SCHUR_ORB_BLUR must be cpu or tpu-q9");
+  if(mode && std::string(mode)=="cpu")return false;
+  if(mode && std::string(mode)!="tpu-q9")throw std::runtime_error("SCHUR_ORB_BLUR must be cpu or tpu-q9");
   if(!context)context.reset(new Gaussian);
   context->run(pyramid,layers);return true;
 }
