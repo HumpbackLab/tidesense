@@ -6,6 +6,9 @@
 由应用工作线程调用 `tide_cam` 直接编码 VI 原始缓冲，再发布两个 CompressedImage topic；
 第一版不限制发送频率，慢消费者会拖慢采集。接口、topic 和时间戳约定见 [CAMERA.md](CAMERA.md#左右-jpeg-经原生-dds-发布)。
 
+可选的 [回环检测实验](loop-closing/README.md) 使用 ORB / DBoW2 和 2D / 3D 几何验证，
+构建与运行默认关闭。当前仅输出检测结果，不修改 Schur EKF 或 odom 位姿。
+
 ## 构建与部署
 
 在 SDK 根目录运行：

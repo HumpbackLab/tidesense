@@ -28,6 +28,26 @@ case "$backend" in
   *) echo 'SCHUR_ROS_BACKEND must be micro-ros, native-dds or none' >&2; exit 2 ;;
 esac
 deps="$sdk/install/schurvins-build/deps"
+loop_closing=${SCHUR_WITH_LOOP_CLOSING:-OFF}
+loop_offload=${SCHUR_LOOP_OFFLOAD:-OFF}
+loop_ive=${SCHUR_LOOP_IVE_ORB:-OFF}
+case "$loop_ive" in
+  OFF) ;;
+  ON) [[ "$loop_offload" == ON ]] || { echo 'SCHUR_LOOP_IVE_ORB requires SCHUR_LOOP_OFFLOAD=ON' >&2; exit 2; } ;;
+  *) echo 'SCHUR_LOOP_IVE_ORB must be ON or OFF' >&2; exit 2 ;;
+esac
+case "$loop_offload" in
+  OFF) ;;
+  ON) [[ "$loop_closing" == ON ]] || { echo 'SCHUR_LOOP_OFFLOAD requires SCHUR_WITH_LOOP_CLOSING=ON' >&2; exit 2; } ;;
+  *) echo 'SCHUR_LOOP_OFFLOAD must be ON or OFF' >&2; exit 2 ;;
+esac
+case "$loop_closing" in
+  OFF) ;;
+  ON) core="$core-loop"; out="$out-loop" ;;
+  *) echo 'SCHUR_WITH_LOOP_CLOSING must be ON or OFF' >&2; exit 2 ;;
+esac
+if [[ "$loop_offload" == ON ]]; then core="$core-offload"; out="$out-offload"; fi
+if [[ "$loop_ive" == ON ]]; then core="$core-ive"; out="$out-ive"; fi
 jobs=${JOBS:-4}
 toolchain="$here/a53-gcc11-toolchain.cmake"
 cross="$sdk/host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
@@ -114,10 +134,17 @@ if [[ "$backend" == native-dds ]]; then
   export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 fi
 "$sdk/tide_cam/build.sh"
+if [[ "$loop_closing" == ON ]]; then "$here/loop-closing/prepare.sh"; fi
+if [[ "$loop_ive" == ON ]]; then python3 "$here/loop-closing/offload/profile_orb.py"; fi
 cmake -S "$here" -B "$core" "${common[@]}" \
   -DCMAKE_PREFIX_PATH="$stage" -DCMAKE_INSTALL_PREFIX="$out" \
   -DWORK="$work" -DDEPS="$deps" -DSCHUR_STATIC=ON -DGLOG_LIBRARY="$glog_library" \
   -DSCHUR_ROS_BACKEND="$backend" "${ros_args[@]}" \
+  -DSCHUR_WITH_LOOP_CLOSING="$loop_closing" \
+  -DSCHUR_LOOP_OFFLOAD="$loop_offload" \
+  -DSCHUR_LOOP_IVE_ORB="$loop_ive" \
+  -DSCHUR_LOOP_DEPS="${SCHUR_LOOP_DEPS:-$sdk/install/schur-loop-closing/deps}" \
+  -DSCHUR_LOOP_CERES="${SCHUR_LOOP_CERES:-$sdk/install/vio-compare-20260924-121320/deps/ceres}" \
   -DSCHUR_BUILD_ROS_TESTS="${SCHUR_BUILD_ROS_TESTS:-OFF}" \
   -DSCHUR_BUILD_BENCHMARKS="${SCHUR_BUILD_BENCHMARKS:-OFF}" \
   -DSCHUR_OPT_HALFSAMPLE_NEON="${SCHUR_OPT_HALFSAMPLE_NEON:-ON}" \
@@ -174,6 +201,27 @@ fi
 cp "$here/LICENSE.PX4-SC7U22" "$out/licenses/"
 # Preserve the full upstream source license notices in the downloaded trees too.
 cp "$sdk/SchurVINS/LICENSE" "$out/licenses/SchurVINS-LICENSE"
+if [[ "$loop_closing" == ON ]]; then
+  mkdir -p "$out/vocabulary"
+  mkdir -p "$out/loop-closing"
+  cp "$here/loop-closing/README.md" "$here/loop-closing/VALIDATION.md" "$out/loop-closing/"
+  cp "$sdk/install/schur-loop-closing/vocabulary/voc_VI01_8X4.yml.gz" "$out/vocabulary/"
+  cp "${SCHUR_LOOP_DEPS:-$sdk/install/schur-loop-closing/deps}/dbow2/LICENSE.txt" "$out/licenses/DBoW2-LICENSE.txt"
+  cp "${SCHUR_LOOP_DEPS:-$sdk/install/schur-loop-closing/deps}/opengv/License.txt" "$out/licenses/OpenGV-LICENSE.txt"
+  cp "${SCHUR_LOOP_CERES:-$sdk/install/vio-compare-20260924-121320/deps/ceres}/include/ceres/ceres.h" "$out/licenses/Ceres-notices.h"
+  cp "$here/loop-closing/upstream.patch" "$out/loop-closing-upstream.patch"
+  if [[ "$loop_offload" == ON ]]; then
+    mkdir -p "$out/loop-closing/offload"
+    cp "$here/loop-closing/offload/README.md" "$here/loop-closing/offload/VALIDATION.md" \
+      "$here/loop-closing/offload/LIVE-20261116.md" \
+      "$here/loop-closing/offload/IVE-TUNING-20261116.md" \
+      "$here/loop-closing/offload/ACCELERATION-20261116.md" "$out/loop-closing/offload/"
+    if [[ "$loop_ive" == ON ]]; then
+      cp "$here/loop-closing/offload/run-ive-tuned.sh" "$out/"
+      chmod +x "$out/run-ive-tuned.sh"
+    fi
+  fi
+fi
 cp "$deps/opencv-$OPENCV_VERSION/LICENSE" "$out/licenses/OpenCV-LICENSE"
 cp "$deps/yaml-cpp/LICENSE" "$out/licenses/yaml-cpp-LICENSE"
 cp "$sdk/SchurVINS/vikit/LICENSE" "$out/licenses/vikit-LICENSE"
@@ -189,6 +237,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
 (cd "$out" && {
   sha256sum bin/schurvins_stereo bin/schurvins_imu_test bin/prepare-imu.sh bin/test-imu-board.sh run.sh camera-smoke.yaml schurvins.yaml
   if [[ "$backend" == native-dds ]]; then sha256sum lib/* cyclonedds.xml; fi
+  if [[ "$loop_closing" == ON ]]; then sha256sum vocabulary/* loop-closing-upstream.patch; fi
 } > SHA256SUMS)
 {
   "${cross}g++" --version | head -1
@@ -201,6 +250,15 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'LIVE_CAMERA=tide_cam_in_process_dimensions_from_calibration\nLIVE_IMU=SC7U22_IIO_INT1_200Hz\nCAMERA_SYNC=hardware_trigger\n'
   printf 'IMU_INPUT_DOMAIN=raw_si\nIMU_INTRINSICS=single_stage\n'
   printf 'SCHUR_STATIC=%s\nSOURCE=%s\n' ON "$(git -C "$sdk/SchurVINS" rev-parse HEAD)"
+  printf 'SCHUR_WITH_LOOP_CLOSING=%s\nLOOP_RUNTIME_DEFAULT=OFF\nLOOP_MODE=detection_only_no_EKF_correction\n' "$loop_closing"
+  printf 'SCHUR_LOOP_OFFLOAD=%s\nLOOP_MATCH_BACKEND_DEFAULT=cpu\n' "$loop_offload"
+  printf 'SCHUR_LOOP_IVE_ORB=%s\nORB_DETECTOR_DEFAULT=fast\n' "$loop_ive"
+  printf 'ORB_IVE_QUALITY_DEFAULT=3\n'
+  printf 'LOOP_REUSE_ORB_DEFAULT=OFF\nLOOP_PRECHECK_3D_DEFAULT=OFF\nTUNED_RUNNER_FASTPATHS=ON\nTUNED_RUNNER_LOOP_NICE=10\n'
+  if [[ "$loop_closing" == ON ]]; then
+    printf 'LOOP_PATCH_SHA256=%s\n' "$(sha256sum "$here/loop-closing/upstream.patch" | cut -d' ' -f1)"
+    printf 'DBOW2_REV=3924753db6145f12618e7de09b7e6b258db93c6e\nOPENGV_REV=7542b890f4d8655119c80763795475bec4667fc9\n'
+  fi
   printf 'SCHUR_ROS_BACKEND=%s\nROS_RUNTIME_DEFAULT=%s\nSCHUR_WITH_MICRO_ROS=%s\nMICRO_ROS_RUNTIME_DEFAULT=OFF\n' "$backend" "$([[ "$backend" == native-dds ]] && echo ON || echo OFF)" "$micro_ros"
 } > "$out/BUILD-INFO"
 tar -C "$(dirname "$out")" -cf "$out-a53.tar" "$(basename "$out")"

@@ -175,6 +175,7 @@ static int probe_execute_at(struct tpu_probe_control *ctl, uintptr_t base, unsig
 #ifdef TIDESENSE_C906_FRONTEND
 #include "../c906-frontend/front_firmware.h"
 #endif
+#include "../../../schurvins/loop-closing/offload/firmware.h"
 
 static void c906_tpu_probe(uintptr_t base)
 {
@@ -198,6 +199,7 @@ static void c906_tpu_probe(uintptr_t base)
     if(ctl->operation==TPU_PROBE_FRONT){c906_tpu_front(base);return;}
 #endif
     inv_dcache_range(base+TPU_PROBE_CONTROL_BYTES, TPU_PROBE_BYTES-TPU_PROBE_CONTROL_BYTES);
+    if(ctl->operation==LOOP_MATCH_OPERATION) { c906_loop_match(base); return; }
 #ifdef TIDESENSE_C906_TPU_LK
     if (ctl->operation == TPU_PROBE_LK) {
         c906_tpu_lk(base, received);

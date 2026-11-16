@@ -5,6 +5,9 @@ app_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 export SCHUR_IMU_MIDPOINT="${SCHUR_IMU_MIDPOINT:-1}"
 export SCHUR_PIXEL_RESIDUAL="${SCHUR_PIXEL_RESIDUAL:-1}"
 export SCHUR_REGISTER_STEREO_POINTS="${SCHUR_REGISTER_STEREO_POINTS:-1}"
+if [ "${SCHUR_LOOP_CLOSING:-0}" = 1 ]; then
+  export SCHUR_LOOP_VOC="${SCHUR_LOOP_VOC:-$app_dir/vocabulary/voc_VI01_8X4.yml.gz}"
+fi
 case "${1:-}" in
   --vio) imu_device=${3:-} ;;
   --vio-smoke) imu_device=${2:-} ;;

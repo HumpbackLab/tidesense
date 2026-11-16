@@ -16,6 +16,7 @@ option(SCHUR_OPT_WARP_TAIL2 "Two-lane NEON affine warp row tails" OFF)
 option(SCHUR_SYNC_OUTLIER_OBSERVATIONS "Remove rejected frontend observations from the Schur backend" OFF)
 option(SCHUR_BUILD_BENCHMARKS "Build optimization correctness/benchmark tool" OFF)
 option(SCHUR_STATIC "Build static estimator; native DDS retains its shared ROS runtime" ON)
+option(SCHUR_WITH_LOOP_CLOSING "Build optional native ORB/DBoW2 loop detection" OFF)
 if(NOT DEFINED SCHUR_ROS_BACKEND)
   if(DEFINED SCHUR_WITH_MICRO_ROS AND SCHUR_WITH_MICRO_ROS)
     set(SCHUR_ROS_BACKEND micro-ros)
@@ -64,8 +65,9 @@ add_library(fast STATIC
   "${DEPS}/fast_neon/src/nonmax_3x3.cpp")
 # Keep the FAST-10 scalar reference for the default path and fallback.
 # SCHUR_OPT_FAST10_NEON selects the matching NEON detector/scorer below.
-# Eigen/OpenCV still use AArch64 NEON. ROS, loop closure, global map and
-# mono OpenGV initialization are optional and are not enabled for this stereo build.
+# Eigen/OpenCV still use AArch64 NEON. This estimator omits ROS 1, built-in
+# loop/global-map hooks and mono OpenGV initialization. The optional native
+# loop detector below uses a separate worker and immutable snapshots.
 if(SCHUR_STATIC)
   add_library(schurvins STATIC ${SOURCES})
 else()
@@ -139,6 +141,12 @@ target_link_options(schurvins PRIVATE "-Wl,--no-undefined")
 set(TIDE_CAM_BUILD_EXAMPLES OFF)
 add_subdirectory("${SDK_ROOT}/tide_cam" tide_cam EXCLUDE_FROM_ALL)
 add_executable(schurvins_stereo stereo.cpp tide_camera.cpp live_imu.cpp recording.cpp imu_prediction.cpp)
+if(SCHUR_WITH_LOOP_CLOSING)
+  include(loop-closing/dependencies.cmake)
+  target_sources(schurvins_stereo PRIVATE native_loop_closing.cpp)
+  target_compile_definitions(schurvins_stereo PRIVATE SCHUR_WITH_LOOP_CLOSING=1)
+  target_link_libraries(schurvins_stereo PRIVATE schurvins_loop_closing)
+endif()
 target_link_libraries(schurvins_stereo PRIVATE tide_cam::tide_cam)
 if(SCHUR_ROS_BACKEND STREQUAL "native-dds")
   list(PREPEND CMAKE_PREFIX_PATH "${SCHUR_NATIVE_DDS_ROOT}")

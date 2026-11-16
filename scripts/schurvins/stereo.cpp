@@ -8,6 +8,9 @@
 #include "ros_bridge.hpp"
 #include "imu_intrinsics.hpp"
 #include "recording.hpp"
+#ifdef SCHUR_WITH_LOOP_CLOSING
+#include "native_loop_closing.hpp"
+#endif
 #include <algorithm>
 #include <cmath>
 #include <chrono>
@@ -119,6 +122,8 @@ int main(int argc, char** argv) {
       "VIO modes acquire SC7U22 accel/gyro at 200Hz. Use run.sh with IMU_DEVICE=auto.\n"
       "IMU prediction defaults ON: IMU-rate ROS poses; POSES.csv stays visual-rate.\n"
       "SCHUR_PREDICTION=0 disables prediction; SCHUR_PREDICTION_CSV=<path> saves predicted poses.\n"
+      "SCHUR_LOOP_CLOSING=1 enables optional loop detection; SCHUR_LOOP_VOC=<ORB vocabulary>.\n"
+      "SCHUR_LOOP_CSV=<path> records loop work; detection does not correct odom/EKF poses.\n"
       "Camera modes run the stereo visual frontend without IMU. FRAMES defaults to 120; 0 runs until Ctrl-C.\n"
       "Camera smoke uses test-only geometry, reports input validation, and writes no poses.\n"
       "STEREO: timestamp_ns,left_image,right_image (paths relative to CSV)\n"
@@ -230,6 +235,16 @@ int main(int argc, char** argv) {
     init.init_min_features = 20;
     svo::FrameHandlerStereo vio(base, depth, detector, init,
         svo::StereoTriangulationOptions(), reproj, svo::FeatureTrackerOptions(), cams);
+    const char* loop_option = std::getenv("SCHUR_LOOP_CLOSING");
+    if (loop_option && std::string(loop_option) != "0" && std::string(loop_option) != "1")
+      throw std::runtime_error("SCHUR_LOOP_CLOSING must be 0 or 1");
+#ifdef SCHUR_WITH_LOOP_CLOSING
+    std::unique_ptr<NativeLoopClosing> loop;
+    if (loop_option && std::string(loop_option) == "1") loop.reset(new NativeLoopClosing(cams,yaml));
+#else
+    if (loop_option && std::string(loop_option) == "1")
+      throw std::runtime_error("Build with SCHUR_WITH_LOOP_CLOSING=ON to enable loop detection");
+#endif
     if (imu) vio.setImuHandler(imu);
     vio.start();
     std::unique_ptr<VioRecording> recording;
@@ -342,6 +357,7 @@ int main(int argc, char** argv) {
     }
     double max_age_ms = 0;
     uint64_t first_live_stamp = 0, last_live_stamp = 0;
+    const auto processing_begin = std::chrono::steady_clock::now();
     while (true) {
       uint64_t t;
       std::vector<cv::Mat> pair;
@@ -454,6 +470,12 @@ int main(int argc, char** argv) {
         << tracking_healthy << '\n';
       ++frames;
       auto f = vio.getLastFrames();
+#ifdef SCHUR_WITH_LOOP_CLOSING
+      if (loop) {
+        loop->check();
+        if (f && tracking_healthy && !smoke) loop->submit(f->at(0));
+      }
+#endif
       if (f && f->imu_ready_) ++fused;
       const uint64_t ros_stamp = uint64_t(int64_t(t) + ros_clock_offset);
       if (!f || !tracking_healthy) {
@@ -484,6 +506,13 @@ int main(int argc, char** argv) {
         << ',' << q.x() << ',' << q.y() << ',' << q.z() << ',' << q.w() << '\n';
     }
     std::cout << "frames=" << frames << " tracking=" << tracked << " imu_fused=" << fused << '\n';
+#ifdef SCHUR_WITH_LOOP_CLOSING
+    if (loop) loop->finish();
+#endif
+    const double processing_seconds = std::chrono::duration<double>(
+      std::chrono::steady_clock::now()-processing_begin).count();
+    std::cout << "processing_elapsed_s=" << processing_seconds
+              << " completed_processing_fps=" << frames/processing_seconds << '\n';
     if (camera) {
       // Stop IMU before the VI teardown (which can also delay kernel scheduling).
       if (live_imu) { live_imu->stop(); live_imu->check(); }
