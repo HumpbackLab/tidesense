@@ -31,6 +31,12 @@ deps="$sdk/install/schurvins-build/deps"
 loop_closing=${SCHUR_WITH_LOOP_CLOSING:-OFF}
 loop_offload=${SCHUR_LOOP_OFFLOAD:-OFF}
 loop_ive=${SCHUR_LOOP_IVE_ORB:-OFF}
+loop_gaussian=${SCHUR_LOOP_TPU_GAUSSIAN:-OFF}
+case "$loop_gaussian" in
+  OFF) ;;
+  ON) [[ "$loop_ive" == ON ]] || { echo 'SCHUR_LOOP_TPU_GAUSSIAN requires SCHUR_LOOP_IVE_ORB=ON' >&2; exit 2; } ;;
+  *) echo 'SCHUR_LOOP_TPU_GAUSSIAN must be ON or OFF' >&2; exit 2 ;;
+esac
 case "$loop_ive" in
   OFF) ;;
   ON) [[ "$loop_offload" == ON ]] || { echo 'SCHUR_LOOP_IVE_ORB requires SCHUR_LOOP_OFFLOAD=ON' >&2; exit 2; } ;;
@@ -48,6 +54,7 @@ case "$loop_closing" in
 esac
 if [[ "$loop_offload" == ON ]]; then core="$core-offload"; out="$out-offload"; fi
 if [[ "$loop_ive" == ON ]]; then core="$core-ive"; out="$out-ive"; fi
+if [[ "$loop_gaussian" == ON ]]; then core="$core-tpu-gaussian"; out="$out-tpu-gaussian"; fi
 jobs=${JOBS:-4}
 toolchain="$here/a53-gcc11-toolchain.cmake"
 cross="$sdk/host-tools/gcc/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
@@ -143,6 +150,7 @@ cmake -S "$here" -B "$core" "${common[@]}" \
   -DSCHUR_WITH_LOOP_CLOSING="$loop_closing" \
   -DSCHUR_LOOP_OFFLOAD="$loop_offload" \
   -DSCHUR_LOOP_IVE_ORB="$loop_ive" \
+  -DSCHUR_LOOP_TPU_GAUSSIAN="$loop_gaussian" \
   -DSCHUR_LOOP_DEPS="${SCHUR_LOOP_DEPS:-$sdk/install/schur-loop-closing/deps}" \
   -DSCHUR_LOOP_CERES="${SCHUR_LOOP_CERES:-$sdk/install/vio-compare-20260924-121320/deps/ceres}" \
   -DSCHUR_BUILD_ROS_TESTS="${SCHUR_BUILD_ROS_TESTS:-OFF}" \
@@ -215,10 +223,15 @@ if [[ "$loop_closing" == ON ]]; then
     cp "$here/loop-closing/offload/README.md" "$here/loop-closing/offload/VALIDATION.md" \
       "$here/loop-closing/offload/LIVE-20261116.md" \
       "$here/loop-closing/offload/IVE-TUNING-20261116.md" \
-      "$here/loop-closing/offload/ACCELERATION-20261116.md" "$out/loop-closing/offload/"
+      "$here/loop-closing/offload/ACCELERATION-20261116.md" \
+      "$here/loop-closing/offload/TPU-GAUSSIAN-20261116.md" "$out/loop-closing/offload/"
     if [[ "$loop_ive" == ON ]]; then
       cp "$here/loop-closing/offload/run-ive-tuned.sh" "$out/"
       chmod +x "$out/run-ive-tuned.sh"
+    fi
+    if [[ "$loop_gaussian" == ON ]]; then
+      cp "$here/loop-closing/offload/run-tpu-gaussian.sh" "$out/"
+      chmod +x "$out/run-tpu-gaussian.sh"
     fi
   fi
 fi
@@ -254,6 +267,7 @@ cp /usr/share/common-licenses/GPL-3 "$out/licenses/GPL-3" 2>/dev/null || true
   printf 'SCHUR_LOOP_OFFLOAD=%s\nLOOP_MATCH_BACKEND_DEFAULT=cpu\n' "$loop_offload"
   printf 'SCHUR_LOOP_IVE_ORB=%s\nORB_DETECTOR_DEFAULT=fast\n' "$loop_ive"
   printf 'ORB_IVE_QUALITY_DEFAULT=3\n'
+  printf 'SCHUR_LOOP_TPU_GAUSSIAN=%s\nORB_BLUR_DEFAULT=cpu\n' "$loop_gaussian"
   printf 'LOOP_REUSE_ORB_DEFAULT=OFF\nLOOP_PRECHECK_3D_DEFAULT=OFF\nTUNED_RUNNER_FASTPATHS=ON\nTUNED_RUNNER_LOOP_NICE=10\n'
   if [[ "$loop_closing" == ON ]]; then
     printf 'LOOP_PATCH_SHA256=%s\n' "$(sha256sum "$here/loop-closing/upstream.patch" | cut -d' ' -f1)"

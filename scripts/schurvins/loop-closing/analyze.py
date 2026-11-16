@@ -72,6 +72,7 @@ def summarize(prefix, warmup):
         'loop_offload_summary': next((line for line in log.splitlines() if line.startswith('loop_offload:')), None),
         'orb_profile': next((line for line in log.splitlines() if line.startswith('ORB_PROFILE ')), None),
         'ive_orb': next((line for line in log.splitlines() if line.startswith('ive_orb:')), None),
+        'gaussian_offload_summary': next((line for line in log.splitlines() if line.startswith('gaussian_offload:')), None),
         'loop_summary': next((line for line in log.splitlines() if line.startswith('loop_closing: received=')), None),
         'loop_worker_nice': int(re.search(r'loop_worker: nice=(-?\d+)',log)[1])
           if re.search(r'loop_worker: nice=(-?\d+)',log) else None,

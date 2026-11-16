@@ -5,6 +5,7 @@
 不含读图的实时测试见 [LIVE-20261116.md](LIVE-20261116.md)。
 阈值从 16 校准为 3 的过程和实时对照见 [IVE-TUNING-20261116.md](IVE-TUNING-20261116.md)。
 ORB 复用、3D 数量预检查及后台线程调度见 [ACCELERATION-20261116.md](ACCELERATION-20261116.md)。
+可选 TPU 7×7 Gaussian 的近似误差与收益见 [TPU-GAUSSIAN-20261116.md](TPU-GAUSSIAN-20261116.md)。
 
 ## 构建
 

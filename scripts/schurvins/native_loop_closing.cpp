@@ -17,6 +17,7 @@
 #include <sys/resource.h>
 extern "C" void tidesense_orb_profile_report() __attribute__((weak));
 extern "C" void tidesense_orb_ive_report() __attribute__((weak));
+extern "C" void tidesense_orb_blur_report() __attribute__((weak));
 #ifdef SCHUR_LOOP_OFFLOAD
 #include "loop-closing/offload/matcher.hpp"
 #endif
@@ -91,6 +92,13 @@ struct NativeLoopClosing::Impl {
   Impl(const svo::CameraBundle::Ptr& cameras, const YAML::Node& config)
     : detector(options(config), cameras),
       max_keyframes(value<size_t>(config["loop_closing"],"max_keyframes",500)) {
+    if(const char* mode=std::getenv("SCHUR_ORB_BLUR")) {
+      if(std::string(mode)!="cpu" && std::string(mode)!="tpu-q9")
+        throw std::runtime_error("SCHUR_ORB_BLUR must be cpu or tpu-q9");
+#ifndef SCHUR_LOOP_TPU_GAUSSIAN
+      if(std::string(mode)=="tpu-q9")throw std::runtime_error("Build with SCHUR_LOOP_TPU_GAUSSIAN=ON for Gaussian offload");
+#endif
+    }
     if (const char* text=std::getenv("SCHUR_LOOP_NICE")) {
       size_t end=0;worker_nice=std::stoi(text,&end);
       if (text[end] || worker_nice<0 || worker_nice>19)
@@ -185,6 +193,7 @@ struct NativeLoopClosing::Impl {
       }
       if(tidesense_orb_profile_report)tidesense_orb_profile_report();
       if(tidesense_orb_ive_report)tidesense_orb_ive_report();
+      if(tidesense_orb_blur_report)tidesense_orb_blur_report();
       svo::setFeatureMatchingAccelerator(nullptr);
     } catch (...) {
       svo::setFeatureMatchingAccelerator(nullptr);

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Instrument the pinned OpenCV ORB source without changing its algorithm."""
+"""Instrument pinned ORB with optional detector/blur hooks and the original CPU fallback."""
 from pathlib import Path
 root=Path(__file__).resolve().parents[4]
 source=root/'install/schurvins-build/deps/opencv-3.4.20/modules/features2d/src/orb.cpp'
@@ -43,11 +43,16 @@ scope('void ORB_Impl::detectAndCompute(', 'total','++orbprof::stats.calls;orbpro
 once('        fd->detect(img, keypoints, mask);','        { orbprof::Scope profile_fast(orbprof::stats.fast);\n        fd->detect(img, keypoints, mask); }')
 once('    Mat prevImg = image, prevMask = mask;','    { orbprof::Scope profile_pyramid(orbprof::stats.pyramid);\n    Mat prevImg = image, prevMask = mask;')
 once('    if( useOCL )\n        copyVectorToUMat(layerOfs, ulayerInfo);','    }\n    if( useOCL )\n        copyVectorToUMat(layerOfs, ulayerInfo);')
-once('            GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);',
-     '            orbprof::Scope profile_blur(orbprof::stats.blur);\n            GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);')
+once('        for( level = 0; level < nLevels; level++ )\n        {\n            // preprocess the resized image',
+     '        { orbprof::Scope profile_blur(orbprof::stats.blur);\n'
+     '        if(!tidesense_orb_blur || !tidesense_orb_blur(imagePyramid,layerInfo))\n'
+     '        for( level = 0; level < nLevels; level++ )\n        {\n            // preprocess the resized image')
+once('            GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);\n        }',
+     '            GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);\n        }\n        }')
 out.parent.mkdir(parents=True,exist_ok=True)
 once('#include "precomp.hpp"', '#include "precomp.hpp"\n'
-     'bool tidesense_orb_ive_detect(const cv::Mat&,const cv::Mat&,std::vector<cv::KeyPoint>&) __attribute__((weak));')
+     'bool tidesense_orb_ive_detect(const cv::Mat&,const cv::Mat&,std::vector<cv::KeyPoint>&) __attribute__((weak));\n'
+     'bool tidesense_orb_blur(cv::Mat&,const std::vector<cv::Rect>&) __attribute__((weak));')
 once('        fd->detect(img, keypoints, mask); }',
      '        if(!tidesense_orb_ive_detect || !tidesense_orb_ive_detect(img,mask,keypoints))\n'
      '            fd->detect(img, keypoints, mask); }')
