@@ -7,6 +7,8 @@
 
 ## 硬件
 
+![TideSense 双目视觉惯性里程计硬件](assets/tidesense-hardware.png)
+
 | 项目 | 配置 |
 | --- | --- |
 | 主控 | SG2002，Arm Cortex-A53 |

@@ -7,6 +7,8 @@ This repository provides the board SDK, sensor drivers, calibration, recording, 
 
 ## Hardware
 
+![TideSense stereo visual-inertial odometry hardware](assets/tidesense-hardware.png)
+
 | Component | Configuration |
 | --- | --- |
 | SoC | SG2002, Arm Cortex-A53 |
