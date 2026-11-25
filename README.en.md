@@ -42,12 +42,18 @@ The bundled calibration comes from the test board. Recalibrate when using differ
 
 ## Build
 
-Prepare the [development environment](docs/development-environment.md) first.
-Run all computer-side commands from the repository root:
+Clone the repository on the host, enter its root, and run `./setup.sh` to enter
+the development container:
 
 ```sh
 git clone https://github.com/HumpbackLab/tidesense.git
 cd tidesense
+./setup.sh
+```
+
+Inside the container:
+
+```sh
 ./scripts/repo_clone.sh --gitclone ./scripts/subtree.xml
 source build/envsetup_soc.sh
 defconfig sg2002_tidesense_arm64_sd

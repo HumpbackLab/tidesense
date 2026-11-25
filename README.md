@@ -41,11 +41,17 @@ ROS 2 通信按需启用，VIO 可独立运行。随包标定来自测试板，�
 
 ## 编译
 
-先准备 [开发环境](docs/development-environment.md)，电脑端命令均从工程根目录执行：
+在宿主机克隆工程并进入根目录，运行 `./setup.sh` 进入开发容器：
 
 ```sh
 git clone https://github.com/HumpbackLab/tidesense.git
 cd tidesense
+./setup.sh
+```
+
+进入容器后：
+
+```sh
 ./scripts/repo_clone.sh --gitclone ./scripts/subtree.xml
 source build/envsetup_soc.sh
 defconfig sg2002_tidesense_arm64_sd
