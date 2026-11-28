@@ -29,7 +29,7 @@ int main(void)
     assert(!tide_cam_query_caps(&caps));
     for (uint32_t mode = 0; mode < caps.mode_count; ++mode) for (int run = 0; run < 2; ++run) {
         tide_cam_config config;
-        tide_cam_config_init(&config);
+        tide_cam_config_init(&config, sizeof(config));
         config.mode = caps.modes[mode];
         config.queue = run ? TIDE_CAM_FIFO : TIDE_CAM_LATEST;
         tide_cam *camera = NULL, *busy = NULL;

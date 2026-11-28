@@ -25,10 +25,11 @@ if(TIDE_CAM_BACKEND STREQUAL "SG2002")
         message(FATAL_ERROR "SG2002 requires an AArch64 toolchain; use cmake/sg2002-gcc6.cmake")
     endif()
     set(_mpi "${TIDE_CAM_SDK_ROOT}/cvi_mpi")
-    target_sources(tide_cam PRIVATE src/sg2002/backend.c src/sg2002/jpeg.c)
+    target_sources(tide_cam PRIVATE src/sg2002/backend.c src/sg2002/jpeg.c src/sg2002/raw.c)
     target_include_directories(tide_cam SYSTEM PRIVATE
         "${_mpi}/include" "${_mpi}/modules/isp/include/cv181x"
-        "${_mpi}/sample/common" "${_mpi}/component/isp/common" "${_mpi}/3rdparty/inih")
+        "${_mpi}/sample/common" "${_mpi}/component/isp/common" "${_mpi}/3rdparty/inih"
+        "${_mpi}/component/isp/sensor/cv182x/ov_ov9281")
     set(_sdk_libs sample sys vi vo vpss rgn gdc venc cvi_bin cvi_bin_isp isp isp_algo ae af awb sns_full ini)
     set(_archives)
     foreach(_name IN LISTS _sdk_libs)
@@ -82,7 +83,8 @@ if(TIDE_CAM_BUILD_TESTS)
         "${TIDE_CAM_SDK_ROOT}/cvi_mpi/include"
         "${TIDE_CAM_SDK_ROOT}/cvi_mpi/include/isp/cv181x"
         "${TIDE_CAM_SDK_ROOT}/cvi_mpi/sample/common"
-        "${TIDE_CAM_SDK_ROOT}/cvi_mpi/component/isp/common")
+        "${TIDE_CAM_SDK_ROOT}/cvi_mpi/component/isp/common"
+        "${TIDE_CAM_SDK_ROOT}/cvi_mpi/component/isp/sensor/cv182x/ov_ov9281")
     target_compile_options(tide_cam_partial_sdk_test PRIVATE -Wall -Wextra -Werror -UNDEBUG -ffunction-sections -fdata-sections)
     target_link_options(tide_cam_partial_sdk_test PRIVATE -Wl,--gc-sections)
     add_test(NAME tide_cam_partial_sdk COMMAND tide_cam_partial_sdk_test)

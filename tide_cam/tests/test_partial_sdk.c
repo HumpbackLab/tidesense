@@ -50,6 +50,33 @@ CVI_S32 CVI_ISP_GetPubAttr(VI_PIPE pipe, ISP_PUB_ATTR_S *attr)
 { (void)pipe; (void)attr; return 0; }
 CVI_S32 CVI_ISP_SetPubAttr(VI_PIPE pipe, const ISP_PUB_ATTR_S *attr)
 { (void)pipe; (void)attr; return 0; }
+int ov9281_read_register(VI_PIPE pipe, int addr)
+{ (void)pipe; return addr == 0x3502 ? 0x20 : 0; }
+const OV9281_MODE_S *ov9281_get_mode(VI_PIPE pipe)
+{
+    (void)pipe;
+    static const OV9281_MODE_S mode = {.u32HtsDef = 800};
+    return &mode;
+}
+int tide_raw_read(VI_PIPE pipe, VIDEO_FRAME_INFO_S *frame, int timeout_ms)
+{
+    (void)pipe; (void)frame; (void)timeout_ms;
+    assert(0);
+    return -1;
+}
+int tide_raw_release(VI_PIPE pipe, const VIDEO_FRAME_INFO_S *frame)
+{
+    (void)pipe; (void)frame;
+    assert(0);
+    return -1;
+}
+int tide_raw_copy(const tide_raw_capture *raw, VI_PIPE pipe, const VIDEO_FRAME_S *frame,
+                  uint8_t *pixels, char *error)
+{
+    (void)raw; (void)pipe; (void)frame; (void)pixels; (void)error;
+    assert(0);
+    return -1;
+}
 
 int main(void)
 {
@@ -106,6 +133,32 @@ int main(void)
     unsigned before = calls[1];
     assert(tide_backend_read(&backend, &frames, pixels, error) == TIDE_CAM_TIMEOUT);
     assert(calls[1] == before);
+    available = 3;
+    sequence[0] = sequence[1] = 0;
+    tide_cam_backend synced = {0};
+    synced.config.mode = backend.config.mode;
+    synced.config.sync = TIDE_CAM_SYNC_SENSOR_MASTER;
+    synced.config.queue = TIDE_CAM_FIFO;
+    synced.period_ns = 50000000;
+    synced.progress_ns = monotonic_ns();
+    synced.read_timeout_ms = 100;
+    int events[2];
+    assert(!pipe2(events, O_NONBLOCK));
+    synced.edge_fd = events[0];
+    synced.edge_enabled = 1;
+    for (int i = 0; i < 4; ++i) {
+        struct iio_event_data edge = {.timestamp = 890000000 + i * 50000000};
+        assert(write(events[1], &edge, sizeof(edge)) == sizeof(edge));
+    }
+    assert(!tide_backend_read(&synced, &frames, pixels, error));
+    assert(frames.fsin_sequence == 4 && frames.fsin_timestamp_ns == 1040000000);
+    assert(frames.exposure_ns == 20000);
+    /* A missing edge makes the next frame ambiguous, even with close VI PTSes. */
+    struct iio_event_data skipped = {.timestamp = 1140000000};
+    assert(write(events[1], &skipped, sizeof(skipped)) == sizeof(skipped));
+    assert(tide_backend_read(&synced, &frames, pixels, error) == TIDE_CAM_DISCONTINUITY);
+    close(events[0]);
+    close(events[1]);
     puts("SG2002 partial preview: left/right/both, recovery, release and strict stereo passed");
     return 0;
 }

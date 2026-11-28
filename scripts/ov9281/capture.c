@@ -1,5 +1,9 @@
 /* Board smoke test: real dual-camera VI frames, dimensions and timestamps. */
 #include <stdio.h>
+#include <fcntl.h>
+#include <glob.h>
+#include <linux/iio/events.h>
+#include <sys/ioctl.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -56,6 +60,37 @@ static int expect_no_frames(const char *phase)
  return 0;
 }
 
+static int open_fsin_events(void)
+{
+ const char *pattern = "/sys/bus/spi/devices/*/iio:device*/events/in_count0_change_rising_en";
+ glob_t matches = {0};
+ int fd = -1, iio = -1;
+ if (!glob(pattern, 0, NULL, &matches) && matches.gl_pathc == 1) {
+  FILE *enable = fopen(matches.gl_pathv[0], "r");
+  int enabled = 0;
+  if (enable) {
+   if (fscanf(enable, "%d", &enabled) != 1) enabled = 0;
+   fclose(enable);
+  }
+  if (enabled == 1) {
+   const char *name = strstr(matches.gl_pathv[0], "/iio:device");
+   if (name) {
+    char path[64];
+    snprintf(path, sizeof(path), "/dev%.*s", (int)strcspn(name + 1, "/") + 1, name);
+    iio = open(path, O_RDONLY | O_CLOEXEC);
+    if (iio >= 0 && (ioctl(iio, IIO_GET_EVENT_FD_IOCTL, &fd) ||
+                    fcntl(fd, F_SETFL, O_NONBLOCK) < 0)) {
+     if (fd >= 0) close(fd);
+     fd = -1;
+    }
+   }
+  }
+ }
+ if (iio >= 0) close(iio);
+ globfree(&matches);
+ return fd;
+}
+
 int main(int argc, char **argv)
 {
  SAMPLE_INI_CFG_S ini = {0};
@@ -71,20 +106,23 @@ int main(int argc, char **argv)
  int rc = 1, sys_ready = 0, vi_ready = 0;
  int frames = 600;
  int fsin_test = argc == 3 && !strcmp(argv[2], "--fsin-test");
+ int continuous_sync = argc == 3 && !strcmp(argv[2], "--continuous-sync");
  int fsin_max_exposure = fsin_test && getenv("OV9281_FSIN_MAX_EXPOSURE") != NULL;
- int fsin_prepared = 0;
+ int fsin_prepared = 0, sync_fd = -1;
+ CVI_U64 min_period[2] = {0}, max_period[2] = {0};
  int warmup = fsin_test ? 4 : 0;
  setvbuf(stdout, NULL, _IONBF, 0);
  if (argc > 3) {
-  fprintf(stderr, "Usage: %s [sensor_cfg.ini [--free-run|--fsin-test]]\n", argv[0]);
+  fprintf(stderr, "Usage: %s [sensor_cfg.ini [--free-run|--fsin-test|--continuous-sync]]\n", argv[0]);
   return 2;
  }
- if (argc == 3 && strcmp(argv[2], "--free-run") && !fsin_test) return 2;
+ if (argc == 3 && strcmp(argv[2], "--free-run") && !fsin_test && !continuous_sync) return 2;
  CHECK(SAMPLE_COMM_VI_SetIniPath(argc > 1 ? argv[1] : "/mnt/data/sensor_cfg.ini"));
  CHECK(SAMPLE_COMM_VI_ParseIni(&ini));
  if (ini.devNum != 2) { fprintf(stderr, "Expected two cameras\n"); return 2; }
  for (int p = 0; p < 2; p++) {
-  if (argc == 3 && !fsin_test) ini.u8HwSync[p] = 0;
+  if (argc == 3 && !fsin_test)
+   ini.u8HwSync[p] = continuous_sync ? (p ? OV9281_SYNC_MASTER : OV9281_SYNC_SLAVE) : OV9281_SYNC_FREE_RUN;
   if (fsin_test && ini.u8HwSync[p] != 1) { fprintf(stderr, "FSIN test requires hw_sync=1\n"); goto out; }
   CHECK(SAMPLE_COMM_VI_GetSizeBySensor(ini.enSnsType[p], &pic));
   CHECK(SAMPLE_COMM_SYS_GetPicSize(pic, &size[p]));
@@ -102,6 +140,15 @@ int main(int argc, char **argv)
   CHECK(fsin_control("prepare", 0, 0));
   fsin_prepared = 1;
  }
+ /* Check that the SoC put the shared wire in input mode before starting
+  * an OV9281 configured to drive it. */
+ if (continuous_sync) {
+  sync_fd = open_fsin_events();
+  if (sync_fd < 0) {
+   fprintf(stderr, "Continuous stereo requires the kernel FSIN input event to be enabled\n");
+   goto out;
+  }
+ }
  CHECK(CVI_VI_SetDevNum(2));
  CHECK(SAMPLE_COMM_VI_IniToViCfg(&ini, &vi));
  for (int p = 0; p < 2; p++) {
@@ -116,6 +163,16 @@ int main(int argc, char **argv)
  sys_ready = 1;
  CHECK(SAMPLE_PLAT_VI_INIT(&vi));
  vi_ready = 1;
+ if (continuous_sync || nominal_fps[0] > 60) {
+  for (int p = 0; p < 2; ++p) {
+   ISP_EXPOSURE_ATTR_S exp;
+   CHECK(CVI_ISP_GetExposureAttr(p, &exp));
+   exp.enOpType = OP_TYPE_MANUAL;
+   exp.stManual.enExpTimeOpType = OP_TYPE_MANUAL;
+   exp.stManual.u32ExpTime = 500;
+   CHECK(CVI_ISP_SetExposureAttr(p, &exp));
+  }
+ }
  if (fsin_test) {
   if (fsin_max_exposure) {
    for (int p = 0; p < 2; p++) {
@@ -151,6 +208,7 @@ int main(int argc, char **argv)
   CHECK(expect_no_frames("after warmup stop"));
   CHECK(fsin_control("train", 20, frames + warmup));
  }
+ if (continuous_sync || nominal_fps[0] > 60) warmup = 16;
  for (int n = -warmup; n < frames; n++) {
   for (int p = 0; p < 2; p++) {
    VIDEO_FRAME_INFO_S f = {0};
@@ -160,6 +218,11 @@ int main(int argc, char **argv)
     f.stVFrame.u32Height == size[p].u32Height &&
     (n <= 0 || f.stVFrame.u64PTS > last[p]);
    if (n == 0) first[p] = f.stVFrame.u64PTS;
+   if (n > 0) {
+    CVI_U64 period = f.stVFrame.u64PTS - last[p];
+    if (!min_period[p] || period < min_period[p]) min_period[p] = period;
+    if (period > max_period[p]) max_period[p] = period;
+   }
    last[p] = f.stVFrame.u64PTS;
    if (n % 100 == 0 || n == frames - 1)
     printf("pipe %d frame %d: %ux%u pts=%llu\n", p, n,
@@ -167,6 +230,15 @@ int main(int argc, char **argv)
    if (n == frames - 1) { saved[p] = f; held[p] = 1; }
    else CHECK(CVI_VI_ReleaseChnFrame(0, p, &f));
    if (!valid) { fprintf(stderr, "Invalid dimensions or timestamp\n"); goto out; }
+  }
+  if (sync_fd >= 0) {
+   struct iio_event_data event;
+   while (read(sync_fd, &event, sizeof(event)) == sizeof(event))
+    if (getenv("OV9281_TRACE"))
+     printf("edge=%lld left=%llu right=%llu\n", (long long)event.timestamp / 1000,
+      (unsigned long long)last[0], (unsigned long long)last[1]);
+  } else if (getenv("OV9281_TRACE")) {
+   printf("left=%llu right=%llu\n", (unsigned long long)last[0], (unsigned long long)last[1]);
   }
   if (n < 0) continue;
   long long delta = (long long)last[1] - (long long)last[0];
@@ -180,6 +252,7 @@ int main(int argc, char **argv)
  }
  printf("VI arrival PTS delta right-left: min=%lld max=%lld us; not an exposure sync measurement\n",
   min_delta, max_delta);
+ int timing_ok = 1;
  for (int p = 0; p < 2; p++) {
   int w = (ov9281_read_register(p, 0x3808) << 8) | ov9281_read_register(p, 0x3809);
   int h = (ov9281_read_register(p, 0x380a) << 8) | ov9281_read_register(p, 0x380b);
@@ -196,17 +269,22 @@ int main(int argc, char **argv)
    fprintf(stderr, "FSIN exposure did not clamp to 546 lines\n"); goto out;
   }
   if (w != (int)size[p].u32Width || h != (int)size[p].u32Height) goto out;
-  if (vts != (ini.u8HwSync[p] ? 910 : (nominal_fps[p] == 20 ? 2730 : 910))) {
-   fprintf(stderr, "Unexpected sensor frame period\n"); goto out;
+  const OV9281_MODE_S *mode = ov9281_get_mode(p);
+  if (vts != (ini.u8HwSync[p] == OV9281_SYNC_SNAPSHOT ? OV9281_FSIN_VTS : (int)mode->u32VtsDef)) {
+   fprintf(stderr, "Unexpected sensor frame period\n"); timing_ok = 0;
   }
   if (fsin_test || nominal_fps[p] == 20) {
    double fps = (frames - 1) * 1000000.0 / (last[p] - first[p]);
    if (fps < 19 || fps > 21) { fprintf(stderr, "20fps mode rate out of range\n"); goto out; }
   }
  }
- for (int p = 0; p < 2; p++)
-  printf("PASS pipe %d: %d frames, %.3f fps (VI PTS)\n", p, frames,
-   (frames - 1) * 1000000.0 / (last[p] - first[p]));
+ for (int p = 0; p < 2; p++) {
+  double fps = (frames - 1) * 1000000.0 / (last[p] - first[p]);
+  if (nominal_fps[p] > 60 && (fps < nominal_fps[p] * .98 || fps > nominal_fps[p] * 1.02))
+   timing_ok = 0;
+  printf("pipe %d: %d frames, %.3f fps (VI PTS), intervals %llu..%llu us\n", p, frames, fps,
+   (unsigned long long)min_period[p], (unsigned long long)max_period[p]);
+ }
  for (int p = 0; p < 2; p++) {
   VIDEO_FRAME_INFO_S f = saved[p];
   int valid = 1;
@@ -238,8 +316,9 @@ int main(int argc, char **argv)
   if (!valid) goto out;
  }
  system("cat /proc/mipi-rx; cat /proc/cvitek/vi");
- rc = 0;
+ rc = !timing_ok;
 out:
+ if (sync_fd >= 0) close(sync_fd);
  if (fsin_prepared) fsin_control("stop", 0, 0);
  for (int p = 0; p < 2; p++)
   if (held[p]) CVI_VI_ReleaseChnFrame(0, p, &saved[p]);

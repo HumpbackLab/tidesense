@@ -187,7 +187,7 @@ int datasetRelay(int argc,char** argv) {
 int datasetSession(int argc,char** argv) {
  try {
   std::string socketPath="/run/tidesense-record.sock",device="auto",httpToken;
-  tide_cam_config config; tide_cam_config_init(&config); config.queue=TIDE_CAM_FIFO; config.buffer_count=8;
+  tide_cam_config config; tide_cam_config_init(&config, sizeof(config)); config.queue=TIDE_CAM_FIFO; config.buffer_count=8;
   config.allow_partial=1;
   loadCameraSettings(config);
   for (int i=1;i<argc;i+=2) {

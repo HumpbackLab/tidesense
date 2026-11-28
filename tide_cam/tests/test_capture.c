@@ -16,7 +16,7 @@ static void test_config_file(void)
     assert(fd >= 0);
     close(fd);
     tide_cam_config config;
-    tide_cam_config_init(&config);
+    tide_cam_config_init(&config, sizeof(config));
     char error[256];
     FILE *file = fopen(path, "w");
     assert(file);
@@ -46,7 +46,7 @@ static tide_cam *open_camera(tide_cam_queue queue, uint32_t buffers)
     assert(!mock_active());
     mock_reset();
     tide_cam_config config;
-    tide_cam_config_init(&config);
+    tide_cam_config_init(&config, sizeof(config));
     config.queue = queue;
     config.buffer_count = buffers;
     tide_cam *camera = NULL;
@@ -73,7 +73,7 @@ static void test_validation(void)
     assert(!tide_cam_query_caps(&caps));
     assert(caps.camera_count == 2 && caps.timestamp_kind == TIDE_CAM_TIMESTAMP_VI_ARRIVAL);
     tide_cam_config config;
-    tide_cam_config_init(&config);
+    tide_cam_config_init(&config, sizeof(config));
     tide_cam *camera = (tide_cam *)1;
     char error[256];
     config.mode.width = 1280;
@@ -84,21 +84,21 @@ static void test_validation(void)
     assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
     assert(tide_cam_open(NULL, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
     assert(!tide_cam_close(NULL));
-    tide_cam_config_init(&config);
-    assert(config.free_run_fps.num == 0 && config.free_run_fps.den == 0);
-    config.free_run_fps = (tide_cam_rate){20, 1};
+    tide_cam_config_init(&config, sizeof(config));
+    assert(config.fps.num == 0 && config.fps.den == 0);
+    config.fps = (tide_cam_rate){20, 1};
     assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
     assert(!mock_active() && strstr(error, "trigger"));
-    tide_cam_config_init_free_run(&config);
-    assert(config.sync == TIDE_CAM_SYNC_NONE && config.free_run_fps.num == 20);
+    tide_cam_config_init_free_run(&config, sizeof(config));
+    assert(config.sync == TIDE_CAM_SYNC_NONE && config.fps.num == 20);
     const tide_cam_rate invalid[] = {{0, 1}, {20, 0}, {0, 0}};
     for (uint32_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
-        config.free_run_fps = invalid[i];
+        config.fps = invalid[i];
         assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
     }
     const tide_cam_rate unsupported[] = {{1, 1}, {166, 100}, {61, 1}};
     for (uint32_t i = 0; i < sizeof(unsupported) / sizeof(unsupported[0]); ++i) {
-        config.free_run_fps = unsupported[i];
+        config.fps = unsupported[i];
         assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_UNSUPPORTED);
     }
     assert(!mock_active());
@@ -109,8 +109,8 @@ static void test_free_run_rates(void)
     for (uint32_t i = 0; i < sizeof(rates) / sizeof(rates[0]); ++i) {
         mock_reset();
         tide_cam_config config;
-        tide_cam_config_init_free_run(&config);
-        config.free_run_fps = rates[i];
+        tide_cam_config_init_free_run(&config, sizeof(config));
+        config.fps = rates[i];
         config.queue = TIDE_CAM_FIFO;
         tide_cam *camera;
         char error[256];
@@ -127,6 +127,72 @@ static void test_free_run_rates(void)
             assert(!tide_cam_release(camera, frames));
         }
         assert(!tide_cam_close(camera) && !mock_active());
+    }
+}
+static void test_config_size(void)
+{
+    tide_cam_config config;
+    assert(!tide_cam_config_init(&config, sizeof(config)));
+    assert(config.struct_size == sizeof(config));
+    assert(config.master_camera_id == TIDE_CAM_MASTER_UNSPECIFIED);
+    uint32_t exposure = config.exposure_max_us;
+    assert(tide_cam_config_init(&config, sizeof(config) - 1) == TIDE_CAM_INVALID);
+    assert(tide_cam_config_init(&config, sizeof(config) + 4) == TIDE_CAM_UNSUPPORTED);
+    assert(config.struct_size == sizeof(config) && config.exposure_max_us == exposure);
+
+    tide_cam *camera = NULL;
+    char error[256];
+    config.struct_size = sizeof(config) - 1;
+    assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
+    config.struct_size = sizeof(config) + 4;
+    assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_UNSUPPORTED);
+    assert(!camera && !mock_active());
+    assert(tide_cam_config_load_file("/missing", &config, error, sizeof(error)) == TIDE_CAM_UNSUPPORTED);
+    assert(config.exposure_max_us == exposure);
+    assert(!tide_cam_config_init(&config, sizeof(config)));
+    config.sync = (tide_cam_sync)99;
+    assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_UNSUPPORTED);
+    assert(!camera && !mock_active());
+}
+static void test_sensor_sync(void)
+{
+    tide_cam_config config;
+    tide_cam_config_init(&config, sizeof(config));
+    tide_cam *camera;
+    char error[256];
+    config.master_camera_id = 0;
+    assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
+    config.master_camera_id = TIDE_CAM_MASTER_UNSPECIFIED;
+    config.sync = TIDE_CAM_SYNC_SENSOR_MASTER;
+    config.fps = (tide_cam_rate){30, 1};
+    assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
+    assert(!camera);
+    config.master_camera_id = 2;
+    assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
+    config.master_camera_id = 0;
+    config.fps.den = 0;
+    assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
+    config.fps.den = 1;
+    config.allow_partial = 1;
+    assert(tide_cam_open(&config, &camera, error, sizeof(error)) == TIDE_CAM_INVALID);
+    config.allow_partial = 0;
+    for (uint32_t master = 0; master < 2; ++master) {
+        mock_reset();
+        config.master_camera_id = master;
+        config.mode.height = master ? 480 : 400;
+        config.fps.num = master ? 25 : 40;
+        assert(!tide_cam_open(&config, &camera, error, sizeof(error)));
+        const tide_cam_frame_set *frames;
+        mock_push(1);
+        assert(!tide_cam_acquire(camera, &frames, 1000));
+        assert(frames->sync == TIDE_CAM_SYNC_SENSOR_MASTER);
+        assert(frames->frames[0].camera_id == 0 && frames->frames[1].camera_id == 1);
+        assert(frames->frames[0].height == config.mode.height);
+        assert(frames->fsin_sequence == 1 && frames->exposure_ns == 500000);
+        assert(frames->timestamp_ns - frames->fsin_timestamp_ns == 1000000);
+        assert(!tide_cam_release(camera, frames));
+        assert(!tide_cam_stop(camera) && mock_active());
+        assert(!tide_cam_close(camera));
     }
 }
 static void test_latest_and_lease(void)
@@ -153,6 +219,20 @@ static void test_latest_and_lease(void)
     assert(tide_cam_acquire(camera, &latest, -1) == TIDE_CAM_STOPPED);
     assert(!tide_cam_close(camera));
 }
+static void test_fifo_drop_oldest(void)
+{
+    tide_cam *camera = open_camera(TIDE_CAM_FIFO_DROP_OLDEST, 3);
+    mock_push(5);
+    tide_cam_stats stats = wait_stats(camera, 5, 0);
+    assert(stats.queued == 3 && stats.replaced == 2);
+    for (uint64_t seq = 3; seq <= 5; ++seq) {
+        const tide_cam_frame_set *frames;
+        assert(!tide_cam_acquire(camera, &frames, 1000));
+        assert(frames->sequence == seq);
+        assert(!tide_cam_release(camera, frames));
+    }
+    assert(!tide_cam_close(camera));
+}
 static void test_resolutions(void)
 {
     tide_cam_caps caps;
@@ -160,7 +240,7 @@ static void test_resolutions(void)
     for (uint32_t m = 0; m < caps.mode_count; ++m) {
         mock_reset();
         tide_cam_config config;
-        tide_cam_config_init(&config);
+        tide_cam_config_init(&config, sizeof(config));
         config.mode = caps.modes[m];
         tide_cam *camera;
         char error[256];
@@ -230,8 +310,11 @@ int main(void)
 {
     test_config_file();
     test_validation();
+    test_config_size();
     test_free_run_rates();
+    test_sensor_sync();
     test_latest_and_lease();
+    test_fifo_drop_oldest();
     test_resolutions();
     test_fifo_overflow();
     test_stop_and_failure();
