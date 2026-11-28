@@ -20,7 +20,7 @@
 | `480p180` | 640×480 @180，RAW8 | 1280×480 | 需 FSIN 输入事件和 VI 前端模块 |
 | `400p210` | 640×400 @210，RAW8 | 1280×400 | 需 FSIN 输入事件和 VI 前端模块 |
 
-TideSense 开机 UVC 的四档均由右目输出 FSIN，左目跟随，默认选择 `800p60`。
+TideSense 开机 UVC 的四档均由右目输出 FSIN，左目跟随，默认选择 `400p40`。
 命令行 `./run.sh start 400p40` 仍使用 IMU 触发。直接调用 `bin/tidesense_uvc`
 并传入 `--master right` 时，`400p40` 也使用右目触发。采集库启用 SC7U22 IIO 的
 `events/in_count0_change_rising_en`，将共用的 SG2002 引脚切到输入，并记录同步边沿。
