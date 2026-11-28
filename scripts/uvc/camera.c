@@ -325,7 +325,7 @@ done:
 }
 int ts_source_open(struct ts_source *src) {
  pthread_mutex_init(&src->lock, NULL);
- int continuous = src->mode->fps != 40;
+ int continuous = src->sensor_sync;
  if (continuous) {
   if (sensor_init(src) || ts_imu_open(&src->imu)) return -1;
  } else {

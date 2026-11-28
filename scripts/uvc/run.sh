@@ -10,6 +10,8 @@ gadget=/tmp/usb/usb_gadget/cvitek
 func=$gadget/functions/uvc.tidesense
 config=$gadget/configs/c.1
 log=$base/uvc.log
+vi_module=/mnt/system/ko/cv181x_vi.ko
+vi_sysfs=/sys/module/cv181x_vi
 fail() { echo "TideSense UVC: $*" >&2; exit 1; }
 read_pid() {
  [ -f "$state/pid" ] || return 1
@@ -54,10 +56,16 @@ restore() {
   cat "$state/UDC" > "$gadget/UDC"
   ifconfig usb0 192.168.123.99 netmask 255.255.255.0 up
  fi
+ if [ -f "$state/restore_vi" ]; then
+  if [ -d "$vi_sysfs" ]; then rmmod cv181x_vi || fail "cannot release front-end VI"; fi
+  insmod "$vi_module" || fail "cannot restore the ISP VI module"
+ fi
  rm -rf "$state"
 }
 start_impl() {
  mode=$1
+ sensor_sync=${TIDESENSE_UVC_SENSOR_SYNC:-0}
+ if [ "$mode" != 400p40 ]; then sensor_sync=1; fi
  mkdir "$state" || fail "already active or switching; use status/stop"
  # shellcheck disable=SC2154
  trap 'rc=$?; trap - EXIT; if [ "$rc" -ne 0 ]; then restore; fi; exit "$rc"' EXIT
@@ -71,17 +79,11 @@ start_impl() {
 $descriptor
 EOF
  printf '%s\n' "$mode" > "$state/mode"
- fe_only=$(cat /sys/module/cv181x_vi/parameters/tidesense_fe_only 2>/dev/null || :)
+ fe_only=$(cat "$vi_sysfs/parameters/tidesense_fe_only" 2>/dev/null || :)
  maxpacket=3072
  case "$mode" in
-  480p180|400p210)
-   [ "$fe_only" = Y ] ||
-    fail "load the front-end RAW8 VI driver with tidesense_fe_only=1"
-   maxpacket=1024
-   ;;
-  *)
-   [ "$fe_only" != Y ] || fail "load the VI driver with the ISP path enabled"
-   ;;
+  480p180|400p210) maxpacket=1024 ;;
+  *) [ "$fe_only" != Y ] || fail "load the VI driver with the ISP path enabled" ;;
  esac
  if [ ! -r /sys/module/dwc2/parameters/gadget_desc_dma ] ||
     [ "$(cat /sys/module/dwc2/parameters/gadget_desc_dma)" != N ]; then
@@ -93,10 +95,18 @@ EOF
   [ -f "$d/name" ] || continue
   [ "$(cat "$d/name")" = sc7u22 ] || continue
   [ -f "$d/in_accel_sampling_frequency_available" ] || continue
-  [ "$mode" = 400p40 ] || [ -w "$d/events/in_count0_change_rising_en" ] || continue
+  [ "$sensor_sync" = 0 ] || [ -w "$d/events/in_count0_change_rising_en" ] || continue
   case " $(cat "$d/in_accel_sampling_frequency_available") " in *' 400 '*) capable=1 ;; esac
  done
  [ "$capable" = 1 ] || fail "install the matching 200/400Hz and FSIN kernel first"
+ if [ "$maxpacket" = 1024 ] && [ "$fe_only" != Y ]; then
+  [ "$fe_only" = N ] && [ -f "$vi_module" ] ||
+   fail "install the VI driver with front-end RAW8 support first"
+  [ "$(cat "$vi_sysfs/refcnt")" = 0 ] || fail "VI is in use; stop other camera programs"
+  rmmod cv181x_vi || fail "cannot release the ISP VI module"
+  touch "$state/restore_vi"
+  insmod "$vi_module" tidesense_fe_only=1 || fail "cannot load front-end VI"
+ fi
  for p in idProduct bDeviceClass bDeviceSubClass bDeviceProtocol UDC; do cat "$gadget/$p" > "$state/$p"; done
  cat "$gadget/strings/0x409/product" > "$state/product"
  [ -s "$state/UDC" ] || fail "RNDIS gadget must already be bound"
@@ -146,12 +156,15 @@ EOF
   if [ "$(cat "$d/function_name")" = uvc.tidesense ]; then video=/dev/${d##*/}; fi
  done
  [ -n "$video" ] || fail "UVC output node missing"
- "$base/bin/tidesense_uvc" --mode "$mode" --ini "$base/sensor_cfg.ini" --device "$video" \
-  --ready-file "$state/ready" --maxpacket "$maxpacket" &
- echo "$!" > "$state/pid"
+ set -- --mode "$mode" --ini "$base/sensor_cfg.ini" --device "$video" \
+  --ready-file "$state/ready" --maxpacket "$maxpacket"
+ if [ "$sensor_sync" = 1 ]; then set -- "$@" --master right; fi
+ "$base/bin/tidesense_uvc" "$@" &
+ producer=$!
+ echo "$producer" > "$state/pid"
  n=0
  while [ ! -f "$state/ready" ]; do
-  read_pid || fail "capture exited; see $log"
+  kill -0 "$producer" 2>/dev/null || fail "capture exited; see $log"
   n=$((n+1)); [ "$n" -lt 30 ] || fail "capture startup timeout"
   sleep 1
  done
@@ -164,6 +177,7 @@ case "${1:-status}" in
   action=$1
   if [ "$action" = start ]; then
    [ "$#" -le 2 ] || fail "Usage: run.sh start [400p40|800p60|480p180|400p210]"
+   [ ! -d "$state" ] || fail "already active; use status/stop"
    set -- "$action" "${2:-400p40}"
    "$base/bin/tidesense_uvc" --describe "$2" >/dev/null || fail "unknown mode: $2"
   else

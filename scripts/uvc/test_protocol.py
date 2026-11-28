@@ -35,6 +35,7 @@ class ProtocolTests(unittest.TestCase):
     def test_c_encoder_python_decoder_signed_axes_and_marker_bytes(self):
         self.assertEqual(len(self.frames), 3)
         meta = decode.metadata(self.frames[0])
+        self.assertEqual(meta["version"], 1)
         self.assertEqual(meta["frame_seq"], 1)
         self.assertEqual(meta["left_vi_ns"], 1025000000)
         self.assertEqual(meta["right_vi_ns"], 1027600000)
@@ -48,7 +49,7 @@ class ProtocolTests(unittest.TestCase):
         self.assertIn("IMU committed exactly once", result.stdout)
 
     def test_synchronized_profiles_round_trip(self):
-        for fps in (60, 180, 210):
+        for fps in (40, 60, 180, 210):
             with self.subTest(fps=fps):
                 stream = subprocess.check_output([str(self.executable), str(fps)])
                 frame = next(decode.iter_jpegs(io.BytesIO(stream)))

@@ -51,15 +51,16 @@ int main(int argc, char **argv) {
  }
  struct stat st;
  if (!src->mode || !src->ini || stat(src->ini, &st) || !S_ISREG(st.st_mode) || (!device == !capture) ||
-     (capture && !frames) || (device && frames) || (master_selected && src->mode->fps == 40)) {
+     (capture && !frames) || (device && frames)) {
   usage(argv[0]); free(src); return 2;
  }
+ src->sensor_sync = master_selected || src->mode->fps != 40;
  setvbuf(stdout, NULL, _IONBF, 0);
  if (!src->quality) src->quality = src->mode->quality;
  struct sigaction sa = {0}; sa.sa_handler = stop;
  sigaction(SIGINT, &sa, NULL); sigaction(SIGTERM, &sa, NULL);
  int rc = ts_source_open(src);
- if (!rc && src->mode->fps != 40) rc = ts_source_wait_ready(src);
+ if (!rc && src->sensor_sync) rc = ts_source_wait_ready(src);
  if (!rc) rc = capture ? ts_file_run(src, capture, frames) : ts_uvc_run(src, device, ready, maxpacket);
  ts_source_close(src); free(src);
  return rc ? 1 : 0;

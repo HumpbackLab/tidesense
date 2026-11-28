@@ -108,7 +108,7 @@ def metadata(jpeg):
             raise ValueError("invalid legacy frame rate or flags")
         if version == 2:
             fsin_ns, exposure_ns, reserved = FSIN.unpack_from(payload, HEADER.size)
-            if camera_hz not in (60, 180, 210) or not flags & 32 or not fsin_ns or not exposure_ns or reserved:
+            if camera_hz not in (40, 60, 180, 210) or not flags & 32 or not fsin_ns or not exposure_ns or reserved:
                 raise ValueError("invalid FSIN timestamp/exposure/rate")
             sync = dict(fsin_ns=fsin_ns, exposure_ns=exposure_ns)
         samples = []

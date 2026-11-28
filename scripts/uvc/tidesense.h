@@ -60,6 +60,7 @@ struct ts_source {
  int thread_started;
  atomic_int quit, error, ready;
  unsigned quality, master_camera_id;
+ int sensor_sync;
  const char *ini;
  const struct ts_mode *mode;
 };
