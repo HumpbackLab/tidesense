@@ -10,7 +10,7 @@
 int main() {
  try {
   mock_reset();
-  tide_cam_config config;tide_cam_config_init(&config);config.jpeg_quality=80;config.queue=TIDE_CAM_FIFO;
+  tide_cam_config config;tide_cam_config_init(&config, sizeof(config));config.jpeg_quality=80;config.queue=TIDE_CAM_FIFO;
   RosBridge poses;
   TideCamera camera(config);
   JpegPublisher publisher(camera,1000000000LL);

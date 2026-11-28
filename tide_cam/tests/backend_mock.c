@@ -87,7 +87,9 @@ int tide_backend_caps(tide_cam_caps *caps)
         {640, 480, TIDE_CAM_MONO8},
         {1280, 800, TIDE_CAM_MONO8},
     };
-    *caps = (tide_cam_caps){2, sizeof(modes) / sizeof(modes[0]), modes, 3,
+    *caps = (tide_cam_caps){2, sizeof(modes) / sizeof(modes[0]), modes,
+        (1u << TIDE_CAM_SYNC_NONE) | (1u << TIDE_CAM_SYNC_HARDWARE) |
+        (1u << TIDE_CAM_SYNC_SENSOR_MASTER),
         TIDE_CAM_CLOCK_MONOTONIC, TIDE_CAM_TIMESTAMP_VI_ARRIVAL,
         {20, 1}, {167, 100}, {60, 1}, {20, 1}};
     return 0;
@@ -131,13 +133,17 @@ int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pix
     if (status) return status;
     memset(out, 0, sizeof(*out));
     out->sequence = ++b->sequence;
-    tide_cam_rate rate = b->config.sync == TIDE_CAM_SYNC_HARDWARE ?
-        (tide_cam_rate){20, 1} : b->config.free_run_fps;
+    tide_cam_rate rate = b->config.sync == TIDE_CAM_SYNC_HARDWARE ? (tide_cam_rate){20, 1} : b->config.fps;
     out->timestamp_ns = 1000000000ULL + b->sequence * (1000000000ULL * rate.den / rate.num);
     out->camera_count = 0;
     out->sync = b->config.sync;
     out->clock = TIDE_CAM_CLOCK_MONOTONIC;
     out->timestamp_kind = TIDE_CAM_TIMESTAMP_VI_ARRIVAL;
+    if (out->sync == TIDE_CAM_SYNC_SENSOR_MASTER) {
+        out->fsin_sequence = out->sequence;
+        out->fsin_timestamp_ns = out->timestamp_ns - 1000000;
+        out->exposure_ns = 500000;
+    }
     for (uint32_t p = 0; p < 2; ++p) {
         if (!(available & (1u << p))) continue;
         uint32_t width = b->config.mode.width, height = b->config.mode.height;

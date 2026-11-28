@@ -1,11 +1,21 @@
 #define _POSIX_C_SOURCE 200809L
-#include "tide_cam.h"
+#include "backend.h"
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define TIDE_CAM_CONFIG_V1_SIZE (offsetof(tide_cam_config, allow_partial) + sizeof(uint32_t))
+_Static_assert(sizeof(tide_cam_config) == TIDE_CAM_CONFIG_V1_SIZE,
+               "Add new config sizes explicitly and keep accepting v1");
+
+int tide_cam_config_size_status(size_t size)
+{
+    if (size < TIDE_CAM_CONFIG_V1_SIZE) return TIDE_CAM_INVALID;
+    return size == TIDE_CAM_CONFIG_V1_SIZE ? TIDE_CAM_OK : TIDE_CAM_UNSUPPORTED;
+}
 
 static void message(char *error, uint32_t size, const char *value)
 {
@@ -19,6 +29,11 @@ int tide_cam_config_load_file(const char *path, tide_cam_config *config,
         message(error, error_size, "Configuration path and config are required");
         return TIDE_CAM_INVALID;
     }
+    int status = tide_cam_config_size_status(config->struct_size);
+    if (status) {
+        message(error, error_size, "Invalid or unsupported camera configuration size");
+        return status;
+    }
     FILE *file = fopen(path, "r");
     if (!file) {
         int code = errno;
@@ -29,7 +44,6 @@ int tide_cam_config_load_file(const char *path, tide_cam_config *config,
     char line[256];
     unsigned number = 0, found = 0;
     uint32_t limit = 0;
-    int status = TIDE_CAM_OK;
     while (fgets(line, sizeof(line), file)) {
         ++number;
         size_t length = strlen(line);

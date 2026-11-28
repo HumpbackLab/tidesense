@@ -42,7 +42,8 @@ static size_t prepare(struct output *o, struct ts_source *src, uint8_t *dst, siz
  if (fresh) memcpy(o->frame, &src->latest, offsetof(struct ts_frame, jpeg) + src->latest.size);
  pthread_mutex_unlock(&src->lock);
  if (!fresh) return 0;
- uint64_t cutoff = o->frame->left_ns > o->frame->right_ns ? o->frame->left_ns : o->frame->right_ns;
+ uint64_t cutoff = o->frame->fsin_ns;
+ if (!cutoff) cutoff = o->frame->left_ns > o->frame->right_ns ? o->frame->left_ns : o->frame->right_ns;
  uint64_t drops;
  size_t n = ts_imu_peek(&src->imu, cutoff, o->samples, TS_BATCH_MAX, &drops);
  uint64_t skipped = o->skipped;
@@ -85,16 +86,17 @@ done:
  if (file && fclose(file)) rc = -1;
  free(buf); if (o) { free(o->frame); free(o); } return rc;
 }
-static void control(struct uvc_streaming_control *c, unsigned maxpacket) {
+static void control(struct uvc_streaming_control *c, unsigned maxpacket, const struct ts_mode *mode) {
  memset(c, 0, sizeof(*c)); c->bmHint = htole16(1);
  c->bFormatIndex = c->bFrameIndex = 1;
- c->dwFrameInterval = htole32(250000);
+ c->dwFrameInterval = htole32((10000000U + mode->fps / 2) / mode->fps);
  c->dwMaxVideoFrameSize = htole32(TS_FRAME_MAX);
  c->dwMaxPayloadTransferSize = htole32(maxpacket);
  c->dwClockFrequency = htole32(1000000);
  c->bmFramingInfo = 3; c->bPreferedVersion = c->bMinVersion = c->bMaxVersion = 1;
 }
-static int setup(int fd, const struct usb_ctrlrequest *r, unsigned maxpacket, unsigned *pending,
+static int setup(int fd, const struct usb_ctrlrequest *r, unsigned maxpacket,
+                 const struct ts_mode *mode, unsigned *pending,
                  struct uvc_streaming_control *probe, struct uvc_streaming_control *commit) {
  struct uvc_request_data response = { .length = -EL2HLT };
  unsigned selector = le16toh(r->wValue) >> 8;
@@ -114,7 +116,7 @@ static int setup(int fd, const struct usb_ctrlrequest *r, unsigned maxpacket, un
    current = selector == UVC_VS_PROBE_CONTROL ? *probe : *commit;
    memcpy(response.data, &current, TS_UVC_CONTROL_SIZE); response.length = TS_UVC_CONTROL_SIZE; break;
   case UVC_GET_DEF: case UVC_GET_MIN: case UVC_GET_MAX:
-   control(&current, maxpacket); memcpy(response.data, &current, TS_UVC_CONTROL_SIZE);
+   control(&current, maxpacket, mode); memcpy(response.data, &current, TS_UVC_CONTROL_SIZE);
    response.length = TS_UVC_CONTROL_SIZE; break;
   case UVC_GET_RES:
    memset(response.data, 0, TS_UVC_CONTROL_SIZE); response.length = TS_UVC_CONTROL_SIZE; break;
@@ -131,6 +133,7 @@ static int setup(int fd, const struct usb_ctrlrequest *r, unsigned maxpacket, un
  return UVC_IOCTL(fd, UVCIOC_SEND_RESPONSE, &response);
 }
 int ts_uvc_run(struct ts_source *src, const char *device, const char *ready, unsigned maxpacket) {
+ const struct ts_mode *mode = src->mode ? src->mode : ts_mode_find("400p40");
  int fd = -1, rc = -1, streaming = 0;
  struct output *o = calloc(1, sizeof(*o));
  struct { void *addr; size_t length; int queued; } buffers[3] = {0};
@@ -149,7 +152,7 @@ int ts_uvc_run(struct ts_source *src, const char *device, const char *ready, uns
   if (UVC_IOCTL(fd, VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) goto done;
  }
  struct v4l2_format format = { .type = V4L2_BUF_TYPE_VIDEO_OUTPUT };
- format.fmt.pix.width = TS_WIDTH; format.fmt.pix.height = TS_HEIGHT;
+ format.fmt.pix.width = mode->width * 2; format.fmt.pix.height = mode->height;
  format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG; format.fmt.pix.sizeimage = TS_FRAME_MAX;
  if (UVC_IOCTL(fd, VIDIOC_S_FMT, &format) < 0) goto done;
  struct v4l2_requestbuffers request = { .count = 3, .type = type, .memory = V4L2_MEMORY_MMAP };
@@ -167,10 +170,11 @@ int ts_uvc_run(struct ts_source *src, const char *device, const char *ready, uns
   if (buffers[i].addr == MAP_FAILED) { buffers[i].addr = NULL; goto done; }
  }
  struct uvc_streaming_control probe, commit;
- control(&probe, maxpacket); commit = probe;
+ control(&probe, maxpacket, mode); commit = probe;
  unsigned pending = 0; uint64_t transmitted = 0;
  if (ready_file(ready)) goto done;
- fprintf(stderr, "uvc: ready %s MJPEG 1280x400@40, APP15 VI/IMU timestamps, RNDIS retained\n", device);
+ fprintf(stderr, "uvc: ready %s MJPEG %ux%u@%u, RNDIS retained\n",
+         device, mode->width * 2, mode->height, mode->fps);
  while (!ts_stopped && source_ok(src)) {
   /* POLLOUT is level-triggered even with no completed buffer on some gadget
    * versions. Poll events only, then nonblocking DQBUF; no busy loop. */
@@ -184,12 +188,12 @@ int ts_uvc_run(struct ts_source *src, const char *device, const char *ready, uns
     struct uvc_event *e = (void *)&event.u.data;
     switch (event.type) {
     case UVC_EVENT_SETUP:
-     if (setup(fd, &e->req, maxpacket, &pending, &probe, &commit) < 0) goto done;
+     if (setup(fd, &e->req, maxpacket, mode, &pending, &probe, &commit) < 0) goto done;
      break;
     case UVC_EVENT_DATA:
      if (pending && (e->data.length == 26 || e->data.length == 34)) {
       /* A single advertised mode: clamp host proposals to exactly that mode. */
-      control(pending == UVC_VS_PROBE_CONTROL ? &probe : &commit, maxpacket);
+      control(pending == UVC_VS_PROBE_CONTROL ? &probe : &commit, maxpacket, mode);
      }
      pending = 0; break;
     case UVC_EVENT_STREAMON:
@@ -227,8 +231,9 @@ int ts_uvc_run(struct ts_source *src, const char *device, const char *ready, uns
    size_t n = prepare(o, src, buffers[i].addr, buffers[i].length);
    if (!n) break;
    struct v4l2_buffer b = { .index = i, .type = type, .memory = V4L2_MEMORY_MMAP, .bytesused = n };
-   b.timestamp.tv_sec = o->frame->left_ns / 1000000000ULL;
-   b.timestamp.tv_usec = o->frame->left_ns / 1000 % 1000000;
+   uint64_t stamp = o->frame->fsin_ns ? o->frame->fsin_ns : o->frame->left_ns;
+   b.timestamp.tv_sec = stamp / 1000000000ULL;
+   b.timestamp.tv_usec = stamp / 1000 % 1000000;
    if (UVC_IOCTL(fd, VIDIOC_QBUF, &b) < 0) {
     /* The host can close its stream between DQEVENT and QBUF. The SDK
      * cancels the queue before delivering STREAMOFF; retain the producer

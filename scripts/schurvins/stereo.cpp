@@ -176,7 +176,7 @@ int main(int argc, char** argv) {
     if (camera && !smoke && ((yaml["test_only"] && yaml["test_only"].as<bool>()) ||
         (yaml["label"] && yaml["label"].as<std::string>().find("SYNTHETIC") != std::string::npos)))
       throw std::runtime_error("Use real calibration for --camera/--vio; test geometry is only allowed in smoke modes");
-    tide_cam_config camera_config; tide_cam_config_init(&camera_config);
+    tide_cam_config camera_config; tide_cam_config_init(&camera_config, sizeof(camera_config));
     if (const char* quality=std::getenv("SCHUR_JPEG_QUALITY")) {
       const std::string value(quality);
       if (value.empty() || value.find_first_not_of("0123456789")!=std::string::npos || std::stoul(value)>99)

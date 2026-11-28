@@ -1,4 +1,4 @@
-/* TideSense UVC v1. Wire integers are explicitly little-endian. */
+/* TideSense UVC. Wire integers are explicitly little-endian. */
 #ifndef TIDESENSE_UVC_H
 #define TIDESENSE_UVC_H
 #include <stdint.h>
@@ -7,19 +7,26 @@
 #include <stdatomic.h>
 #include <signal.h>
 
-#define TS_WIDTH 1280
-#define TS_HEIGHT 400
 #define TS_FRAME_MAX (512U * 1024U)
 #define TS_META_HEADER 96U
+#define TS_SYNC_META_HEADER 112U
 #define TS_SAMPLE_SIZE 32U
 #define TS_BATCH_MAX 1024U
 #define TS_RING_SIZE 2048U
-#define TS_META_MAX (TS_META_HEADER + TS_SAMPLE_SIZE * TS_BATCH_MAX)
+#define TS_META_MAX (TS_SYNC_META_HEADER + TS_SAMPLE_SIZE * TS_BATCH_MAX)
 #define TS_FLAG_VI_MONOTONIC 1U
 #define TS_FLAG_IMU_GAP 2U
 #define TS_FLAG_OVERFLOW 4U
 #define TS_FLAG_PAIR_DROP 8U
 #define TS_FLAG_DISCONTINUITY 16U
+#define TS_FLAG_FSIN_MONOTONIC 32U
+
+struct ts_mode {
+ const char *name;
+ unsigned width, height, fps, usb_interval, quality;
+};
+
+const struct ts_mode *ts_mode_find(const char *);
 
 struct ts_sample {
  uint64_t seq, ns;
@@ -27,8 +34,8 @@ struct ts_sample {
  uint32_t flags;
 };
 struct ts_frame {
- uint64_t seq, left_ns, right_ns, pair_drops;
- uint32_t left_ref, right_ref;
+ uint64_t seq, left_ns, right_ns, pair_drops, fsin_ns;
+ uint32_t left_ref, right_ref, fps, exposure_ns;
  size_t size;
  uint8_t jpeg[TS_FRAME_MAX];
 };
@@ -51,9 +58,11 @@ struct ts_source {
  struct ts_imu imu;
  pthread_t thread;
  int thread_started;
- atomic_int quit, error;
- unsigned quality;
+ atomic_int quit, error, ready;
+ unsigned quality, master_camera_id;
+ int sensor_sync;
  const char *ini;
+ const struct ts_mode *mode;
 };
 extern volatile sig_atomic_t ts_stopped;
 uint64_t ts_now(void);
@@ -67,6 +76,7 @@ size_t ts_metadata(uint8_t *, const struct ts_frame *, const struct ts_imu *,
                    const struct ts_sample *, size_t, uint64_t, uint64_t, unsigned);
 size_t ts_jpeg_with_metadata(uint8_t *, size_t, const struct ts_frame *, const uint8_t *, size_t);
 int ts_source_open(struct ts_source *);
+int ts_source_wait_ready(struct ts_source *);
 void ts_source_close(struct ts_source *);
 int ts_uvc_run(struct ts_source *, const char *, const char *, unsigned);
 int ts_file_run(struct ts_source *, const char *, unsigned);

@@ -15,7 +15,7 @@ class ProtocolTests(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
         cls.root = Path(cls.temp.name)
-        executable = cls.root / "protocol-test"
+        cls.executable = executable = cls.root / "protocol-test"
         subprocess.run(["cc", "-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror", "-pthread",
                         str(HERE / "test_protocol.c"), str(HERE / "protocol.c"), str(HERE / "imu.c"),
                         "-o", str(executable)], check=True)
@@ -23,7 +23,7 @@ class ProtocolTests(unittest.TestCase):
         cls.frames = list(decode.iter_jpegs(io.BytesIO(cls.stream)))
         cls.uvc_test = cls.root / "uvc-test"
         subprocess.run(["cc", "-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror", "-pthread",
-                        str(HERE / "test_uvc.c"), str(HERE / "output.c"), str(HERE / "protocol.c"),
+                        str(HERE / "test_uvc.c"), str(HERE / "output.c"), str(HERE / "protocol.c"), str(HERE / "mode.c"),
                         str(HERE / "imu.c"), "-o", str(cls.uvc_test),
                         *[f"-Wl,--wrap={name}" for name in ("open", "close", "ioctl", "poll", "mmap", "munmap")]],
                        check=True)
@@ -35,6 +35,7 @@ class ProtocolTests(unittest.TestCase):
     def test_c_encoder_python_decoder_signed_axes_and_marker_bytes(self):
         self.assertEqual(len(self.frames), 3)
         meta = decode.metadata(self.frames[0])
+        self.assertEqual(meta["version"], 1)
         self.assertEqual(meta["frame_seq"], 1)
         self.assertEqual(meta["left_vi_ns"], 1025000000)
         self.assertEqual(meta["right_vi_ns"], 1027600000)
@@ -46,6 +47,19 @@ class ProtocolTests(unittest.TestCase):
     def test_sdk_ioctl_success_and_empty_events(self):
         result = subprocess.run([str(self.uvc_test)], text=True, capture_output=True, check=True)
         self.assertIn("IMU committed exactly once", result.stdout)
+
+    def test_synchronized_profiles_round_trip(self):
+        for fps in (40, 60, 180, 210):
+            with self.subTest(fps=fps):
+                stream = subprocess.check_output([str(self.executable), str(fps)])
+                frame = next(decode.iter_jpegs(io.BytesIO(stream)))
+                meta = decode.metadata(frame)
+                self.assertEqual(meta["version"], 2)
+                self.assertEqual(meta["camera_hz"], fps)
+                self.assertEqual(meta["fsin_ns"], 1024000000)
+                self.assertEqual(meta["exposure_ns"], 500000)
+                self.assertTrue(meta["flags"] & 32)
+                self.assertEqual(len(meta["imu"]), 10)
 
     def test_stream_rates_and_exports(self):
         source = self.root / "capture.mjpg"

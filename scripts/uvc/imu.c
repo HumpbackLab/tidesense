@@ -98,7 +98,10 @@ int ts_imu_open(struct ts_imu *imu) {
  }
  imu->rate_changed = 1;
  if (value(imu, "in_anglvel_sampling_frequency", text, sizeof(text)) || strcmp(text, "400")) return -1;
- if (ts_setting(imu, "current_timestamp_clock", "monotonic")) return -1;
+ /* An open IIO event descriptor prevents clock changes. The TideSense
+  * driver already selects monotonic before the camera owns FSIN input. */
+ if (value(imu, "current_timestamp_clock", text, sizeof(text)) ||
+     (strcmp(text, "monotonic") && ts_setting(imu, "current_timestamp_clock", "monotonic"))) return -1;
  const char *channels[] = {"in_accel_x", "in_accel_y", "in_accel_z",
   "in_anglvel_x", "in_anglvel_y", "in_anglvel_z", "in_timestamp"};
  for (unsigned i = 0; i < 7; ++i) {

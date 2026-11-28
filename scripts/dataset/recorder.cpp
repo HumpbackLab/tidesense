@@ -5,7 +5,7 @@ int main(int argc,char** argv) {
  if (argc>1 && std::string(argv[1])=="--session") return datasetSession(argc-1,argv+1);
  if (argc>1 && std::string(argv[1])=="--relay") return datasetRelay(argc-1,argv+1);
  std::string dir,device="auto",calibration;
- tide_cam_config camera_config; tide_cam_config_init(&camera_config);
+ tide_cam_config camera_config; tide_cam_config_init(&camera_config, sizeof(camera_config));
  camera_config.queue=TIDE_CAM_FIFO; camera_config.buffer_count=8;
  uint64_t seconds=0,capacity=64;
  try {

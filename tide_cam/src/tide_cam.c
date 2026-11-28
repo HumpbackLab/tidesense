@@ -21,6 +21,7 @@ struct tide_cam {
     pthread_cond_t ready;
     pthread_t worker;
     struct slot *slots;
+    uint32_t slot_count;
     uint32_t *queue, head, count;
     int stop_requested, terminal, joined, cleanup_status;
     tide_cam_stats stats;
@@ -34,29 +35,50 @@ static void copy_error(char *out, uint32_t size, const char *text)
     if (out && size) snprintf(out, size, "%s", text);
 }
 
-void tide_cam_config_init(tide_cam_config *c)
+static tide_cam_config default_config(const tide_cam_caps *caps)
 {
-    if (!c) return;
-    memset(c, 0, sizeof(*c));
-    tide_cam_caps caps;
-    if (!tide_backend_caps(&caps) && caps.mode_count) {
-        c->mode = caps.modes[0];
-        c->sync = (caps.sync_modes & (1u << TIDE_CAM_SYNC_HARDWARE)) ?
+    tide_cam_config config = {
+        .struct_size = sizeof(tide_cam_config),
+        .master_camera_id = TIDE_CAM_MASTER_UNSPECIFIED,
+        .queue = TIDE_CAM_LATEST,
+        .buffer_count = 4,
+        .exposure_max_us = TIDE_CAM_DEFAULT_EXPOSURE_MAX_US,
+    };
+    if (caps->mode_count) {
+        config.mode = caps->modes[0];
+        config.sync = (caps->sync_modes & (1u << TIDE_CAM_SYNC_HARDWARE)) ?
             TIDE_CAM_SYNC_HARDWARE : TIDE_CAM_SYNC_NONE;
-        if (c->sync == TIDE_CAM_SYNC_NONE) c->free_run_fps = caps.free_run_fps_default;
+        if (config.sync == TIDE_CAM_SYNC_NONE) config.fps = caps->free_run_fps_default;
     }
-    c->queue = TIDE_CAM_LATEST;
-    c->buffer_count = 4;
-    c->exposure_max_us = TIDE_CAM_DEFAULT_EXPOSURE_MAX_US;
+    return config;
 }
 
-void tide_cam_config_init_free_run(tide_cam_config *c)
+static int init_config(tide_cam_config *c, size_t size, int free_run)
 {
-    if (!c) return;
-    tide_cam_config_init(c);
+    if (!c) return TIDE_CAM_INVALID;
+    int status = tide_cam_config_size_status(size);
+    if (status) return status;
     tide_cam_caps caps;
-    c->sync = TIDE_CAM_SYNC_NONE;
-    if (!tide_backend_caps(&caps)) c->free_run_fps = caps.free_run_fps_default;
+    status = tide_backend_caps(&caps);
+    if (status) return status;
+    tide_cam_config config = default_config(&caps);
+    if (free_run) {
+        config.sync = TIDE_CAM_SYNC_NONE;
+        config.fps = caps.free_run_fps_default;
+    }
+    config.struct_size = (uint32_t)size;
+    memcpy(c, &config, size);
+    return TIDE_CAM_OK;
+}
+
+int tide_cam_config_init(tide_cam_config *c, size_t size)
+{
+    return init_config(c, size, 0);
+}
+
+int tide_cam_config_init_free_run(tide_cam_config *c, size_t size)
+{
+    return init_config(c, size, 1);
 }
 
 int tide_cam_query_caps(tide_cam_caps *caps)
@@ -67,19 +89,27 @@ int tide_cam_query_caps(tide_cam_caps *caps)
 
 static int validate(const tide_cam_config *c, const tide_cam_caps *caps)
 {
-    if (!c || c->allow_partial > 1 || (c->allow_partial && c->jpeg_quality) || c->buffer_count < 3 ||
+    if (c->allow_partial > 1 || (c->allow_partial && c->jpeg_quality) || c->buffer_count < 3 ||
         c->buffer_count > 64 || !c->mode.width || !c->mode.height ||
         !c->exposure_max_us || c->jpeg_quality > 99 ||
-        (c->queue != TIDE_CAM_LATEST && c->queue != TIDE_CAM_FIFO) ||
-        (c->sync != TIDE_CAM_SYNC_NONE && c->sync != TIDE_CAM_SYNC_HARDWARE))
+        (c->queue != TIDE_CAM_LATEST && c->queue != TIDE_CAM_FIFO &&
+         c->queue != TIDE_CAM_FIFO_DROP_OLDEST))
         return TIDE_CAM_INVALID;
+    if (c->sync != TIDE_CAM_SYNC_NONE && c->sync != TIDE_CAM_SYNC_HARDWARE &&
+        c->sync != TIDE_CAM_SYNC_SENSOR_MASTER)
+        return TIDE_CAM_UNSUPPORTED;
     if (!caps->camera_count || caps->camera_count > TIDE_CAM_MAX_CAMERAS)
         return TIDE_CAM_UNSUPPORTED;
     if (!(caps->sync_modes & (1u << c->sync))) return TIDE_CAM_UNSUPPORTED;
-    if (c->sync == TIDE_CAM_SYNC_HARDWARE) {
-        if (c->free_run_fps.num || c->free_run_fps.den) return TIDE_CAM_INVALID;
+    if (c->sync != TIDE_CAM_SYNC_SENSOR_MASTER && c->master_camera_id != TIDE_CAM_MASTER_UNSPECIFIED)
+        return TIDE_CAM_INVALID;
+    if (c->sync == TIDE_CAM_SYNC_SENSOR_MASTER) {
+        if (c->allow_partial || c->master_camera_id >= caps->camera_count || !c->fps.num || !c->fps.den)
+            return TIDE_CAM_INVALID;
+    } else if (c->sync == TIDE_CAM_SYNC_HARDWARE) {
+        if (c->fps.num || c->fps.den) return TIDE_CAM_INVALID;
     } else {
-        const tide_cam_rate *r = &c->free_run_fps;
+        const tide_cam_rate *r = &c->fps;
         if (!r->num || !r->den) return TIDE_CAM_INVALID;
         if ((uint64_t)r->num * caps->free_run_fps_min.den <
             (uint64_t)caps->free_run_fps_min.num * r->den ||
@@ -96,6 +126,22 @@ static int validate(const tide_cam_config *c, const tide_cam_caps *caps)
     return TIDE_CAM_UNSUPPORTED;
 }
 
+static uint32_t drop_oldest(tide_cam *c)
+{
+    uint32_t index = c->queue[c->head];
+    c->head = (c->head + 1) % c->config.buffer_count;
+    --c->count;
+    ++c->stats.replaced;
+    return index;
+}
+
+static void frame_pool_exhausted(tide_cam *c)
+{
+    c->terminal = TIDE_CAM_OVERFLOW;
+    copy_error(c->error, sizeof(c->error), "Frame pool exhausted; release frames promptly or increase buffer_count");
+    pthread_cond_broadcast(&c->ready);
+}
+
 static void *capture(void *arg)
 {
     tide_cam *c = arg;
@@ -106,18 +152,12 @@ static void *capture(void *arg)
         while (c->jpeg_state != JPEG_EMPTY && !c->stop_requested)
             pthread_cond_wait(&c->ready, &c->mutex);
         if (c->stop_requested) { pthread_mutex_unlock(&c->mutex); break; }
-        for (index = 0; index < c->config.buffer_count; ++index)
+        for (index = 0; index < c->slot_count; ++index)
             if (c->slots[index].state == FREE) break;
-        if (index == c->config.buffer_count && c->config.queue == TIDE_CAM_LATEST && c->count) {
-            index = c->queue[c->head];
-            c->head = (c->head + 1) % c->config.buffer_count;
-            --c->count;
-            ++c->stats.replaced;
-        }
-        if (index == c->config.buffer_count) {
-            c->terminal = TIDE_CAM_OVERFLOW;
-            copy_error(c->error, sizeof(c->error), "Frame pool exhausted; release frames promptly or increase buffer_count");
-            pthread_cond_broadcast(&c->ready);
+        if (index == c->slot_count && c->config.queue == TIDE_CAM_LATEST && c->count)
+            index = drop_oldest(c);
+        if (index == c->slot_count || c->stats.leased == c->config.buffer_count) {
+            frame_pool_exhausted(c);
             pthread_mutex_unlock(&c->mutex);
             break;
         }
@@ -138,13 +178,16 @@ static void *capture(void *arg)
             if (done) break;
             continue;
         }
-        if (c->config.queue == TIDE_CAM_LATEST && c->count) {
-            uint32_t old = c->queue[c->head];
-            c->head = (c->head + 1) % c->config.buffer_count;
-            --c->count;
-            c->slots[old].state = FREE;
-            ++c->stats.replaced;
+        if (c->stats.leased == c->config.buffer_count) {
+            c->slots[index].state = FREE;
+            frame_pool_exhausted(c);
+            pthread_mutex_unlock(&c->mutex);
+            break;
         }
+        if ((c->config.queue == TIDE_CAM_LATEST && c->count) ||
+            (c->config.queue == TIDE_CAM_FIFO_DROP_OLDEST &&
+             c->count + c->stats.leased == c->config.buffer_count))
+            c->slots[drop_oldest(c)].state = FREE;
         c->slots[index].state = READY;
         c->queue[(c->head + c->count) % c->config.buffer_count] = index;
         ++c->count;
@@ -161,10 +204,11 @@ static void *capture(void *arg)
     while (c->jpeg_state == JPEG_ENCODING) pthread_cond_wait(&c->ready, &c->mutex);
     pthread_mutex_unlock(&c->mutex);
     char error[TIDE_CAM_ERROR_SIZE] = "";
-    int status = c->config.jpeg_quality ? tide_backend_stop(c->backend, error) :
-                                        tide_backend_close(c->backend, error);
+    int keep_system = c->config.jpeg_quality || c->config.sync == TIDE_CAM_SYNC_SENSOR_MASTER;
+    int status = keep_system ? tide_backend_stop(c->backend, error) :
+                              tide_backend_close(c->backend, error);
     pthread_mutex_lock(&c->mutex);
-    if (!c->config.jpeg_quality) c->backend = NULL;
+    if (!keep_system) c->backend = NULL;
     c->cleanup_status = status;
     if (status && c->terminal == TIDE_CAM_STOPPED) {
         c->terminal = status;
@@ -178,7 +222,7 @@ static void *capture(void *arg)
 
 static void destroy(tide_cam *c)
 {
-    if (c->slots) for (uint32_t i = 0; i < c->config.buffer_count; ++i) free(c->slots[i].pixels);
+    if (c->slots) for (uint32_t i = 0; i < c->slot_count; ++i) free(c->slots[i].pixels);
     free(c->slots);
     free(c->queue);
     pthread_cond_destroy(&c->ready);
@@ -186,19 +230,31 @@ static void destroy(tide_cam *c)
     free(c);
 }
 
-int tide_cam_open(const tide_cam_config *config, tide_cam **camera, char *error, uint32_t error_size)
+int tide_cam_open(const tide_cam_config *requested, tide_cam **camera,
+                  char *error, uint32_t error_size)
 {
     tide_cam_caps caps;
     if (!camera) return TIDE_CAM_INVALID;
     *camera = NULL;
     copy_error(error, error_size, "");
-    int status = tide_cam_query_caps(&caps);
-    if (!status) status = validate(config, &caps);
+    int status = requested ? tide_cam_config_size_status(requested->struct_size) : TIDE_CAM_INVALID;
+    if (status) {
+        copy_error(error, error_size, "Invalid or unsupported camera configuration size");
+        return status;
+    }
+    status = tide_cam_query_caps(&caps);
+    if (status) {
+        copy_error(error, error_size, tide_cam_status_string(status));
+        return status;
+    }
+    tide_cam_config request = default_config(&caps);
+    memcpy(&request, requested, requested->struct_size);
+    const tide_cam_config *config = &request;
+    status = validate(config, &caps);
     if (status) {
         const char *reason = tide_cam_status_string(status);
-        if (config && config->sync == TIDE_CAM_SYNC_HARDWARE &&
-            (config->free_run_fps.num || config->free_run_fps.den))
-            reason = "Hardware-sync frame rate is determined by the trigger; free_run_fps must be {0,0}";
+        if (config->sync == TIDE_CAM_SYNC_HARDWARE && (config->fps.num || config->fps.den))
+            reason = "Hardware-sync frame rate is determined by the trigger; fps must be {0,0}";
         copy_error(error, error_size, reason);
         return status;
     }
@@ -212,11 +268,13 @@ int tide_cam_open(const tide_cam_config *config, tide_cam **camera, char *error,
     if (!status) status = pthread_cond_init(&c->ready, &attr);
     pthread_condattr_destroy(&attr);
     if (status) { pthread_mutex_destroy(&c->mutex); free(c); return TIDE_CAM_IO; }
-    c->slots = calloc(config->buffer_count, sizeof(*c->slots));
+    /* Keep a spare capture slot so a timed-out read cannot evict a pair. */
+    c->slot_count = config->buffer_count + (config->queue == TIDE_CAM_FIFO_DROP_OLDEST);
+    c->slots = calloc(c->slot_count, sizeof(*c->slots));
     c->queue = calloc(config->buffer_count, sizeof(*c->queue));
     uint64_t bytes = (uint64_t)config->mode.width * config->mode.height * caps.camera_count;
     if (!c->slots || !c->queue || bytes > SIZE_MAX) { destroy(c); return TIDE_CAM_NO_MEMORY; }
-    for (uint32_t i = 0; i < config->buffer_count; ++i) {
+    for (uint32_t i = 0; i < c->slot_count; ++i) {
         c->slots[i].pixels = malloc((size_t)bytes);
         if (!c->slots[i].pixels) { destroy(c); return TIDE_CAM_NO_MEMORY; }
     }
@@ -278,7 +336,7 @@ int tide_cam_release(tide_cam *c, const tide_cam_frame_set *frames)
     if (!c || !frames) return TIDE_CAM_INVALID;
     int status = TIDE_CAM_INVALID;
     pthread_mutex_lock(&c->mutex);
-    for (uint32_t i = 0; i < c->config.buffer_count; ++i) {
+    for (uint32_t i = 0; i < c->slot_count; ++i) {
         if (&c->slots[i].frames == frames && c->slots[i].state == LEASED) {
             c->slots[i].state = FREE;
             --c->stats.leased;

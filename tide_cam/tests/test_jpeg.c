@@ -11,7 +11,7 @@ static tide_cam *open_camera(void)
 {
     mock_reset();
     tide_cam_config config;
-    tide_cam_config_init(&config);
+    tide_cam_config_init(&config, sizeof(config));
     config.jpeg_quality = 80;
     tide_cam *camera = NULL;
     char error[256];
@@ -108,7 +108,7 @@ static void stop_during_encoding(void)
 }
 int main(void)
 {
-    tide_cam_config config; tide_cam_config_init(&config);
+    tide_cam_config config; tide_cam_config_init(&config, sizeof(config));
     tide_cam *c; char error[256]; const tide_cam_jpeg_pair *pair;
     config.jpeg_quality = 100;
     assert(tide_cam_open(&config, &c, error, sizeof(error)) == TIDE_CAM_INVALID);

@@ -10,6 +10,8 @@ gadget=/tmp/usb/usb_gadget/cvitek
 func=$gadget/functions/uvc.tidesense
 config=$gadget/configs/c.1
 log=$base/uvc.log
+vi_module=/mnt/system/ko/cv181x_vi.ko
+vi_sysfs=/sys/module/cv181x_vi
 fail() { echo "TideSense UVC: $*" >&2; exit 1; }
 read_pid() {
  [ -f "$state/pid" ] || return 1
@@ -54,9 +56,16 @@ restore() {
   cat "$state/UDC" > "$gadget/UDC"
   ifconfig usb0 192.168.123.99 netmask 255.255.255.0 up
  fi
+ if [ -f "$state/restore_vi" ]; then
+  if [ -d "$vi_sysfs" ]; then rmmod cv181x_vi || fail "cannot release front-end VI"; fi
+  insmod "$vi_module" || fail "cannot restore the ISP VI module"
+ fi
  rm -rf "$state"
 }
 start_impl() {
+ mode=$1
+ sensor_sync=${TIDESENSE_UVC_SENSOR_SYNC:-0}
+ if [ "$mode" != 400p40 ]; then sensor_sync=1; fi
  mkdir "$state" || fail "already active or switching; use status/stop"
  # shellcheck disable=SC2154
  trap 'rc=$?; trap - EXIT; if [ "$rc" -ne 0 ]; then restore; fi; exit "$rc"' EXIT
@@ -65,6 +74,17 @@ start_impl() {
   [ "${f##*/}" = rndis.usb0 ] || fail "unexpected gadget function: $f"
  done
  [ -x "$base/bin/tidesense_uvc" ] || fail "missing capture binary"
+ descriptor=$("$base/bin/tidesense_uvc" --describe "$mode") || fail "unknown mode: $mode"
+ read -r width height interval usb_interval max_frame <<EOF
+$descriptor
+EOF
+ printf '%s\n' "$mode" > "$state/mode"
+ fe_only=$(cat "$vi_sysfs/parameters/tidesense_fe_only" 2>/dev/null || :)
+ maxpacket=3072
+ case "$mode" in
+  480p180|400p210) maxpacket=1024 ;;
+  *) [ "$fe_only" != Y ] || fail "load the VI driver with the ISP path enabled" ;;
+ esac
  if [ ! -r /sys/module/dwc2/parameters/gadget_desc_dma ] ||
     [ "$(cat /sys/module/dwc2/parameters/gadget_desc_dma)" != N ]; then
   fail "load the matching dwc2.ko with gadget_desc_dma=0 before starting UVC"
@@ -75,9 +95,18 @@ start_impl() {
   [ -f "$d/name" ] || continue
   [ "$(cat "$d/name")" = sc7u22 ] || continue
   [ -f "$d/in_accel_sampling_frequency_available" ] || continue
+  [ "$sensor_sync" = 0 ] || [ -w "$d/events/in_count0_change_rising_en" ] || continue
   case " $(cat "$d/in_accel_sampling_frequency_available") " in *' 400 '*) capable=1 ;; esac
  done
- [ "$capable" = 1 ] || fail "install the 200/400Hz kernel first"
+ [ "$capable" = 1 ] || fail "install the matching 200/400Hz and FSIN kernel first"
+ if [ "$maxpacket" = 1024 ] && [ "$fe_only" != Y ]; then
+  [ "$fe_only" = N ] && [ -f "$vi_module" ] ||
+   fail "install the VI driver with front-end RAW8 support first"
+  [ "$(cat "$vi_sysfs/refcnt")" = 0 ] || fail "VI is in use; stop other camera programs"
+  rmmod cv181x_vi || fail "cannot release the ISP VI module"
+  touch "$state/restore_vi"
+  insmod "$vi_module" tidesense_fe_only=1 || fail "cannot load front-end VI"
+ fi
  for p in idProduct bDeviceClass bDeviceSubClass bDeviceProtocol UDC; do cat "$gadget/$p" > "$state/$p"; done
  cat "$gadget/strings/0x409/product" > "$state/product"
  [ -s "$state/UDC" ] || fail "RNDIS gadget must already be bound"
@@ -86,20 +115,20 @@ start_impl() {
  mkdir "$func"
  # Keep RNDIS enumerated even if the video producer fails or restarts.
  echo 1 > "$func/keep_connected"
- echo 2 > "$func/streaming_interval"
- echo 3072 > "$func/streaming_maxpacket"
+ echo "$usb_interval" > "$func/streaming_interval"
+ echo "$maxpacket" > "$func/streaming_maxpacket"
  mkdir "$func/streaming/mjpeg/m"
  mkdir "$func/streaming/mjpeg/m/400p"
  frame=$func/streaming/mjpeg/m/400p
- echo 1280 > "$frame/wWidth"; echo 400 > "$frame/wHeight"
- echo 524288 > "$frame/dwMaxVideoFrameBufferSize"
- echo 250000 > "$frame/dwFrameInterval"
- echo 250000 > "$frame/dwDefaultFrameInterval"
+ echo "$width" > "$frame/wWidth"; echo "$height" > "$frame/wHeight"
+ echo "$max_frame" > "$frame/dwMaxVideoFrameBufferSize"
+ echo "$interval" > "$frame/dwFrameInterval"
+ echo "$interval" > "$frame/dwDefaultFrameInterval"
  echo 1000000 > "$frame/dwMinBitRate"
- echo 167772160 > "$frame/dwMaxBitRate"
+ echo "$((max_frame * 8 * 10000000 / interval))" > "$frame/dwMaxBitRate"
  mkdir "$func/streaming/header/h"
  ln -s "$func/streaming/mjpeg/m" "$func/streaming/header/h/m"
- # HS-only mode: 1280x400@40 must not be offered at USB full speed.
+ # High-speed descriptors only. The full-speed bus has insufficient bandwidth.
  ln -s "$func/streaming/header/h" "$func/streaming/class/hs/h"
  mkdir "$func/control/header/h"
  # This SDK's processing-unit descriptor has the UVC 1.0 (11-byte) layout.
@@ -127,31 +156,43 @@ start_impl() {
   if [ "$(cat "$d/function_name")" = uvc.tidesense ]; then video=/dev/${d##*/}; fi
  done
  [ -n "$video" ] || fail "UVC output node missing"
- "$base/bin/tidesense_uvc" --ini "$base/sensor_cfg.ini" --device "$video" \
-  --ready-file "$state/ready" --maxpacket 3072 &
- echo "$!" > "$state/pid"
+ set -- --mode "$mode" --ini "$base/sensor_cfg.ini" --device "$video" \
+  --ready-file "$state/ready" --maxpacket "$maxpacket"
+ if [ "$sensor_sync" = 1 ]; then set -- "$@" --master right; fi
+ "$base/bin/tidesense_uvc" "$@" &
+ producer=$!
+ echo "$producer" > "$state/pid"
  n=0
  while [ ! -f "$state/ready" ]; do
-  read_pid || fail "capture exited; see $log"
+  kill -0 "$producer" 2>/dev/null || fail "capture exited; see $log"
   n=$((n+1)); [ "$n" -lt 30 ] || fail "capture startup timeout"
   sleep 1
  done
- echo "UVC + RNDIS ready: $video, SSH 192.168.123.99; log $log"
+ echo "UVC $mode + RNDIS ready: $video, SSH 192.168.123.99; log $log"
  trap - EXIT
 }
 case "${1:-status}" in
  start|stop)
   # USB re-enumeration drops SSH. Keep the entire switch/rollback detached.
-  [ "$#" -eq 1 ] || fail "start/stop take no arguments"
+  action=$1
+  if [ "$action" = start ]; then
+   [ "$#" -le 2 ] || fail "Usage: run.sh start [400p40|800p60|480p180|400p210]"
+   [ ! -d "$state" ] || fail "already active; use status/stop"
+   set -- "$action" "${2:-400p40}"
+   "$base/bin/tidesense_uvc" --describe "$2" >/dev/null || fail "unknown mode: $2"
+  else
+   [ "$#" -eq 1 ] || fail "stop takes no arguments"
+  fi
   mkdir /run/tidesense-uvc-switch.lock 2>/dev/null || fail "switch already running"
-  nohup "$base/run.sh" "_$1" </dev/null >>"$log" 2>&1 &
-  echo "USB $1 scheduled; connection may reconnect. Log: $log"
+  shift
+  nohup "$base/run.sh" "_$action" "$@" </dev/null >>"$log" 2>&1 &
+  echo "USB $action scheduled; connection may reconnect. Log: $log"
   ;;
  _start|_stop)
   trap 'rmdir /run/tidesense-uvc-switch.lock' EXIT
   if [ "$1" = _start ]; then
    # start_impl has a rollback trap; run in a subshell to retain this lock trap.
-   (start_impl)
+   (start_impl "${2:-400p40}")
   else
    [ -d "$state" ] || fail "UVC mode is not active"
    restore
@@ -161,11 +202,11 @@ case "${1:-status}" in
  status)
   if read_pid; then echo "UVC process $pid; RNDIS 192.168.123.99"; else echo 'UVC process stopped'; fi
   [ ! -d /run/tidesense-uvc-switch.lock ] || echo 'USB switch in progress'
-  [ ! -f "$state/ready" ] || echo 'UVC ready'
+  [ ! -f "$state/ready" ] || echo "UVC ready: $(cat "$state/mode" 2>/dev/null || echo 400p40)"
   ;;
  capture)
-  [ "$#" -eq 3 ] || fail "Usage: run.sh capture OUTPUT.mjpg FRAME_COUNT"
-  exec "$base/bin/tidesense_uvc" --ini "$base/sensor_cfg.ini" --capture "$2" --frames "$3"
+  [ "$#" -eq 3 ] || [ "$#" -eq 4 ] || fail "Usage: run.sh capture OUTPUT.mjpg FRAME_COUNT [MODE]"
+  exec "$base/bin/tidesense_uvc" --mode "${4:-400p40}" --ini "$base/sensor_cfg.ini" --capture "$2" --frames "$3"
   ;;
- *) fail "Usage: $0 start | stop | status | capture OUTPUT.mjpg FRAME_COUNT" ;;
+ *) fail "Usage: $0 start [MODE] | stop | status | capture OUTPUT.mjpg FRAME_COUNT [MODE]" ;;
 esac

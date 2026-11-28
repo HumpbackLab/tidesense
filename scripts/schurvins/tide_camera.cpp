@@ -92,7 +92,7 @@ YAML::Node cameraConfiguration(const tide_cam_config& config) {
  n["source"]="tide_cam"; n["camera_count"]=caps.camera_count;
  n["width"]=config.mode.width; n["height"]=config.mode.height; n["pixel_format"]="mono8";
  n["sync"]=config.sync==TIDE_CAM_SYNC_HARDWARE?"hardware":"free_run";
- const auto rate=config.sync==TIDE_CAM_SYNC_HARDWARE?caps.hardware_sync_fps:config.free_run_fps;
+ const auto rate=config.sync==TIDE_CAM_SYNC_HARDWARE?caps.hardware_sync_fps:config.fps;
  n["nominal_fps_num"]=rate.num; n["nominal_fps_den"]=rate.den;
  n["exposure_max_us"]=config.exposure_max_us;
  n["jpeg_quality"]=config.jpeg_quality;

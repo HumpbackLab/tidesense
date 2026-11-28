@@ -7,6 +7,7 @@ import struct
 from pathlib import Path
 
 HEADER = struct.Struct("<8sHHHHQQQIIIIIQQddI")
+FSIN = struct.Struct("<QII")
 SAMPLE = struct.Struct("<QQ6hI")
 MAX_JPEG = 524288
 
@@ -93,14 +94,23 @@ def metadata(jpeg):
         (magic, version, header_size, sample_size, flags, seq, left, right,
          left_ref, right_ref, camera_hz, imu_hz, count, drops, skipped,
          accel_scale, gyro_scale, reserved) = HEADER.unpack_from(payload)
-        if (version, header_size, sample_size) != (1, HEADER.size, SAMPLE.size):
+        expected_header = {1: HEADER.size, 2: HEADER.size + FSIN.size}.get(version)
+        if header_size != expected_header or sample_size != SAMPLE.size:
             raise ValueError("unsupported TideSense protocol version/layout")
         if count > 1024 or len(payload) != header_size + count * sample_size:
             raise ValueError("invalid IMU sample count/APP15 length")
-        if not left or not right or not flags & 1 or (camera_hz, imu_hz) != (40, 400):
+        if not left or not right or not flags & 1 or imu_hz != 400:
             raise ValueError("invalid timestamps/clock/rates")
         if not (0 < accel_scale < 1 and 0 < gyro_scale < 1) or reserved:
             raise ValueError("invalid scales/reserved field")
+        sync = {}
+        if version == 1 and (camera_hz != 40 or flags & 32):
+            raise ValueError("invalid legacy frame rate or flags")
+        if version == 2:
+            fsin_ns, exposure_ns, reserved = FSIN.unpack_from(payload, HEADER.size)
+            if camera_hz not in (40, 60, 180, 210) or not flags & 32 or not fsin_ns or not exposure_ns or reserved:
+                raise ValueError("invalid FSIN timestamp/exposure/rate")
+            sync = dict(fsin_ns=fsin_ns, exposure_ns=exposure_ns)
         samples = []
         for values in SAMPLE.iter_unpack(payload[header_size:]):
             sample_seq, stamp, *axes, sample_flags = values
@@ -110,7 +120,7 @@ def metadata(jpeg):
         return dict(version=version, frame_seq=seq, left_vi_ns=left, right_vi_ns=right,
                     left_ref=left_ref, right_ref=right_ref, camera_hz=camera_hz, imu_hz=imu_hz,
                     flags=flags, imu_ring_drops=drops, skipped_frames=skipped,
-                    accel_scale=accel_scale, gyro_scale=gyro_scale, imu=samples)
+                    accel_scale=accel_scale, gyro_scale=gyro_scale, imu=samples, **sync)
     raise ValueError("TideSense APP15 metadata missing")
 
 
@@ -130,13 +140,14 @@ def decode(path, output=None, extract=False):
         with path.open("rb") as stream:
             for jpeg in iter_jpegs(stream):
                 meta = metadata(jpeg)
+                frame_time = meta.get("fsin_ns", meta["left_vi_ns"])
                 if last_seq is not None and (meta["frame_seq"] <= last_seq or
-                                            meta["left_vi_ns"] <= last_frame):
+                                            frame_time <= last_frame):
                     raise ValueError("image timestamp/sequence moved backwards")
                 last_seq = meta["frame_seq"]
                 if first_frame is None:
-                    first_frame = meta["left_vi_ns"]
-                last_frame = meta["left_vi_ns"]
+                    first_frame = frame_time
+                last_frame = frame_time
                 for sample in meta["imu"]:
                     stamp = sample["timestamp_ns"]
                     if not stamp or (last_imu is not None and (stamp <= last_imu or sample["seq"] <= last_sample)):

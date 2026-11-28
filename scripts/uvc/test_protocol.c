@@ -5,7 +5,9 @@
 #include <string.h>
 
 volatile sig_atomic_t ts_stopped;
-int main(void) {
+int main(int argc, char **argv) {
+ unsigned fps = argc > 1 ? (unsigned)strtoul(argv[1], NULL, 10) : 40;
+ int sensor_sync = argc > 1;
  struct ts_frame *f = calloc(1, sizeof(*f));
  struct ts_imu *imu = calloc(1, sizeof(*imu));
  uint8_t meta[TS_META_MAX], jpeg[4096];
@@ -17,6 +19,11 @@ int main(void) {
  for (unsigned frame = 1; frame <= 3; ++frame) {
   f->seq = frame; f->left_ns = 1000000000ULL + frame * 25000000ULL;
   f->right_ns = f->left_ns + 2600000; f->left_ref = frame * 2; f->right_ref = frame * 2 + 1;
+  f->fps = fps;
+  if (sensor_sync) {
+   f->fsin_ns = f->left_ns - 1000000;
+   f->exposure_ns = 500000;
+  }
   for (unsigned i = 0; i < 10; ++i) {
    samples[i].seq = (frame - 1) * 10 + i + 1;
    samples[i].ns = f->left_ns - (9 - i) * 2500000;
@@ -25,7 +32,7 @@ int main(void) {
    samples[i].axis[3] = -1234; samples[i].axis[4] = 42; samples[i].axis[5] = 0;
   }
   size_t n = ts_metadata(meta, f, imu, samples, 10, 0, 0, frame == 1 ? TS_FLAG_DISCONTINUITY : 0);
-  assert(n == 96 + 10 * 32);
+  assert(n == (sensor_sync ? TS_SYNC_META_HEADER : TS_META_HEADER) + 10 * TS_SAMPLE_SIZE);
   assert(!ts_metadata(meta, f, imu, samples, TS_BATCH_MAX + 1, 0, 0, 0));
   assert(!ts_jpeg_with_metadata(jpeg, n + 7, f, meta, n));
   size_t size = ts_jpeg_with_metadata(jpeg, sizeof(jpeg), f, meta, n);
