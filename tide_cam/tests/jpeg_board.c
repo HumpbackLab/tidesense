@@ -21,7 +21,7 @@ static uint64_t checksum(const tide_cam_jpeg_pair *pair)
 int main(int argc, char **argv)
 {
     if (argc != 2) { fprintf(stderr, "Usage: %s EXISTING_OUTPUT_DIRECTORY\n", argv[0]); return 2; }
-    tide_cam_config config; tide_cam_config_init(&config); config.jpeg_quality = 80;
+    tide_cam_config config; tide_cam_config_init(&config, sizeof(config)); config.jpeg_quality = 80;
     tide_cam *c = NULL; const tide_cam_jpeg_pair *jpeg = NULL; const tide_cam_frame_set *raw = NULL;
     char error[256]; int status = tide_cam_open(&config, &c, error, sizeof(error));
     if (status) { fprintf(stderr, "open: %s\n", error); return 1; }

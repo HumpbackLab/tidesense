@@ -10,7 +10,7 @@ int main() {
   tide_cam_caps caps{}; require(tide_cam_query_caps(&caps)==0,"capabilities");
   for (uint32_t m=0;m<caps.mode_count;++m) {
    mock_reset();
-   tide_cam_config config; tide_cam_config_init(&config); config.mode=caps.modes[m];
+   tide_cam_config config; tide_cam_config_init(&config, sizeof(config)); config.mode=caps.modes[m];
    LivePair retained;
    {
     TideCamera camera(config);
@@ -28,7 +28,7 @@ int main() {
     require(retained.left.at<uint8_t>(y,x)==1 && retained.right.at<uint8_t>(y,x)==2,"retained image changed");
   }
   mock_reset();
-  tide_cam_config config; tide_cam_config_init(&config);
+  tide_cam_config config; tide_cam_config_init(&config, sizeof(config));
   {
    TideCamera camera(config); mock_fail(TIDE_CAM_IO);
    LivePair pair; bool failed=false;

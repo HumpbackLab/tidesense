@@ -71,7 +71,7 @@ int main(int argc, char** argv) try {
   // Preserve acquisition time, mapped once into board realtime for ROS headers.
   const int64_t offset=int64_t(now(CLOCK_REALTIME))-int64_t(now(CLOCK_MONOTONIC));
   tide_cam_config camera_config;
-  tide_cam_config_init(&camera_config);
+  tide_cam_config_init(&camera_config, sizeof(camera_config));
   camera_config.mode={640,400,TIDE_CAM_MONO8};
   loadCameraSettings(camera_config);
   TideCamera camera(camera_config);

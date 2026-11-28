@@ -1,6 +1,7 @@
 #ifndef TIDE_CAM_H
 #define TIDE_CAM_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -9,6 +10,7 @@ extern "C" {
 
 #define TIDE_CAM_MAX_CAMERAS 4u
 #define TIDE_CAM_DEFAULT_EXPOSURE_MAX_US 500u
+#define TIDE_CAM_MASTER_UNSPECIFIED UINT32_MAX
 
 typedef struct tide_cam tide_cam;
 
@@ -27,10 +29,21 @@ typedef enum {
 } tide_cam_status;
 
 typedef enum { TIDE_CAM_MONO8 = 1 } tide_cam_pixel_format;
-typedef enum { TIDE_CAM_SYNC_NONE = 0, TIDE_CAM_SYNC_HARDWARE = 1 } tide_cam_sync;
-typedef enum { TIDE_CAM_LATEST = 0, TIDE_CAM_FIFO = 1 } tide_cam_queue;
+typedef enum {
+    TIDE_CAM_SYNC_NONE = 0,
+    TIDE_CAM_SYNC_HARDWARE = 1, /* External IMU-triggered FSIN. */
+    TIDE_CAM_SYNC_SENSOR_MASTER = 2
+} tide_cam_sync;
+typedef enum {
+    TIDE_CAM_LATEST = 0,
+    TIDE_CAM_FIFO = 1,
+    TIDE_CAM_FIFO_DROP_OLDEST = 2 /* Accept input gaps and evict oldest queued frame on overflow. */
+} tide_cam_queue;
 typedef enum { TIDE_CAM_CLOCK_MONOTONIC = 1 } tide_cam_clock;
-typedef enum { TIDE_CAM_TIMESTAMP_VI_ARRIVAL = 1 } tide_cam_timestamp_kind;
+typedef enum {
+    TIDE_CAM_TIMESTAMP_VI_ARRIVAL = 1,
+    TIDE_CAM_TIMESTAMP_VI_SOF = 2
+} tide_cam_timestamp_kind;
 
 typedef struct {
     uint32_t width, height;
@@ -53,13 +66,15 @@ typedef struct {
 } tide_cam_caps;
 
 typedef struct {
+    uint32_t struct_size; /* Set by tide_cam_config_init. Append future fields. */
     tide_cam_mode mode;
+    tide_cam_rate fps;    /* Requested rate. Use {0,0} for external IMU-triggered FSIN. */
     tide_cam_sync sync;
+    /* Stable board ID in SENSOR_MASTER mode, MASTER_UNSPECIFIED otherwise. */
+    uint32_t master_camera_id;
     tide_cam_queue queue;
     uint32_t buffer_count; /* 3..64 frame sets, including outstanding leases. */
     uint32_t exposure_max_us;
-    /* Only valid for SYNC_NONE. Must be {0,0} in hardware-sync mode. */
-    tide_cam_rate free_run_fps;
     uint32_t jpeg_quality; /* 0=disabled (default), 1..99=direct VI JPEG encoding. */
     /* Preview only: deliver available cameras independently. Default 0 requires
      * a complete stereo pair. Incompatible with direct VI JPEG encoding. */
@@ -85,18 +100,21 @@ typedef struct {
     tide_cam_pixel_format pixel_format;
     const uint8_t *data;
     uint64_t data_size;
-    uint64_t timestamp_ns; /* VI arrival PTS in CLOCK_MONOTONIC, not exposure. */
+    uint64_t timestamp_ns; /* VI PTS in CLOCK_MONOTONIC. See timestamp_kind. */
     uint32_t sensor_sequence; /* VI time_ref, wraps as uint32_t. */
 } tide_cam_frame;
 
 typedef struct {
     uint64_t sequence;
-    uint64_t timestamp_ns; /* First available camera's VI arrival time. */
+    uint64_t timestamp_ns; /* First available camera's VI timestamp. */
     uint32_t camera_count; /* Delivered frames; use camera_id to identify each. */
     tide_cam_sync sync; /* Configured synchronization, not an accuracy claim. */
     tide_cam_clock clock;
     tide_cam_timestamp_kind timestamp_kind;
     tide_cam_frame frames[TIDE_CAM_MAX_CAMERAS];
+    /* Only populated in SENSOR_MASTER mode. FSIN is the observed edge in
+     * CLOCK_MONOTONIC. Exposure duration does not locate the exposure midpoint. */
+    uint64_t fsin_sequence, fsin_timestamp_ns, exposure_ns;
 } tide_cam_frame_set;
 
 typedef struct {
@@ -105,13 +123,14 @@ typedef struct {
     int terminal_status;
 } tide_cam_stats;
 
-void tide_cam_config_init(tide_cam_config *config);
+/* Pass sizeof(*config). Unknown config sizes return UNSUPPORTED and leave it intact. */
+int tide_cam_config_init(tide_cam_config *config, size_t size);
 /* Explicitly apply device settings from a key=value file. A missing file returns
  * NOT_FOUND and leaves config unchanged; malformed files return INVALID. */
 int tide_cam_config_load_file(const char *path, tide_cam_config *config,
                               char *error, uint32_t error_size);
 /* Selects free-running capture and the backend's default free-run frame rate. */
-void tide_cam_config_init_free_run(tide_cam_config *config);
+int tide_cam_config_init_free_run(tide_cam_config *config, size_t size);
 int tide_cam_query_caps(tide_cam_caps *caps);
 /* Error text is optional, copied to error_size bytes including NUL. */
 int tide_cam_open(const tide_cam_config *config, tide_cam **camera,
@@ -130,9 +149,11 @@ int tide_cam_release(tide_cam *camera, const tide_cam_frame_set *frames);
  * or while a pair is borrowed returns BUSY. Stop preserves borrowed JPEG bytes. */
 int tide_cam_get_jpeg(tide_cam *camera, const tide_cam_jpeg_pair **pair);
 int tide_cam_release_jpeg(tide_cam *camera, const tide_cam_jpeg_pair *pair);
-/* Stops/joins capture; wakes blocked acquire/get_jpeg calls. With JPEG enabled,
- * encoder/SYS resources remain alive until close, so borrowed bytes stay valid.
- * stop/close must be externally serialized; neither is signal-handler safe. */
+/* Stops/joins capture; wakes blocked acquire/get_jpeg calls. With JPEG enabled
+ * borrowed bytes stay valid. Sensor-master and JPEG sessions retain the SDK
+ * system and camera reservation until close. Release any caller-owned SDK
+ * encoder and buffers before close. stop/close must be externally serialized;
+ * neither is signal-handler safe. */
 int tide_cam_stop(tide_cam *camera);
 /* Returns BUSY without stopping/freeing while mono8/JPEG is leased or encoding.
  * No other API call may run concurrently with close. NULL is accepted. */

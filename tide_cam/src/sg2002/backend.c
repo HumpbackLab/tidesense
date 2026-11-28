@@ -1,19 +1,27 @@
 #define _GNU_SOURCE
 #include "backend.h"
 #include "sample_comm.h"
+#include "ov9281_cmos_ex.h"
 #include "ov9281_isp.h"
 #include "jpeg.h"
+#include "raw.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <glob.h>
 #include <limits.h>
+#include <linux/iio/events.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+
+#define FSIN_EVENT "events/in_count0_change_rising_en"
+#define FSIN_HISTORY 64u
+#define FSIN_LOCK "/run/tidesense-fsin.lock"
 
 struct tide_cam_backend {
     tide_cam_config config;
@@ -25,7 +33,11 @@ struct tide_cam_backend {
     uint64_t period_ns;
     int read_timeout_ms, rate_pending;
     char iio[PATH_MAX];
+    int edge_fd, edge_enabled;
+    uint32_t edge_count;
+    uint64_t edge_sequence, edges[FSIN_HISTORY], last_fsin, exposure_ns;
     tide_jpeg *jpeg;
+    tide_raw_capture *raw;
 };
 
 /* SAMPLE_COMM_VI_StartViChn sets depth before enabling the SDK channel.
@@ -103,7 +115,7 @@ static int find_fsin(char *path)
 /* Same ownership protocol as the existing fsin.sh, implemented in-process. */
 static int fsin(tide_cam_backend *b, int start, char *error)
 {
-    if (mkdir("/run/tidesense-fsin.lock", 0700)) {
+    if (mkdir(FSIN_LOCK, 0700)) {
         snprintf(error, TIDE_CAM_ERROR_SIZE, "FSIN control busy or /run is not writable");
         return TIDE_CAM_BUSY;
     }
@@ -128,11 +140,80 @@ static int fsin(tide_cam_backend *b, int start, char *error)
     if (status) snprintf(error, TIDE_CAM_ERROR_SIZE,
         "FSIN %s failed: requires idle SC7U22 INT1/FSIN kernel, 200 Hz IMU and sysfs write access (%s)",
         start == 0 ? "prepare" : start == 1 ? "start" : "stop", tide_cam_status_string(status));
-    if (rmdir("/run/tidesense-fsin.lock") && !status) {
+    if (rmdir(FSIN_LOCK) && !status) {
         snprintf(error, TIDE_CAM_ERROR_SIZE, "Cannot release FSIN control lock");
         status = TIDE_CAM_IO;
     }
     return status;
+}
+
+static int open_fsin_input(tide_cam_backend *b, char *error)
+{
+    if (mkdir(FSIN_LOCK, 0700)) {
+        snprintf(error, TIDE_CAM_ERROR_SIZE, "FSIN control busy or /run is not writable");
+        return TIDE_CAM_BUSY;
+    }
+    long output_enabled, input_enabled;
+    int status = TIDE_CAM_UNSUPPORTED;
+    if (!read_attr(b->iio, "fsin_enable", &output_enabled) &&
+        !read_attr(b->iio, FSIN_EVENT, &input_enabled)) {
+        if (output_enabled || input_enabled) {
+            status = TIDE_CAM_BUSY;
+        } else {
+            char device[PATH_MAX];
+            snprintf(device, sizeof(device), "/dev/%s", strrchr(b->iio, '/') + 1);
+            int fd = open(device, O_RDONLY | O_CLOEXEC);
+            status = TIDE_CAM_IO;
+            if (fd >= 0) {
+                if (!ioctl(fd, IIO_GET_EVENT_FD_IOCTL, &b->edge_fd) &&
+                    !fcntl(b->edge_fd, F_SETFD, FD_CLOEXEC) &&
+                    !fcntl(b->edge_fd, F_SETFL, O_NONBLOCK) &&
+                    !write_attr(b->iio, FSIN_EVENT, 1)) {
+                    b->edge_enabled = 1;
+                    status = TIDE_CAM_OK;
+                }
+                close(fd);
+            }
+        }
+    }
+    if (rmdir(FSIN_LOCK) && !status) status = TIDE_CAM_IO;
+    if (status) snprintf(error, TIDE_CAM_ERROR_SIZE,
+        "Sensor master sync requires an idle SC7U22 FSIN input event (%s)",
+        tide_cam_status_string(status));
+    return status;
+}
+
+static int read_fsin_edges(tide_cam_backend *b, char *error)
+{
+    for (;;) {
+        struct iio_event_data event;
+        ssize_t n = read(b->edge_fd, &event, sizeof(event));
+        if (n < 0 && errno == EINTR) continue;
+        if (n < 0 && errno == EAGAIN) return TIDE_CAM_OK;
+        if (n != sizeof(event) || event.timestamp <= 0)
+            return sdk_error(error, "Read FSIN input event", -1);
+        uint64_t stamp = (uint64_t)event.timestamp;
+        uint64_t prev = b->edges[b->edge_sequence % FSIN_HISTORY];
+        if (prev && (stamp <= prev || stamp - prev > b->period_ns * 3 / 2 ||
+                     stamp - prev < b->period_ns / 2)) {
+            if (b->sequence) {
+                snprintf(error, TIDE_CAM_ERROR_SIZE, "FSIN input timestamp discontinuity");
+                return TIDE_CAM_DISCONTINUITY;
+            }
+            b->edge_count = 0; /* Start a fresh history after the startup rate settles. */
+        }
+        b->edges[++b->edge_sequence % FSIN_HISTORY] = stamp;
+        if (b->edge_count < FSIN_HISTORY) ++b->edge_count;
+    }
+}
+
+static uint64_t find_edge(const tide_cam_backend *b, uint64_t stamp)
+{
+    for (uint32_t i = 0; i < b->edge_count; ++i) {
+        uint64_t seq = b->edge_sequence - i;
+        if (b->edges[seq % FSIN_HISTORY] <= stamp) return seq;
+    }
+    return 0;
 }
 
 int tide_backend_caps(tide_cam_caps *caps)
@@ -143,7 +224,8 @@ int tide_backend_caps(tide_cam_caps *caps)
         {1280, 800, TIDE_CAM_MONO8},
     };
     *caps = (tide_cam_caps){2, sizeof(modes) / sizeof(modes[0]), modes,
-        (1u << TIDE_CAM_SYNC_NONE) | (1u << TIDE_CAM_SYNC_HARDWARE),
+        (1u << TIDE_CAM_SYNC_NONE) | (1u << TIDE_CAM_SYNC_HARDWARE) |
+        (1u << TIDE_CAM_SYNC_SENSOR_MASTER),
         TIDE_CAM_CLOCK_MONOTONIC, TIDE_CAM_TIMESTAMP_VI_ARRIVAL,
         {20, 1}, {167, 100}, {60, 1}, {20, 1}};
     return TIDE_CAM_OK;
@@ -159,6 +241,24 @@ static SAMPLE_SNS_TYPE_E sensor_type(const tide_cam_mode *mode, tide_cam_rate ra
     return OV_OV9281_MIPI_800P_60FPS_10BIT; /* Validated 1280x800 mode. */
 }
 
+static int front_end_only(void)
+{
+    FILE *f = fopen("/sys/module/cv181x_vi/parameters/tidesense_fe_only", "r");
+    if (!f) return 0;
+    int enabled = fgetc(f) == 'Y';
+    fclose(f);
+    return enabled;
+}
+
+static int release_native(tide_cam_backend *b, int pipe, char *error)
+{
+    int ret = b->raw ? tide_raw_release(pipe, &b->frames[pipe]) :
+        CVI_VI_ReleaseChnFrame(0, pipe, &b->frames[pipe]);
+    if (ret) return sdk_error(error, "Release VI input frame", ret);
+    b->held[pipe] = 0;
+    return TIDE_CAM_OK;
+}
+
 int tide_backend_stop(tide_cam_backend *b, char *error)
 {
     if (!b) return TIDE_CAM_OK;
@@ -170,16 +270,35 @@ int tide_backend_stop(tide_cam_backend *b, char *error)
         if (ret) return ret; /* Do not recycle possibly active encoder input. */
     }
     for (int p = 0; p < 2; ++p) if (b->held[p]) {
-        int ret = CVI_VI_ReleaseChnFrame(0, p, &b->frames[p]);
-        if (ret && !result) result = sdk_error(error, "CVI_VI_ReleaseChnFrame", ret);
-        b->held[p] = 0;
+        char release_error[TIDE_CAM_ERROR_SIZE];
+        int ret = release_native(b, p, release_error);
+        if (ret && !result) {
+            snprintf(error, TIDE_CAM_ERROR_SIZE, "%s", release_error);
+            result = ret;
+        }
     }
     if (b->vi_ready) {
+        tide_raw_stop(b->raw);
+        if (b->edge_enabled) ov9281_standby(b->config.master_camera_id);
         int ret = SAMPLE_COMM_VI_DestroyIsp(&b->vi);
         if (ret && !result) result = sdk_error(error, "SAMPLE_COMM_VI_DestroyIsp", ret);
         ret = SAMPLE_COMM_VI_DestroyVi(&b->vi);
         if (ret && !result) result = sdk_error(error, "SAMPLE_COMM_VI_DestroyVi", ret);
         b->vi_ready = 0;
+        b->held[0] = b->held[1] = 0;
+        tide_raw_close(b->raw);
+        b->raw = NULL;
+    }
+    if (b->edge_enabled) {
+        if (write_attr(b->iio, FSIN_EVENT, 0)) {
+            if (!result) result = sdk_error(error, "Disable FSIN input event", -1);
+        } else {
+            b->edge_enabled = 0;
+        }
+    }
+    if (b->edge_fd >= 0) {
+        close(b->edge_fd);
+        b->edge_fd = -1;
     }
     return result;
 }
@@ -201,8 +320,22 @@ int tide_backend_open(const tide_cam_config *config, tide_cam_backend **out, cha
     *out = NULL;
     tide_cam_caps caps;
     tide_backend_caps(&caps);
-    tide_cam_rate rate = config->sync == TIDE_CAM_SYNC_HARDWARE ?
-        caps.hardware_sync_fps : config->free_run_fps;
+    int sensor_sync = config->sync == TIDE_CAM_SYNC_SENSOR_MASTER;
+    tide_cam_rate rate = config->sync == TIDE_CAM_SYNC_HARDWARE ? caps.hardware_sync_fps : config->fps;
+    int high_rate = (uint64_t)rate.num > 60ULL * rate.den;
+    int raw8 = config->mode.width == 640 &&
+        ((config->mode.height == 480 && rate.num == 180ULL * rate.den) ||
+         (config->mode.height == 400 && rate.num == 210ULL * rate.den));
+    if (sensor_sync && ((uint64_t)rate.num * caps.free_run_fps_min.den <
+                        (uint64_t)caps.free_run_fps_min.num * rate.den ||
+                        (high_rate && !raw8))) {
+        snprintf(error, TIDE_CAM_ERROR_SIZE, "Requested sensor frame rate is unavailable");
+        return TIDE_CAM_UNSUPPORTED;
+    }
+    if (raw8 && config->jpeg_quality) {
+        snprintf(error, TIDE_CAM_ERROR_SIZE, "Front-end RAW capture supplies mono8 frames");
+        return TIDE_CAM_UNSUPPORTED;
+    }
     uint64_t period_ns = 1000000000ULL * rate.den / rate.num;
     if (config->exposure_max_us > period_ns / 1000) {
         snprintf(error, TIDE_CAM_ERROR_SIZE, "Exposure cap exceeds the nominal frame period (%llu us)",
@@ -212,6 +345,7 @@ int tide_backend_open(const tide_cam_config *config, tide_cam_backend **out, cha
     tide_cam_backend *b = calloc(1, sizeof(*b));
     if (!b) return TIDE_CAM_NO_MEMORY;
     b->config = *config;
+    b->edge_fd = -1;
     b->period_ns = period_ns;
     /* VI/ISP can suppress roughly 30 startup frames. Start low-rate requests
      * at 20 fps until VI is delivering, then switch before any publication. */
@@ -219,20 +353,31 @@ int tide_backend_open(const tide_cam_config *config, tide_cam_backend **out, cha
         (uint64_t)rate.num < (uint64_t)20 * rate.den;
     b->read_timeout_ms = (int)(period_ns / 1000000 + 50);
     if (b->read_timeout_ms < 100) b->read_timeout_ms = 100;
-    b->warmup = 4;
+    b->warmup = sensor_sync ? 16 : 4;
     b->lock_fd = open("/run/tidesense-camera.lock", O_CREAT | O_RDWR | O_CLOEXEC, 0600);
     int status = TIDE_CAM_BUSY;
     if (b->lock_fd < 0 || flock(b->lock_fd, LOCK_EX | LOCK_NB)) {
         snprintf(error, TIDE_CAM_ERROR_SIZE, "Camera is in use or /run is not writable");
         goto fail;
     }
-    if (config->sync == TIDE_CAM_SYNC_HARDWARE) {
+    if (front_end_only() != raw8) {
+        status = TIDE_CAM_UNSUPPORTED;
+        snprintf(error, TIDE_CAM_ERROR_SIZE, "%s", raw8 ?
+            "High-rate RAW8 requires cv181x_vi with tidesense_fe_only=1" :
+            "This capture requires cv181x_vi with the ISP path enabled");
+        goto fail;
+    }
+    if (config->sync != TIDE_CAM_SYNC_NONE) {
         if (find_fsin(b->iio)) {
             snprintf(error, TIDE_CAM_ERROR_SIZE, "SC7U22 INT1/FSIN kernel interface not found");
-            status = TIDE_CAM_IO;
+            status = sensor_sync ? TIDE_CAM_UNSUPPORTED : TIDE_CAM_IO;
             goto fail;
         }
-        status = fsin(b, 0, error);
+        if (sensor_sync) {
+            status = open_fsin_input(b, error);
+        } else {
+            status = fsin(b, 0, error);
+        }
         if (status) goto fail;
     }
     /* Board wiring is private. No INI parser or configuration file is used. */
@@ -241,12 +386,17 @@ int tide_backend_open(const tide_cam_config *config, tide_cam_backend **out, cha
     ini.devNum = 2;
     static const CVI_S16 lanes[2][5] = {{0, 1, 2, -1, -1}, {3, 4, -1, -1, -1}};
     for (int p = 0; p < 2; ++p) {
-        ini.enSnsType[p] = sensor_type(&config->mode, rate);
+        ini.enSnsType[p] = raw8 ? (config->mode.height == 480 ?
+            OV_OV9281_MIPI_480P_180FPS_8BIT : OV_OV9281_MIPI_400P_210FPS_8BIT) :
+            sensor_type(&config->mode, rate);
         ini.enWDRMode[p] = WDR_MODE_NONE;
         ini.s32BusId[p] = 2;
         ini.s32SnsI2cAddr[p] = p ? 0x60 : 0x10;
         ini.MipiDev[p] = p;
         ini.u8HwSync[p] = config->sync == TIDE_CAM_SYNC_HARDWARE;
+        if (sensor_sync)
+            ini.u8HwSync[p] = (uint32_t)p == config->master_camera_id ?
+                OV9281_SYNC_MASTER : OV9281_SYNC_SLAVE;
         memcpy(ini.as16LaneId[p], lanes[p], sizeof(lanes[p]));
     }
 #define TRY(call) do { int ret_ = (call); if (ret_) { status = sdk_error(error, #call, ret_); goto fail; } } while (0)
@@ -268,7 +418,7 @@ int tide_backend_open(const tide_cam_config *config, tide_cam_backend **out, cha
      * Unlike SAMPLE_PLAT_SYS_INIT, these calls do not install signal handlers. */
     TRY(SAMPLE_PLAT_VI_INIT(&b->vi));
     b->vi_ready = 1;
-    for (int p = 0; p < 2; ++p) {
+    for (int p = 0; p < 2 && !raw8; ++p) {
         /* The SDK names the 480/800 modes after their 60 fps maximum. Set
          * the requested sensor/AE cadence before arming FSIN or publishing
          * free-running frames; this is not post-capture frame dropping. */
@@ -282,7 +432,33 @@ int tide_backend_open(const tide_cam_config *config, tide_cam_backend **out, cha
         ae.stAuto.stExpTimeRange.u32Max = config->exposure_max_us;
         if (ae.stAuto.stExpTimeRange.u32Min > config->exposure_max_us)
             ae.stAuto.stExpTimeRange.u32Min = config->exposure_max_us;
+        if (sensor_sync) {
+            ae.enOpType = OP_TYPE_MANUAL;
+            ae.stManual.enExpTimeOpType = OP_TYPE_MANUAL;
+            ae.stManual.u32ExpTime = config->exposure_max_us;
+        }
         TRY(CVI_ISP_SetExposureAttr(p, &ae));
+    }
+    if (raw8) {
+        unsigned master = config->master_camera_id, slave = 1 - master;
+        ov9281_standby(master);
+        ov9281_standby(slave);
+        const OV9281_MODE_S *mode = ov9281_get_mode(master);
+        uint32_t lines = (uint64_t)config->exposure_max_us * 80 / mode->u32HtsDef;
+        if (!lines || lines > mode->u32VtsDef - 25) {
+            status = TIDE_CAM_UNSUPPORTED;
+            snprintf(error, TIDE_CAM_ERROR_SIZE, "Exposure is outside the RAW8 sensor range");
+            goto fail;
+        }
+        for (int p = 0; p < 2; ++p) {
+            TRY(ov9281_write_register(p, 0x3500, lines >> 12));
+            TRY(ov9281_write_register(p, 0x3501, (lines >> 4) & 0xff));
+            TRY(ov9281_write_register(p, 0x3502, (lines & 0xf) << 4));
+        }
+        status = tide_raw_open(config->mode.width, config->mode.height, &b->raw, error);
+        if (status) goto fail;
+        ov9281_restart(slave);
+        ov9281_restart(master);
     }
     if (config->jpeg_quality) {
         status = tide_jpeg_open(config, &b->jpeg, error);
@@ -386,15 +562,20 @@ static int read_partial(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *p
 int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pixels, char *error)
 {
     if (b->config.allow_partial) return read_partial(b, out, pixels, error);
+    if (b->edge_enabled) {
+        int ret = read_fsin_edges(b, error);
+        if (ret) return ret;
+    }
     for (int p = 0; p < 2; ++p) if (!b->held[p]) {
-        int ret = CVI_VI_GetChnFrame(0, p, &b->frames[p], b->read_timeout_ms);
+        int ret = b->raw ? tide_raw_read(p, &b->frames[p], b->read_timeout_ms) :
+            CVI_VI_GetChnFrame(0, p, &b->frames[p], b->read_timeout_ms);
         if (ret) {
             /* This SDK collapses a timed-out get-frame ioctl to
              * FAILED_NOT_ENABLED as well. Allow bounded startup/stall retries;
              * do not mistake the first 100 ms timeout for disabled hardware. */
             if ((unsigned)ret != (unsigned)CVI_ERR_VI_BUF_EMPTY &&
                 (unsigned)ret != (unsigned)CVI_ERR_VI_FAILED_NOT_ENABLED)
-                return sdk_error(error, "CVI_VI_GetChnFrame", ret);
+                return sdk_error(error, "Get VI input frame", ret);
             if (monotonic_ns() - b->progress_ns > 3000000000ULL) {
                 snprintf(error, TIDE_CAM_ERROR_SIZE, "VI has not delivered a valid pair for 3 seconds");
                 return TIDE_CAM_IO;
@@ -415,25 +596,67 @@ int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pix
     uint64_t skew = left > right ? left - right : right - left;
     uint64_t limit = b->config.sync == TIDE_CAM_SYNC_HARDWARE ?
         b->period_ns * 2 / 5000 : b->period_ns / 2000; /* PTS is microseconds. */
-    if (skew > limit) {
-        int p = left < right ? 0 : 1;
-        int ret = CVI_VI_ReleaseChnFrame(0, p, &b->frames[p]);
-        if (ret) return sdk_error(error, "CVI_VI_ReleaseChnFrame", ret);
-        b->held[p] = 0;
+    unsigned discard = 0;
+    uint64_t fsin_sequence = 0, fsin_stamp = 0;
+    if (b->edge_enabled) {
+        int ret = read_fsin_edges(b, error);
+        if (ret) return ret;
+        /* The front-end SOF arrives very close to the next pulse. Allow
+         * for IRQ latency on either side of that boundary. */
+        uint64_t guard = b->raw ? b->period_ns / 4 : 0;
+        uint64_t lhs = left * 1000 > guard ? find_edge(b, left * 1000 - guard) : 0;
+        uint64_t rhs = right * 1000 > guard ? find_edge(b, right * 1000 - guard) : 0;
+        if (!lhs || !rhs) discard = 3;
+        else if (lhs != rhs) discard = lhs < rhs ? 1 : 2;
+        else {
+            fsin_sequence = lhs;
+            fsin_stamp = b->edges[lhs % FSIN_HISTORY];
+            uint64_t left_phase = left * 1000 - fsin_stamp, right_phase = right * 1000 - fsin_stamp;
+            if (lhs <= b->last_fsin || left_phase > b->period_ns + guard ||
+                right_phase > b->period_ns + guard ||
+                (b->raw && (left_phase < b->period_ns - guard || right_phase < b->period_ns - guard)))
+                discard = 3;
+        }
+        if (!discard && !b->sequence) {
+            /* Confirm the startup cadence over several edges. The running
+             * stream checks missing edges separately in read_fsin_edges. */
+            if (b->edge_count < 4) {
+                discard = 3;
+            } else {
+                uint64_t span = b->edges[b->edge_sequence % FSIN_HISTORY] -
+                    b->edges[(b->edge_sequence - 3) % FSIN_HISTORY];
+                if (span < b->period_ns * 291 / 100 || span > b->period_ns * 309 / 100)
+                    discard = 3;
+            }
+        }
+    } else if (skew > limit) {
+        discard = left < right ? 1 : 2;
+    }
+    if (discard) {
+        for (int p = 0; p < 2; ++p) if (discard & (1u << p)) {
+            int status = release_native(b, p, error);
+            if (status) return status;
+        }
         if ((b->sequence && b->config.queue == TIDE_CAM_FIFO) || ++b->unmatched > 100 ||
             monotonic_ns() - b->progress_ns > 3000000000ULL) {
-            snprintf(error, TIDE_CAM_ERROR_SIZE, "VI stereo pairing lost");
+            snprintf(error, TIDE_CAM_ERROR_SIZE, "%s stereo pairing lost",
+                     b->edge_enabled ? "FSIN" : "VI");
             return TIDE_CAM_DISCONTINUITY;
         }
         return TIDE_CAM_TIMEOUT;
     }
     b->unmatched = 0;
+    if (b->last_fsin && b->config.queue == TIDE_CAM_FIFO &&
+        fsin_sequence != b->last_fsin + 1) {
+        snprintf(error, TIDE_CAM_ERROR_SIZE, "FSIN frame sequence gap in FIFO capture");
+        return TIDE_CAM_DISCONTINUITY;
+    }
     if (b->rate_pending) {
         for (int p = 0; p < 2; ++p) {
             ISP_PUB_ATTR_S pub;
             int ret = CVI_ISP_GetPubAttr(p, &pub);
             if (ret) return sdk_error(error, "CVI_ISP_GetPubAttr", ret);
-            pub.f32FrameRate = (CVI_FLOAT)b->config.free_run_fps.num / b->config.free_run_fps.den;
+            pub.f32FrameRate = (CVI_FLOAT)b->config.fps.num / b->config.fps.den;
             ret = CVI_ISP_SetPubAttr(p, &pub);
             if (ret) return sdk_error(error, "CVI_ISP_SetPubAttr", ret);
         }
@@ -452,35 +675,63 @@ int tide_backend_read(tide_cam_backend *b, tide_cam_frame_set *out, uint8_t *pix
     out->camera_count = 2;
     out->sync = b->config.sync;
     out->clock = TIDE_CAM_CLOCK_MONOTONIC;
-    out->timestamp_kind = TIDE_CAM_TIMESTAMP_VI_ARRIVAL;
+    out->timestamp_kind = b->raw ? TIDE_CAM_TIMESTAMP_VI_SOF : TIDE_CAM_TIMESTAMP_VI_ARRIVAL;
     out->timestamp_ns = left * 1000;
     for (int p = 0; p < 2; ++p) {
         VIDEO_FRAME_S *f = &b->frames[p].stVFrame;
         uint32_t width = f->u32Width, height = f->u32Height;
-        uint32_t len = f->u32Stride[0] * height;
-        const uint8_t *y = CVI_SYS_MmapCache(f->u64PhyAddr[0], len);
-        if (!y) return sdk_error(error, "CVI_SYS_MmapCache", -1);
-        int ret = CVI_SYS_IonInvalidateCache(f->u64PhyAddr[0], (void *)y, len);
-        if (!ret) for (uint32_t row = 0; row < height; ++row)
-            memcpy(pixels + (size_t)p * width * height + (size_t)row * width,
-                   y + (size_t)row * f->u32Stride[0], width);
-        int unmap = CVI_SYS_Munmap((void *)y, len);
-        if (ret) return sdk_error(error, "CVI_SYS_IonInvalidateCache", ret);
-        if (unmap) return sdk_error(error, "CVI_SYS_Munmap", unmap);
+        uint8_t *destination = pixels + (size_t)p * width * height;
+        if (b->raw) {
+            int status = tide_raw_copy(b->raw, p, f, destination, error);
+            if (status) return status;
+        } else {
+            uint32_t len = f->u32Stride[0] * height;
+            const uint8_t *y = CVI_SYS_MmapCache(f->u64PhyAddr[0], len);
+            if (!y) return sdk_error(error, "CVI_SYS_MmapCache", -1);
+            int ret = CVI_SYS_IonInvalidateCache(f->u64PhyAddr[0], (void *)y, len);
+            if (!ret) for (uint32_t row = 0; row < height; ++row)
+                memcpy(destination + (size_t)row * width, y + (size_t)row * f->u32Stride[0], width);
+            int unmap = CVI_SYS_Munmap((void *)y, len);
+            if (ret) return sdk_error(error, "CVI_SYS_IonInvalidateCache", ret);
+            if (unmap) return sdk_error(error, "CVI_SYS_Munmap", unmap);
+        }
         out->frames[p] = (tide_cam_frame){(uint32_t)p, width, height, width,
-            TIDE_CAM_MONO8, pixels + (size_t)p * width * height,
+            TIDE_CAM_MONO8, destination,
             (uint64_t)width * height, f->u64PTS * 1000, f->u32TimeRef};
         b->delivered[p] = f->u64PTS;
         b->references[p] = f->u32TimeRef;
         if (!b->jpeg || b->warmup) {
-            ret = CVI_VI_ReleaseChnFrame(0, p, &b->frames[p]);
-            if (ret) return sdk_error(error, "CVI_VI_ReleaseChnFrame", ret);
-            b->held[p] = 0;
+            int status = release_native(b, p, error);
+            if (status) return status;
         }
     }
     b->progress_ns = monotonic_ns();
     if (b->warmup) { --b->warmup; return TIDE_CAM_TIMEOUT; }
-    for (int p = 0; p < 2; ++p) {
+    if (b->edge_enabled) {
+        if (!b->exposure_ns) {
+            uint32_t lines[2];
+            for (int p = 0; p < 2; ++p) {
+                int high = ov9281_read_register(p, 0x3500);
+                int mid = ov9281_read_register(p, 0x3501);
+                int low = ov9281_read_register(p, 0x3502);
+                if (high < 0 || mid < 0 || low < 0)
+                    return sdk_error(error, "Read OV9281 exposure", -1);
+                lines[p] = (high << 12) | (mid << 4) | (low >> 4);
+            }
+            if (!lines[0] || lines[0] != lines[1]) {
+                snprintf(error, TIDE_CAM_ERROR_SIZE, "OV9281 stereo exposure mismatch (%u, %u lines)",
+                         lines[0], lines[1]);
+                return TIDE_CAM_DISCONTINUITY;
+            }
+            const OV9281_MODE_S *mode = ov9281_get_mode(0);
+            b->exposure_ns = (uint64_t)lines[0] * mode->u32HtsDef * 1000 / 80;
+        }
+        b->last_fsin = fsin_sequence;
+        out->fsin_sequence = fsin_sequence;
+        out->fsin_timestamp_ns = fsin_stamp;
+        out->exposure_ns = b->exposure_ns;
+    }
+    for (int p = 0; p < 2 && !b->raw; ++p) {
         int ret = ov9281_isp_update_black_level(p);
         if (ret) return sdk_error(error, "ov9281_isp_update_black_level", ret);
     }

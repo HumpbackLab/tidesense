@@ -32,19 +32,27 @@ static int parse_rate(const char *value, tide_cam_rate *rate)
 int main(int argc, char **argv)
 {
     tide_cam_config config;
-    tide_cam_config_init(&config);
+    if (tide_cam_config_init(&config, sizeof(config))) return 1;
     unsigned long limit = 100;
     tide_cam_rate requested_rate = {0, 0};
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--help")) {
-            puts("tide_cam_capture [--frames N] [--width W] [--height H] [--fifo]\n"
-                 "                 [--free-run [--fps N[/D]]]\n"
+            puts("tide_cam_capture [--frames N] [--width W] [--height H] [--fifo] [--buffers N]\n"
+                 "                 [--free-run | --sensor-master left|right] [--fps N[/D]]\n"
                  "Hardware sync (default): frame rate is determined by the trigger.\n"
-                 "--fps is only valid with --free-run (default 20 fps).\n"
+                 "--fps is required with --sensor-master, optional with --free-run.\n"
                  "N=0: continuous. No INI, helper process, ROS or VIO required.");
             return 0;
         } else if (!strcmp(argv[i], "--fifo")) config.queue = TIDE_CAM_FIFO;
-        else if (!strcmp(argv[i], "--free-run")) config.sync = TIDE_CAM_SYNC_NONE;
+        else if (!strcmp(argv[i], "--free-run") && config.sync == TIDE_CAM_SYNC_HARDWARE)
+            config.sync = TIDE_CAM_SYNC_NONE;
+        else if (!strcmp(argv[i], "--sensor-master") && i + 1 < argc &&
+                 config.sync == TIDE_CAM_SYNC_HARDWARE) {
+            const char *master = argv[++i];
+            if (strcmp(master, "left") && strcmp(master, "right")) return 2;
+            config.sync = TIDE_CAM_SYNC_SENSOR_MASTER;
+            config.master_camera_id = (uint32_t)!strcmp(master, "right");
+        }
         else if (!strcmp(argv[i], "--fps") && i + 1 < argc) {
             if (parse_rate(argv[++i], &requested_rate)) {
                 fputs("--fps requires a positive integer or fraction, e.g. 30 or 30000/1001\n", stderr);
@@ -52,7 +60,8 @@ int main(int argc, char **argv)
             }
         }
         else if ((!strcmp(argv[i], "--frames") || !strcmp(argv[i], "--width") ||
-                  !strcmp(argv[i], "--height")) && i + 1 < argc) {
+                  !strcmp(argv[i], "--height") || !strcmp(argv[i], "--buffers")) &&
+                 i + 1 < argc) {
             char *end;
             const char *option = argv[i];
             const char *value = argv[++i];
@@ -63,18 +72,23 @@ int main(int argc, char **argv)
             else {
                 if (!number || number > UINT32_MAX) return 2;
                 if (!strcmp(option, "--width")) config.mode.width = (uint32_t)number;
-                else config.mode.height = (uint32_t)number;
+                else if (!strcmp(option, "--height")) config.mode.height = (uint32_t)number;
+                else config.buffer_count = (uint32_t)number;
             }
         } else { fprintf(stderr, "Unknown/incomplete option: %s\n", argv[i]); return 2; }
     }
-    if (config.sync == TIDE_CAM_SYNC_HARDWARE && requested_rate.num) {
-        fputs("--fps requires --free-run; hardware-sync frame rate is determined by the trigger\n", stderr);
+    if ((config.sync == TIDE_CAM_SYNC_HARDWARE && requested_rate.num) ||
+        (config.sync == TIDE_CAM_SYNC_SENSOR_MASTER && !requested_rate.num)) {
+        fputs("--fps needs --free-run or --sensor-master, and is required with --sensor-master\n",
+              stderr);
         return 2;
     }
     if (config.sync == TIDE_CAM_SYNC_NONE) {
         tide_cam_caps caps;
         if (tide_cam_query_caps(&caps)) return 1;
-        config.free_run_fps = requested_rate.num ? requested_rate : caps.free_run_fps_default;
+        config.fps = requested_rate.num ? requested_rate : caps.free_run_fps_default;
+    } else {
+        config.fps = requested_rate;
     }
     struct sigaction sa = {0};
     sa.sa_handler = interrupt;
@@ -91,8 +105,8 @@ int main(int argc, char **argv)
         status = tide_cam_acquire(camera, &frames, 500);
         if (status == TIDE_CAM_TIMEOUT) { status = TIDE_CAM_OK; continue; }
         if (status) break;
-        if (!count) first = frames->timestamp_ns;
-        last = frames->timestamp_ns;
+        last = frames->fsin_timestamp_ns ? frames->fsin_timestamp_ns : frames->timestamp_ns;
+        if (!count) first = last;
         /* Touch every pixel to exercise both image buffers in the example. */
         for (uint32_t p = 0; p < frames->camera_count; ++p)
             for (uint64_t i = 0; i < frames->frames[p].data_size; ++i)
@@ -100,11 +114,13 @@ int main(int argc, char **argv)
         ++count;
         if (count == 1 || count % 20 == 0)
             printf("set=%" PRIu64 " cameras=%u size=%ux%u stride=%u bytes=%" PRIu64
-                   " VI_ns=%" PRIu64 " right_VI_ns=%" PRIu64 "\n",
+                   " VI_ns=%" PRIu64 " right_VI_ns=%" PRIu64
+                   " FSIN=%" PRIu64 " FSIN_ns=%" PRIu64 " exposure_ns=%" PRIu64 "\n",
                    frames->sequence, frames->camera_count, frames->frames[0].width,
                    frames->frames[0].height, frames->frames[0].stride,
                    frames->frames[0].data_size, frames->timestamp_ns,
-                   frames->camera_count > 1 ? frames->frames[1].timestamp_ns : 0);
+                   frames->camera_count > 1 ? frames->frames[1].timestamp_ns : 0,
+                   frames->fsin_sequence, frames->fsin_timestamp_ns, frames->exposure_ns);
         status = tide_cam_release(camera, frames);
         if (status) break;
     }
